@@ -84,6 +84,9 @@ class AccountController extends Controller
                 'total_xof' => $order->total_xof,
                 'status' => $order->status,
                 'paid_with' => $order->paid_with,
+                'refund_requested_at' => $order->refund_requested_at ? $order->refund_requested_at->toIso8601String() : null,
+                'refund_method' => $order->refund_method,
+                'can_resolve' => $order->status === 'failed' && !in_array($order->failure_code, ['amount_mismatch', 'too_many_attempts', 'empty_delivery', 'uncertain_outcome', 'manual_hold', 'activation_timeout']),
                 'customer_phone' => $order->customer_phone,
                 'customer_country' => $order->customer_country,
                 'delivery_content' => $decryptedDelivery,
@@ -93,12 +96,36 @@ class AccountController extends Controller
                 'payment_url' => $order->payment_url,
                 'events' => $order->events->map(fn ($e) => [
                     'id' => $e->id,
-                    'event' => $e->event,
+                    'event' => $e->event ?: $e->type,
                     'message' => $e->message,
                     'created_at' => $e->created_at->toIso8601String(),
                 ]),
             ],
         ]);
+    }
+
+    public function chooseCredit($id)
+    {
+        $user = $this->user();
+        $ok = app(\App\Services\OrderFulfillmentService::class)->customerChooseCredit($user->id, $id);
+
+        if ($ok) {
+            return redirect()->route('account.orders.show', $id)->with('success', 'Avoir crédité sur votre solde avec succès !');
+        }
+
+        return back()->with('error', 'Impossible de convertir cette commande en avoir.');
+    }
+
+    public function requestRefund($id)
+    {
+        $user = $this->user();
+        $ok = app(\App\Services\OrderFulfillmentService::class)->customerRequestRefund($user->id, $id);
+
+        if ($ok) {
+            return redirect()->route('account.orders.show', $id)->with('success', 'Votre demande de remboursement a bien été transmise à notre équipe.');
+        }
+
+        return back()->with('error', 'Impossible de demander un remboursement pour cette commande.');
     }
 
     public function wallet()

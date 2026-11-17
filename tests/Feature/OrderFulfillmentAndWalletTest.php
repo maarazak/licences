@@ -84,6 +84,48 @@ class OrderFulfillmentAndWalletTest extends TestCase
         $response->assertRedirect(route('account.orders.show', $order->id));
     }
 
+    public function test_customer_can_choose_credit_on_failed_order(): void
+    {
+        $user = User::factory()->create([
+            'balance_xof' => 1000,
+            'role' => 'client',
+            'is_blocked' => false,
+        ]);
+
+        $order = Order::create([
+            'id' => Str::uuid()->toString(),
+            'reference' => 'CMD-FAIL-' . strtoupper(Str::random(6)),
+            'user_id' => $user->id,
+            'product_name' => 'Produit Rupture',
+            'quantity' => 1,
+            'unit_price_xof' => 5000,
+            'total_xof' => 5000,
+            'status' => 'failed',
+            'failure_code' => 'supplier_out_of_stock',
+            'paid_with' => 'pawapay',
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($user, 'web');
+
+        // Demande d'avoir immédiat
+        $response = $this->post(route('account.orders.credit', $order->id));
+        $response->assertSessionHas('success');
+
+        // Solde augmenté de 5 000 FCFA
+        $freshUser = User::find($user->id);
+        $this->assertEquals(6000, $freshUser->balance_xof);
+
+        // Commande passée à refunded
+        $freshOrder = Order::find($order->id);
+        $this->assertEquals('refunded', $freshOrder->status);
+        $this->assertEquals('balance', $freshOrder->refund_method);
+
+        // Anti-double compensation : un second appel échoue
+        $secondResponse = $this->post(route('account.orders.credit', $order->id));
+        $secondResponse->assertSessionHas('error');
+    }
+
     public function test_artisan_orders_maintain_command(): void
     {
         $this->artisan('orders:maintain')

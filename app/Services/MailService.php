@@ -262,6 +262,33 @@ HTML;
     }
 
     /**
+     * 6b. Commande créditée en avoir sur le solde
+     */
+    public function sendOrderCredited(Order $order): bool
+    {
+        $to = $order->customer_email ?: $order->user?->email;
+        if (!$to) return false;
+
+        $subject = "Commande {$order->reference} : avoir crédité";
+        $formattedPrice = number_format($order->total_xof, 0, ',', ' ') . ' FCFA';
+        $walletUrl = url("/compte/solde");
+
+        $rendered = $this->renderTemplate(
+            'Le montant de votre commande est crédité sur votre solde',
+            [
+                "Commande {$order->reference} — {$order->product_name} × {$order->quantity} — {$formattedPrice}",
+                "{$formattedPrice} sont disponibles sur votre solde. Vous pouvez les utiliser pour payer une prochaine commande.",
+            ],
+            [
+                'label' => 'Voir mon solde',
+                'url' => $walletUrl,
+            ]
+        );
+
+        return $this->send($to, $subject, $rendered);
+    }
+
+    /**
      * 7. Alerte de retour en stock
      */
     public function sendStockAlert(string $to, Product $product): bool

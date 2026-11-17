@@ -64,6 +64,8 @@ Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(funct
     Route::get('/', [AccountController::class, 'dashboard'])->name('dashboard');
     Route::get('/achats', [AccountController::class, 'orders'])->name('orders.index');
     Route::get('/achats/{id}', [AccountController::class, 'orderDetail'])->name('orders.show');
+    Route::post('/achats/{id}/avoir', [AccountController::class, 'chooseCredit'])->name('orders.credit');
+    Route::post('/achats/{id}/remboursement', [AccountController::class, 'requestRefund'])->name('orders.refund');
 
     // Solde
     Route::get('/solde', [AccountController::class, 'wallet'])->name('wallet.index');

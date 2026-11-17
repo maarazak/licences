@@ -357,6 +357,109 @@ class OrderFulfillmentService
     }
 
     /**
+     * Convertit une commande en échec en avoir sur le solde client.
+     */
+    public function customerChooseCredit(string $userId, string $orderId): bool
+    {
+        $order = Order::where('id', $orderId)->where('user_id', $userId)->first();
+        if (!$order || $order->status !== 'failed' || $order->refund_requested_at) {
+            return false;
+        }
+
+        $done = DB::transaction(function () use ($order) {
+            $locked = Order::lockForUpdate()->find($order->id);
+            if ($locked->status !== 'failed' || $locked->refund_requested_at) {
+                return false;
+            }
+
+            $user = \App\Models\User::lockForUpdate()->find($order->user_id);
+            if (!$user) return false;
+
+            $newBalance = $user->balance_xof + $order->total_xof;
+            $user->balance_xof = $newBalance;
+            $user->save();
+
+            \App\Models\WalletEntry::create([
+                'id' => Str::uuid()->toString(),
+                'user_id' => $user->id,
+                'amount_xof' => $order->total_xof,
+                'balance_after_xof' => $newBalance,
+                'type' => 'credit',
+                'kind' => 'order_credit',
+                'description' => "Avoir — commande {$order->reference}",
+                'reference_type' => 'order',
+                'reference_id' => $order->id,
+                'actor' => 'client',
+                'created_at' => now(),
+            ]);
+
+            $locked->update([
+                'status' => 'refunded',
+                'refund_method' => 'balance',
+                'refunded_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return true;
+        });
+
+        if ($done) {
+            OrderEvent::create([
+                'id' => Str::uuid()->toString(),
+                'order_id' => $order->id,
+                'type' => 'credited',
+                'message' => "{$order->total_xof} FCFA crédités sur le solde du client.",
+                'actor' => 'client',
+                'created_at' => now(),
+            ]);
+
+            try {
+                app(MailService::class)->sendOrderCredited($order);
+            } catch (\Throwable $e) {
+                Log::warning("Erreur notification avoir : " . $e->getMessage());
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Le client demande un remboursement sur son moyen de paiement opérateur.
+     */
+    public function customerRequestRefund(string $userId, string $orderId): bool
+    {
+        $order = Order::where('id', $orderId)->where('user_id', $userId)->first();
+        if (!$order || $order->status !== 'failed' || $order->paid_with !== 'pawapay' || $order->refund_requested_at) {
+            return false;
+        }
+
+        $affected = Order::where('id', $order->id)
+            ->where('status', 'failed')
+            ->whereNull('refund_requested_at')
+            ->update([
+                'refund_requested_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if ($affected === 1) {
+            OrderEvent::create([
+                'id' => Str::uuid()->toString(),
+                'order_id' => $order->id,
+                'type' => 'refund_requested',
+                'message' => 'Le client demande un remboursement sur son moyen de paiement.',
+                'actor' => 'client',
+                'created_at' => now(),
+            ]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Tâche de maintenance globale pour les commandes (cron / artisan).
      */
     public function runOrderMaintenance(): array
