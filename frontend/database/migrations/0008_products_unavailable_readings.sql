@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `unavailable_readings` int DEFAULT 0 NOT NULL;

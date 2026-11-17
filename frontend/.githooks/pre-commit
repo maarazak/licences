@@ -1,0 +1,3 @@
+#!/bin/sh
+# Vérification automatique des secrets avant chaque commit (voir scripts/check-secrets.mjs).
+exec node scripts/check-secrets.mjs
