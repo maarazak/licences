@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" class="h-full bg-slate-50 antialiased">
+<html lang="fr" class="h-full bg-[#f4f6fb] antialiased">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,160 +12,195 @@
     <link rel="shortcut icon" href="/favicon.ico?v=3">
     <link rel="apple-touch-icon" href="/icon.png?v=3">
     
-    <!-- Tailwind CSS CDN pour affichage instantané et fiable -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
+                        ink: '#0b1220',
+                        muted: '#5b6475',
+                        line: '#e6e9f1',
+                        paper: '#ffffff',
+                        canvas: '#f4f6fb',
                         brand: {
-                            DEFAULT: '#0f766e',
-                            light: '#14b8a6',
-                            dark: '#115e59',
-                            soft: '#ccfbf1',
-                        }
+                            DEFAULT: '#0d5c4a',
+                            strong: '#083f33',
+                            bright: '#19c39a',
+                            soft: '#e4f7f1',
+                        },
+                        accent: {
+                            DEFAULT: '#ff6a13',
+                            strong: '#e85a07',
+                            soft: '#fff0e5',
+                            ink: '#b8400a',
+                        },
+                        success: {
+                            DEFAULT: '#0f7a4f',
+                            soft: '#dcf7e9',
+                        },
+                        warning: {
+                            DEFAULT: '#8a5a00',
+                            soft: '#fff1cf',
+                        },
+                        danger: {
+                            DEFAULT: '#c0271b',
+                            soft: '#fde7e4',
+                        },
+                        info: {
+                            DEFAULT: '#1d4f9c',
+                            soft: '#e3edfc',
+                        },
+                    },
+                    boxShadow: {
+                        card: '0 1px 2px rgb(11 18 32 / 0.04), 0 10px 30px -12px rgb(11 18 32 / 0.12)',
+                        pop: '0 2px 4px rgb(11 18 32 / 0.04), 0 24px 48px -16px rgb(13 92 74 / 0.35)',
                     }
                 }
             }
         }
     </script>
+    <style>
+        .h1 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 800; letter-spacing: -0.025em; color: #0b1220; }
+        @media (min-width: 640px) { .h1 { font-size: 2.25rem; line-height: 2.5rem; } }
+        .h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 800; letter-spacing: -0.025em; color: #0b1220; }
+        @media (min-width: 640px) { .h2 { font-size: 1.875rem; line-height: 2.25rem; } }
+        .h3 { font-size: 1rem; line-height: 1.5rem; font-weight: 700; color: #0b1220; }
+        .lead { font-size: 1rem; line-height: 1.625; color: #5b6475; }
+        .card { border-radius: 1rem; border: 1px solid #e6e9f1; background-color: #ffffff; box-shadow: 0 1px 2px rgb(11 18 32 / 0.04), 0 10px 30px -12px rgb(11 18 32 / 0.12); }
+        .btn { display: inline-flex; min-height: 2.75rem; cursor: pointer; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.75rem; padding-left: 1.25rem; padding-right: 1.25rem; font-size: 0.875rem; font-weight: 700; transition: all 0.2s; white-space: nowrap; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-brand { background: linear-gradient(to bottom, #117a62, #0d5c4a); color: #ffffff; box-shadow: 0 10px 24px -10px rgb(13 92 74 / 0.7); }
+        .btn-brand:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .btn-soft { border: 1px solid #e6e9f1; background-color: #ffffff; color: #0b1220; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .btn-soft:hover { transform: translateY(-1px); background-color: #f8fafc; }
+        .btn-danger { border: 1px solid #c0271b; background-color: #ffffff; color: #c0271b; }
+        .btn-danger:hover { background-color: #fde7e4; }
+        .btn-danger-solid { background-color: #c0271b; color: #ffffff; }
+        .btn-sm { min-height: 2.25rem; border-radius: 0.5rem; padding-left: 0.875rem; padding-right: 0.875rem; font-size: 0.75rem; }
+        .label { margin-bottom: 0.375rem; display: block; font-size: 0.875rem; font-weight: 600; color: #0b1220; }
+        .hint { margin-top: 0.375rem; font-size: 0.75rem; line-height: 1.5; color: #5b6475; }
+        .input { display: block; min-height: 2.75rem; width: 100%; border-radius: 0.75rem; border: 1px solid #e6e9f1; background-color: #ffffff; padding: 0.5rem 0.875rem; font-size: 0.875rem; color: #0b1220; outline: none; transition: all 0.15s; }
+        .input:focus { border-color: #0d5c4a; box-shadow: 0 0 0 4px rgb(13 92 74 / 0.15); }
+        textarea.input { padding-top: 0.625rem; padding-bottom: 0.625rem; line-height: 1.5; }
+        .badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+        .badge-neutral { background-color: #f4f6fb; color: #5b6475; border: 1px solid #e6e9f1; }
+        .badge-info { background-color: #e3edfc; color: #1d4f9c; }
+        .badge-success { background-color: #dcf7e9; color: #0f7a4f; }
+        .badge-warning { background-color: #fff1cf; color: #8a5a00; }
+        .badge-danger { background-color: #fde7e4; color: #c0271b; }
+        .alert { border-radius: 0.75rem; padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.5; }
+        .alert-error { background-color: #fde7e4; color: #c0271b; }
+        .alert-success { background-color: #dcf7e9; color: #0f7a4f; }
+        .alert-info { background-color: #e3edfc; color: #1d4f9c; }
+        .alert-warning { background-color: #fff1cf; color: #8a5a00; }
+        .table-wrap { overflow-x: auto; border-radius: 1rem; border: 1px solid #e6e9f1; background-color: #ffffff; box-shadow: 0 1px 2px rgb(11 18 32 / 0.04), 0 10px 30px -12px rgb(11 18 32 / 0.12); }
+        .table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+        .table th { border-bottom: 1px solid #e6e9f1; background-color: rgba(244, 246, 251, 0.7); padding: 0.75rem 1rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.025em; color: #5b6475; text-transform: uppercase; }
+        .table td { border-bottom: 1px solid #e6e9f1; padding: 0.875rem 1rem; vertical-align: middle; }
+        .table tr:last-child td { border-bottom-width: 0; }
+        .link { font-weight: 600; color: #0d5c4a; text-decoration: underline; text-decoration-color: rgba(13, 92, 74, 0.3); text-underline-offset: 4px; }
+        .link:hover { color: #083f33; text-decoration-color: #0d5c4a; }
+    </style>
     <!-- SweetAlert2 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="h-full font-sans text-slate-800 flex">
+<body class="min-h-dvh font-sans text-ink bg-canvas antialiased">
+    @php
+        $failedOrdersBadge = \App\Models\Order::where('status', 'failed')->count();
+        $openTicketsBadge = \App\Models\Ticket::where('status', 'open')->count();
+        $adminUser = auth('admin')->user();
+    @endphp
 
-    <!-- Sidebar Navigation -->
-    <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col shrink-0">
-        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
-            <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" class="shrink-0 shadow-sm rounded-lg">
-                <path d="M12 0H36A12 12 0 0 1 48 12V19.5A4.5 4.5 0 0 0 48 28.5V36A12 12 0 0 1 36 48H12A12 12 0 0 1 0 36V28.5A4.5 4.5 0 0 0 0 19.5V12A12 12 0 0 1 12 0Z" fill="#0d5c4a"/>
-                <path d="M16 12H23V29.5H33V36H16Z" fill="#ffffff"/>
-                <circle cx="29.5" cy="15.5" r="3.5" fill="#e8590c"/>
-            </svg>
-            <div class="flex items-center">
-                <span class="font-bold text-white tracking-wide text-base">Licences</span>
-                <span class="text-[10px] px-2 py-0.5 ml-2 rounded-full bg-teal-900/80 text-teal-300 font-semibold border border-teal-700/50">Admin</span>
+    <header class="sticky top-0 z-30 border-b border-line bg-paper">
+        <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+            <div class="flex items-center gap-3">
+                <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-2.5">
+                    <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" class="shrink-0 shadow-sm rounded-lg">
+                        <path d="M12 0H36A12 12 0 0 1 48 12V19.5A4.5 4.5 0 0 0 48 28.5V36A12 12 0 0 1 36 48H12A12 12 0 0 1 0 36V28.5A4.5 4.5 0 0 0 0 19.5V12A12 12 0 0 1 12 0Z" fill="#0d5c4a"/>
+                        <path d="M16 12H23V29.5H33V36H16Z" fill="#ffffff"/>
+                        <circle cx="29.5" cy="15.5" r="3.5" fill="#ff6a13"/>
+                    </svg>
+                    <span class="font-extrabold text-ink text-base tracking-tight">Licences</span>
+                </a>
+                <span class="badge badge-neutral">Backoffice</span>
             </div>
-        </div>
-
-        <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.dashboard') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="layout-dashboard" class="size-4"></i>
-                Tableau de bord
-            </a>
-
-            <a href="{{ route('admin.orders.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.orders.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="shopping-bag" class="size-4"></i>
-                Commandes
-            </a>
-
-            <a href="{{ route('admin.products.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.products.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="package" class="size-4"></i>
-                Produits
-            </a>
-
-            <a href="{{ route('admin.clients.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.clients.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="users" class="size-4"></i>
-                Clients
-            </a>
-
-            <a href="{{ route('admin.tickets.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.tickets.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="life-buoy" class="size-4"></i>
-                Assistance
-            </a>
-
-            <a href="{{ route('admin.journal.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.journal.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="activity" class="size-4"></i>
-                Journal d'audit
-            </a>
-
-            <a href="{{ route('admin.settings.index') }}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition {{ request()->routeIs('admin.settings.*') ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white hover:bg-slate-800/60' }}">
-                <i data-lucide="settings" class="size-4"></i>
-                Paramètres
-            </a>
-        </nav>
-
-        <div class="p-4 border-t border-slate-800">
-            <div class="flex items-center justify-between">
-                <div class="truncate mr-2">
-                    <p class="text-xs font-semibold text-white truncate">{{ auth('admin')->user()->email ?? 'Administrateur' }}</p>
-                    <p class="text-[11px] text-teal-400">Admin</p>
-                </div>
+            <div class="flex items-center gap-2">
+                <span class="hidden text-xs text-muted sm:inline">{{ $adminUser->email ?? 'Administrateur' }}</span>
+                <a href="{{ route('home') }}" target="_blank" class="btn btn-soft btn-sm">
+                    Voir le site
+                </a>
                 <form action="{{ route('admin.logout') }}" method="POST">
                     @csrf
-                    <button type="submit" title="Déconnexion" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition">
-                        <i data-lucide="log-out" class="size-4"></i>
+                    <button type="submit" class="btn btn-soft btn-sm">
+                        Déconnexion
                     </button>
                 </form>
             </div>
         </div>
-    </aside>
+    </header>
 
-    <!-- Main Content Area -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <!-- Top Bar -->
-        <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 sticky top-0 z-10">
-            <h1 class="text-lg font-bold text-slate-800">{{ $header ?? 'Tableau de bord' }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('home') }}" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">
-                    <i data-lucide="external-link" class="size-3.5"></i>
-                    Voir la boutique
+    <div class="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[200px_1fr] lg:gap-8">
+        <aside class="min-w-0 lg:sticky lg:top-20 lg:self-start">
+            <nav aria-label="Backoffice" class="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+                <a href="{{ route('admin.dashboard') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.dashboard') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Tableau de bord</span>
                 </a>
-            </div>
-        </header>
+                <a href="{{ route('admin.orders.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.orders.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Commandes</span>
+                    @if($failedOrdersBadge > 0)
+                        <span class="rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">{{ $failedOrdersBadge }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('admin.products.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.products.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Produits</span>
+                </a>
+                <a href="{{ route('admin.clients.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.clients.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Clients</span>
+                </a>
+                <a href="{{ route('admin.tickets.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.tickets.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Assistance</span>
+                    @if($openTicketsBadge > 0)
+                        <span class="rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">{{ $openTicketsBadge }}</span>
+                    @endif
+                </a>
+                <a href="{{ route('admin.settings.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.settings.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Paramètres</span>
+                </a>
+                <a href="{{ route('admin.journal.index') }}" class="flex min-h-10 shrink-0 items-center justify-between gap-3 rounded-xl px-3 text-sm font-semibold whitespace-nowrap transition {{ request()->routeIs('admin.journal.*') ? 'bg-brand text-white shadow-[0_10px_20px_-12px_rgb(13_92_74/0.9)]' : 'text-ink/75 hover:bg-ink/5 hover:text-ink' }}">
+                    <span>Journal</span>
+                </a>
+            </nav>
+        </aside>
 
-        <!-- Body -->
-        <main class="p-8 flex-1">
+        <main class="min-w-0">
+            @if(session('success'))
+                <div class="alert alert-success mb-6">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-error mb-6">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            @if(isset($errors) && $errors->any())
+                <div class="alert alert-error mb-6">
+                    <ul class="list-disc list-inside">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             @yield('content')
         </main>
     </div>
 
-    <!-- Scripts Initialization -->
-    <script>
-        lucide.createIcons();
-
-        @if(session('success'))
-            Swal.fire({
-                icon: 'success',
-                title: 'Opération réussie',
-                text: '{{ session('success') }}',
-                timer: 3500,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end'
-            });
-        @endif
-
-        @if(session('error'))
-            Swal.fire({
-                icon: 'error',
-                title: 'Erreur',
-                text: '{{ session('error') }}'
-            });
-        @endif
-
-        function confirmAction(options) {
-            Swal.fire({
-                title: options.title || 'Êtes-vous sûr ?',
-                text: options.text || 'Cette action est irréversible.',
-                icon: options.icon || 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#0f766e',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: options.confirmText || 'Confirmer',
-                cancelButtonText: 'Annuler'
-            }).then((result) => {
-                if (result.isConfirmed && options.formId) {
-                    document.getElementById(options.formId).submit();
-                } else if (result.isConfirmed && typeof options.onConfirm === 'function') {
-                    options.onConfirm();
-                }
-            });
-        }
-    </script>
     @stack('scripts')
 </body>
 </html>

@@ -14,51 +14,73 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public const ORDER_FILTERS = [
+        'toutes' => 'Toutes',
+        'a-traiter' => 'À traiter',
+        'en-cours' => 'En cours',
+        'livrees' => 'Livrées',
+        'en-attente' => 'Paiement en attente',
+        'closes' => 'Closes',
+    ];
+
     public function index(Request $request)
     {
-        $status = $request->query('statut');
-        $search = trim($request->query('q', ''));
+        $filtre = $request->query('filtre', $request->query('statut', 'toutes'));
+        if (!array_key_exists($filtre, self::ORDER_FILTERS)) {
+            $filtre = 'toutes';
+        }
+
+        $q = trim($request->query('q', ''));
 
         $query = Order::with('user', 'product')->orderBy('created_at', 'desc');
 
-        if ($status === 'attente') {
-            $query->where('status', 'pending_payment');
-        } elseif ($status === 'preparation') {
-            $query->whereIn('status', ['paid', 'processing', 'activation_awaiting', 'failed']);
-        } elseif ($status === 'livrees') {
+        if ($filtre === 'a-traiter') {
+            $query->where('status', 'failed');
+        } elseif ($filtre === 'en-cours') {
+            $query->whereIn('status', ['paid', 'processing', 'activation_awaiting']);
+        } elseif ($filtre === 'livrees') {
             $query->where('status', 'delivered');
-        } elseif ($status === 'remboursees') {
-            $query->where('status', 'refunded');
-        } elseif ($status === 'annulees') {
-            $query->where('status', 'cancelled');
+        } elseif ($filtre === 'en-attente') {
+            $query->where('status', 'pending_payment');
+        } elseif ($filtre === 'closes') {
+            $query->whereIn('status', ['payment_failed', 'expired', 'cancelled', 'refunded']);
         }
 
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                  ->orWhere('product_name', 'like', "%{$search}%")
-                  ->orWhereHas('user', function ($uq) use ($search) {
-                      $uq->where('email', 'like', "%{$search}%");
-                  });
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('reference', 'like', "%{$q}%")
+                    ->orWhere('product_name', 'like', "%{$q}%")
+                    ->orWhere('customer_email', 'like', "%{$q}%")
+                    ->orWhere('customer_phone', 'like', "%{$q}%")
+                    ->orWhere('payment_intent_id', 'like', "%{$q}%")
+                    ->orWhereHas('user', function ($uq) use ($q) {
+                        $uq->where('email', 'like', "%{$q}%");
+                    });
             });
         }
 
-        $orders = $query->paginate(20)->withQueryString();
+        $orders = $query->paginate(30)->withQueryString();
+        $filters = self::ORDER_FILTERS;
 
-        return view('admin.orders.index', compact('orders', 'status', 'search'));
+        return view('admin.orders.index', compact('orders', 'filtre', 'q', 'filters'));
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $order = Order::with('user', 'product', 'events')->findOrFail($id);
 
-        return view('admin.orders.show', compact('order'));
+        $reveal = $request->query('acces') === '1' && $order->status === 'delivered';
+        if ($reveal) {
+            AuditLog::record('commande.voir-acces', $order->id, ['reference' => $order->reference]);
+        }
+
+        return view('admin.orders.show', compact('order', 'reveal'));
     }
 
     public function saveNote(Request $request, $id)
     {
         $order = Order::findOrFail($id);
-        $order->admin_note = $request->input('admin_note');
+        $order->admin_note = $request->input('note', $request->input('admin_note'));
         $order->save();
 
         OrderEvent::create([
@@ -66,7 +88,7 @@ class OrderController extends Controller
             'order_id' => $order->id,
             'type' => 'note_added',
             'message' => 'Note administrative mise à jour.',
-            'actor' => auth()->user()->email,
+            'actor' => auth('admin')->user()->email ?? 'Admin',
             'created_at' => now(),
         ]);
 
@@ -111,7 +133,7 @@ class OrderController extends Controller
                 'order_id' => $order->id,
                 'type' => 'refunded',
                 'message' => "Commande remboursée sur le solde du client ({$order->total_xof} FCFA).",
-                'actor' => auth()->user()->email,
+                'actor' => auth('admin')->user()->email ?? 'Admin',
                 'created_at' => now(),
             ]);
 
@@ -129,7 +151,7 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
 
         if ($order->status === 'refunded') {
-            return back()->with('error', 'Cette commande est déjà remboursée.');
+            return back()->with('error', 'Cette commande est déjà marquée comme remboursée.');
         }
 
         $order->status = 'refunded';
@@ -140,9 +162,9 @@ class OrderController extends Controller
         OrderEvent::create([
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
-            'type' => 'refunded_gateway',
-            'message' => "Commande marquée comme remboursée sur le moyen de paiement d'origine ({$order->total_xof} FCFA).",
-            'actor' => auth()->user()->email,
+            'type' => 'refunded',
+            'message' => "Commande marquée comme remboursée auprès de la passerelle pawaPay.",
+            'actor' => auth('admin')->user()->email ?? 'Admin',
             'created_at' => now(),
         ]);
 
@@ -151,76 +173,87 @@ class OrderController extends Controller
             'reference' => $order->reference,
         ]);
 
-        return back()->with('success', 'Commande marquée remboursée sur le moyen de paiement.');
+        return back()->with('success', 'Commande marquée comme remboursée auprès de la passerelle.');
     }
 
-    public function syncPayment($id)
+    public function markFailed($id)
     {
         $order = Order::findOrFail($id);
-        $fresh = app(\App\Services\OrderFulfillmentService::class)->syncPayment($order->id);
 
-        AuditLog::record('order.sync_payment', $order->id, [
-            'reference' => $order->reference,
-            'status_after' => $fresh?->status,
+        $order->status = 'failed';
+        $order->failure_code = 'manual_hold';
+        $order->failure_message = "Mise en échec manuelle par l'administrateur.";
+        $order->save();
+
+        OrderEvent::create([
+            'id' => Str::uuid()->toString(),
+            'order_id' => $order->id,
+            'type' => 'failed',
+            'message' => "Commande mise en échec manuelle par l'administrateur.",
+            'actor' => auth('admin')->user()->email ?? 'Admin',
+            'created_at' => now(),
         ]);
 
-        return back()->with('success', "Paiement synchronisé auprès de pawaPay (statut : {$fresh?->status}).");
+        AuditLog::record('commande.mettre-en-echec', $order->id, ['reference' => $order->reference]);
+
+        return back()->with('success', 'Commande marquée en échec.');
     }
 
     public function retryFulfilment($id)
     {
         $order = Order::findOrFail($id);
-        app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
 
-        AuditLog::record('order.retry_fulfilment', $order->id, [
-            'reference' => $order->reference,
-        ]);
+        try {
+            app(\App\Services\FulfillmentService::class)->fulfill($order);
+            return back()->with('success', 'Tentative de livraison relancée avec succès.');
+        } catch (\Throwable $e) {
+            return back()->with('error', "Échec de la relance fournisseur : " . $e->getMessage());
+        }
+    }
 
-        return back()->with('success', "Livraison relancée pour la commande {$order->reference}.");
+    public function syncPayment($id)
+    {
+        $order = Order::findOrFail($id);
+
+        try {
+            $updated = app(\App\Services\PawaPayService::class)->checkPaymentStatus($order);
+            return back()->with('success', "Statut de paiement actualisé : {$order->status}.");
+        } catch (\Throwable $e) {
+            return back()->with('error', "Erreur lors de la vérification pawaPay : " . $e->getMessage());
+        }
     }
 
     public function revealCredentials($id)
     {
         $order = Order::findOrFail($id);
-        $credentials = null;
-        if ($order->delivery_encrypted) {
-            $credentials = \App\Services\CryptoService::decrypt($order->delivery_encrypted, $order->id);
-        }
+        $plain = \App\Services\CryptoService::decrypt($order->delivery_encrypted, $order->id);
 
         AuditLog::record('order.reveal_credentials', $order->id, [
             'reference' => $order->reference,
         ]);
 
-        return response()->json([
-            'credentials' => $credentials,
-        ]);
+        return response()->json(['credentials' => $plain]);
     }
 
     public function manualDelivery(Request $request, $id)
     {
         $order = Order::findOrFail($id);
 
-        $request->validate([
-            'credentials' => 'required|string|min:3',
+        $validated = $request->validate([
+            'credentials' => 'required|string',
         ]);
 
-        $plain = trim($request->input('credentials'));
-        $encrypted = \App\Services\CryptoService::encrypt($plain, $order->id);
-
-        $order->update([
-            'status' => 'delivered',
-            'delivery_encrypted' => $encrypted,
-            'delivered_at' => now(),
-            'failure_message' => null,
-            'fulfil_locked_at' => null,
-        ]);
+        $order->delivery_encrypted = \App\Services\CryptoService::encrypt($validated['credentials'], $order->id);
+        $order->status = 'delivered';
+        $order->delivered_at = now();
+        $order->save();
 
         OrderEvent::create([
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
-            'type' => 'delivered_manual',
-            'message' => 'Accès et identifiants livrés manuellement par l\'administrateur.',
-            'actor' => auth()->user()->email,
+            'type' => 'delivered',
+            'message' => 'Accès saisis et délivrés manuellement par un administrateur.',
+            'actor' => auth('admin')->user()->email ?? 'Admin',
             'created_at' => now(),
         ]);
 
@@ -228,10 +261,6 @@ class OrderController extends Controller
             'reference' => $order->reference,
         ]);
 
-        try {
-            app(\App\Services\MailService::class)->sendOrderDelivered($order);
-        } catch (\Throwable $e) {}
-
-        return back()->with('success', "Identifiants enregistrés et commande {$order->reference} marquée comme livrée !");
+        return back()->with('success', 'Accès délivrés manuellement avec succès.');
     }
 }

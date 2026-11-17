@@ -93,6 +93,32 @@ class Product extends Model
         return max($step, (int) (ceil($raw / $step) * $step));
     }
 
+    public function getCostXofAttribute(): int
+    {
+        $usdRate = (int) Setting::get('usdRate', Setting::get('usd_rate', 669));
+        return (int) ceil(($this->cost_usd_cents * $usdRate) / 100);
+    }
+
+    public function getMarginXofAttribute(): int
+    {
+        return $this->price_xof - $this->cost_xof;
+    }
+
+    public function getIsProfitableAttribute(): bool
+    {
+        return $this->price_xof >= $this->cost_xof;
+    }
+
+    public function getTitleAttribute(): string
+    {
+        return $this->display_name ?: $this->name;
+    }
+
+    public function getShelfAttribute(): string
+    {
+        return $this->shop_category ?: $this->category ?: 'Sans catégorie';
+    }
+
     public function orders()
     {
         return $this->hasMany(Order::class, 'product_id');

@@ -2,128 +2,127 @@
 
 @section('content')
 <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-xl font-bold text-slate-900">Gestion des commandes</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Suivi des paiements, livraisons et résolutions</p>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div class="min-w-0">
+            <h1 class="h1">Commandes</h1>
         </div>
-        <form method="GET" action="{{ route('admin.orders.index') }}" class="flex items-center gap-2">
-            @if($status) <input type="hidden" name="statut" value="{{ $status }}"> @endif
-            <input type="search" name="q" value="{{ $search }}" placeholder="Réf, client ou produit..." class="px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition w-64">
-            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm rounded-xl transition">
-                Rechercher
-            </button>
-        </form>
     </div>
 
-    <!-- Filtres rapides par statut -->
-    <div class="flex flex-wrap gap-2 text-xs font-semibold">
-        <a href="{{ route('admin.orders.index') }}" class="px-3 py-1.5 rounded-lg border transition {{ empty($status) ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }}">
-            Toutes
-        </a>
-        <a href="{{ route('admin.orders.index', ['statut' => 'attente']) }}" class="px-3 py-1.5 rounded-lg border transition {{ $status === 'attente' ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }}">
-            En attente de paiement
-        </a>
-        <a href="{{ route('admin.orders.index', ['statut' => 'preparation']) }}" class="px-3 py-1.5 rounded-lg border transition {{ $status === 'preparation' ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }}">
-            En préparation / À vérifier
-        </a>
-        <a href="{{ route('admin.orders.index', ['statut' => 'livrees']) }}" class="px-3 py-1.5 rounded-lg border transition {{ $status === 'livrees' ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }}">
-            Livrées
-        </a>
-        <a href="{{ route('admin.orders.index', ['statut' => 'remboursees']) }}" class="px-3 py-1.5 rounded-lg border transition {{ $status === 'remboursees' ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' }}">
-            Remboursées
-        </a>
+    <div class="flex flex-wrap gap-2" role="group" aria-label="Filtrer par statut">
+        @foreach($filters as $key => $label)
+            <a href="{{ $key === 'toutes' ? route('admin.orders.index') : route('admin.orders.index', ['filtre' => $key]) }}" class="btn btn-sm {{ $filtre === $key ? 'btn-brand' : 'btn-soft' }}">
+                {{ $label }}
+            </a>
+        @endforeach
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-600">
-                <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+    <form method="GET" action="{{ route('admin.orders.index') }}" class="flex flex-wrap items-end gap-3">
+        @if($filtre !== 'toutes')
+            <input type="hidden" name="filtre" value="{{ $filtre }}">
+        @endif
+        <div class="min-w-0 flex-1 basis-60">
+            <label for="q" class="label">Rechercher</label>
+            <input id="q" name="q" type="search" value="{{ $q }}" maxlength="80" placeholder="Référence, e-mail ou produit" class="input">
+        </div>
+        <button type="submit" class="btn btn-soft">
+            Rechercher
+        </button>
+        @if($q !== '')
+            <a href="{{ $filtre === 'toutes' ? route('admin.orders.index') : route('admin.orders.index', ['filtre' => $filtre]) }}" class="btn btn-soft text-muted">
+                Effacer
+            </a>
+        @endif
+    </form>
+
+    @if($orders->count() > 0)
+        <div class="table-wrap">
+            <table class="table">
+                <caption class="sr-only">Commandes</caption>
+                <thead>
                     <tr>
-                        <th class="px-6 py-3.5">Réf</th>
-                        <th class="px-6 py-3.5">Client</th>
-                        <th class="px-6 py-3.5">Produit</th>
-                        <th class="px-6 py-3.5">Montant</th>
-                        <th class="px-6 py-3.5">Statut</th>
-                        <th class="px-6 py-3.5">Moyen</th>
-                        <th class="px-6 py-3.5">Date</th>
-                        <th class="px-6 py-3.5 text-right">Action</th>
+                        <th scope="col">Référence</th>
+                        <th scope="col">Client</th>
+                        <th scope="col">Produit</th>
+                        <th scope="col" class="text-right">Montant</th>
+                        <th scope="col">Statut</th>
+                        <th scope="col">Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-medium">
-                    @forelse($orders as $order)
-                        <tr class="hover:bg-slate-50/70 transition">
-                            <td class="px-6 py-4 font-mono text-xs font-semibold text-slate-900">
-                                {{ $order->reference }}
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="text-slate-900">{{ $order->user->email ?? '—' }}</span>
-                                @if($order->customer_phone)
-                                    <span class="block text-xs text-slate-400">{{ $order->customer_phone }} ({{ $order->customer_country }})</span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 text-slate-800">
-                                {{ $order->product_name }}
-                                <span class="text-xs text-slate-400 block">Qté : {{ $order->quantity }}</span>
-                            </td>
-                            <td class="px-6 py-4 font-semibold text-slate-900">
-                                {{ number_format($order->total_xof, 0, ',', ' ') }} FCFA
-                            </td>
-                            <td class="px-6 py-4">
-                                @if($order->status === 'delivered')
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        Livrée
-                                    </span>
-                                @elseif($order->status === 'paid' || $order->status === 'processing')
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                        En préparation
-                                    </span>
-                                @elseif($order->status === 'failed')
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                        À vérifier
-                                    </span>
-                                @elseif($order->status === 'refunded')
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                                        Remboursée ({{ $order->refund_method === 'balance' ? 'Solde' : 'Passerelle' }})
-                                    </span>
-                                @elseif($order->status === 'cancelled')
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                        Annulée
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                        En attente
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4 text-xs">
-                                {{ $order->paid_with === 'balance' ? 'Mon solde' : 'Mobile Money' }}
-                            </td>
-                            <td class="px-6 py-4 text-xs text-slate-500">
-                                {{ $order->created_at ? $order->created_at->format('d/m/Y H:i') : '—' }}
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <a href="{{ route('admin.orders.show', $order->id) }}" class="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition">
-                                    Gérer →
+                <tbody>
+                    @foreach($orders as $order)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.orders.show', $order->id) }}" class="font-medium hover:underline text-ink">
+                                    {{ $order->reference }}
                                 </a>
                             </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-slate-400">
-                                Aucune commande ne correspond à ces critères.
+                            <td>
+                                <span class="font-medium text-ink block">{{ $order->customer_email ?: ($order->user->email ?? '—') }}</span>
+                                @if($order->customer_phone)
+                                    <span class="block text-xs text-muted">{{ $order->customer_phone }}</span>
+                                @endif
+                            </td>
+                            <td>
+                                <span class="text-ink">{{ $order->product_name }}</span>
+                                @if($order->quantity > 1)
+                                    <span class="text-xs text-muted">× {{ $order->quantity }}</span>
+                                @endif
+                            </td>
+                            <td class="text-right whitespace-nowrap font-semibold">
+                                {{ number_format($order->total_xof, 0, ',', ' ') }} FCFA
+                            </td>
+                            <td>
+                                @php
+                                    $statusTones = [
+                                        'pending_payment' => 'neutral',
+                                        'paid' => 'info',
+                                        'processing' => 'info',
+                                        'activation_awaiting' => 'info',
+                                        'delivered' => 'success',
+                                        'failed' => 'warning',
+                                        'payment_failed' => 'danger',
+                                        'expired' => 'neutral',
+                                        'cancelled' => 'neutral',
+                                        'refunded' => 'neutral',
+                                    ];
+                                    $statusLabels = [
+                                        'pending_payment' => 'Paiement en attente',
+                                        'paid' => 'Payée',
+                                        'processing' => 'Préparation en cours',
+                                        'activation_awaiting' => 'Activation en cours',
+                                        'delivered' => 'Livrée',
+                                        'failed' => 'Échec de livraison (à traiter)',
+                                        'payment_failed' => 'Paiement échoué',
+                                        'expired' => 'Expirée',
+                                        'cancelled' => 'Annulée',
+                                        'refunded' => 'Remboursée',
+                                    ];
+                                    $tone = $statusTones[$order->status] ?? 'neutral';
+                                    $label = $statusLabels[$order->status] ?? $order->status;
+                                @endphp
+                                <span class="badge badge-{{ $tone }}">{{ $label }}</span>
+                            </td>
+                            <td class="whitespace-nowrap text-muted text-xs">
+                                {{ $order->created_at ? $order->created_at->format('d/m/Y H:i') : '—' }}
                             </td>
                         </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
+
         @if($orders->hasPages())
-            <div class="p-4 border-t border-slate-100">
+            <div class="mt-4">
                 {{ $orders->links() }}
             </div>
         @endif
-    </div>
+    @else
+        <div class="card px-6 py-10 text-center">
+            <p class="h3">{{ $q ? 'Aucune commande ne correspond' : 'Aucune commande' }}</p>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
+                {{ $q ? 'Modifiez la recherche ou le filtre sélectionné.' : 'Les commandes de la boutique apparaîtront ici.' }}
+            </p>
+        </div>
+    @endif
 </div>
 @endsection

@@ -2,59 +2,66 @@
 
 @section('content')
 <div class="space-y-6">
-    <div>
-        <h1 class="text-xl font-bold text-slate-900">Journal d'audit</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Traçabilité des actions sensibles de l'administration</p>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div class="min-w-0">
+            <h1 class="h1">Journal</h1>
+            <p class="lead mt-2 max-w-2xl">Les 300 dernières actions effectuées dans le backoffice.</p>
+        </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-600">
-                <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+    @if($logs->count() > 0)
+        <div class="table-wrap">
+            <table class="table">
+                <caption class="sr-only">Journal des actions</caption>
+                <thead>
                     <tr>
-                        <th class="px-6 py-3.5">Action</th>
-                        <th class="px-6 py-3.5">Cible</th>
-                        <th class="px-6 py-3.5">Détails</th>
-                        <th class="px-6 py-3.5">IP</th>
-                        <th class="px-6 py-3.5 text-right">Date</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Administrateur</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Détails</th>
+                        <th scope="col">Adresse IP</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-medium">
-                    @forelse($logs as $log)
-                        <tr class="hover:bg-slate-50/70 transition">
-                            <td class="px-6 py-4 font-semibold text-slate-900">
-                                <span class="px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-100 text-slate-800">
-                                    {{ $log->action }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-xs font-mono text-slate-700">
-                                {{ $log->target_type }} ({{ Str::limit($log->target_id, 12) }})
-                            </td>
-                            <td class="px-6 py-4 text-xs text-slate-500 font-mono">
-                                {{ json_encode($log->meta) }}
-                            </td>
-                            <td class="px-6 py-4 text-xs text-slate-500">
-                                {{ $log->ip_address ?? '—' }}
-                            </td>
-                            <td class="px-6 py-4 text-right text-xs text-slate-500">
-                                {{ $log->created_at ? $log->created_at->format('d/m/Y H:i:s') : '—' }}
-                            </td>
-                        </tr>
-                    @empty
+                <tbody>
+                    @foreach($logs as $log)
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400">
-                                Aucun événement d'audit enregistré.
+                            <td class="whitespace-nowrap text-muted text-xs">
+                                {{ $log->created_at ? $log->created_at->format('d/m/Y H:i') : '—' }}
+                            </td>
+                            <td class="max-w-48 truncate text-ink font-medium">
+                                {{ $log->admin_email ?: 'Système' }}
+                            </td>
+                            <td class="font-mono text-xs text-ink font-semibold">
+                                {{ $log->action }}
+                            </td>
+                            <td class="text-muted [overflow-wrap:anywhere] text-xs">
+                                @php
+                                    $details = is_array($log->details) ? json_encode($log->details, JSON_UNESCAPED_UNICODE) : $log->details;
+                                    $parts = array_filter([$log->target, $details]);
+                                @endphp
+                                {{ count($parts) ? implode(' — ', $parts) : '—' }}
+                            </td>
+                            <td class="font-mono text-xs text-muted whitespace-nowrap">
+                                {{ $log->ip ?? '—' }}
                             </td>
                         </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
+
         @if($logs->hasPages())
-            <div class="p-4 border-t border-slate-100">
+            <div class="mt-4">
                 {{ $logs->links() }}
             </div>
         @endif
-    </div>
+    @else
+        <div class="card px-6 py-10 text-center">
+            <p class="h3">Journal vide</p>
+            <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
+                Les actions du backoffice apparaîtront ici.
+            </p>
+        </div>
+    @endif
 </div>
 @endsection

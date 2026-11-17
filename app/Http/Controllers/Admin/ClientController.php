@@ -13,22 +13,30 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $search = trim($request->query('q', ''));
+        $q = trim($request->query('q', ''));
 
-        $query = User::where('role', 'client')->orderBy('created_at', 'desc');
+        $query = User::withCount([
+            'orders as paid_orders_count' => function ($sq) {
+                $sq->whereIn('status', ['paid', 'processing', 'activation_awaiting', 'delivered', 'failed']);
+            }
+        ])->withSum([
+            'orders as delivered_spent' => function ($sq) {
+                $sq->where('status', 'delivered');
+            }
+        ], 'total_xof')->orderBy('created_at', 'desc');
 
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('email', 'like', "%{$search}%")
-                  ->orWhere('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('email', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('phone', 'like', "%{$q}%");
             });
         }
 
-        $clients = $query->paginate(20)->withQueryString();
+        $clients = $query->paginate(30)->withQueryString();
 
-        return view('admin.clients.index', compact('clients', 'search'));
+        return view('admin.clients.index', compact('clients', 'q'));
     }
 
     public function show($id)
@@ -42,18 +50,21 @@ class ClientController extends Controller
         return view('admin.clients.show', compact('client'));
     }
 
-    public function adjustBalance(Request $request, $id)
+    public function adjustBalance(Request $request, $id = null)
     {
-        $client = User::findOrFail($id);
+        $userId = $id ?: $request->input('userId');
+        $client = User::findOrFail($userId);
 
         $validated = $request->validate([
-            'amount_xof' => 'required|integer',
-            'reason' => 'required|string|max:200',
+            'amount_xof' => 'required|numeric',
+            'label' => 'nullable|string|max:200',
+            'reason' => 'nullable|string|max:200',
         ]);
 
-        $amount = $validated['amount_xof'];
-        $newBalance = max(0, $client->balance_xof + $amount);
+        $amount = (int) $validated['amount_xof'];
+        $reason = $validated['label'] ?? $validated['reason'] ?? 'Ajustement administratif';
 
+        $newBalance = max(0, $client->balance_xof + $amount);
         $client->balance_xof = $newBalance;
         $client->save();
 
@@ -63,27 +74,37 @@ class ClientController extends Controller
             'amount_xof' => $amount,
             'balance_after_xof' => $newBalance,
             'type' => $amount >= 0 ? 'credit' : 'debit',
-            'description' => "Ajustement administratif : {$validated['reason']}",
+            'description' => "Ajustement administratif : {$reason}",
             'reference_type' => 'admin_adjustment',
-            'reference_id' => auth()->id(),
+            'reference_id' => auth('admin')->id(),
             'created_at' => now(),
         ]);
 
         AuditLog::record('client.adjust_balance', $client->id, [
             'amount' => $amount,
-            'reason' => $validated['reason'],
+            'reason' => $reason,
         ]);
 
         return back()->with('success', "Le solde a été mis à jour ({$newBalance} FCFA).");
     }
 
-    public function toggleBlock($id)
+    public function toggleBlock(Request $request, $id = null)
     {
-        $client = User::findOrFail($id);
-        $client->is_blocked = !$client->is_blocked;
+        $userId = $id ?: $request->input('userId');
+        $client = User::findOrFail($userId);
+
+        if ($request->has('blocked')) {
+            $client->is_blocked = (bool) $request->input('blocked');
+        } else {
+            $client->is_blocked = !$client->is_blocked;
+        }
+
         $client->save();
 
-        $action = $client->is_blocked ? 'bloqué' : 'débloqué';
-        return back()->with('success', "Le client {$client->email} a été {$action}.");
+        $action = $client->is_blocked ? 'client.suspendre' : 'client.retablir';
+        AuditLog::record($action, $client->id, ['email' => $client->email]);
+
+        $statusMsg = $client->is_blocked ? 'Compte suspendu et déconnecté.' : 'Compte rétabli.';
+        return back()->with('success', $statusMsg);
     }
 }

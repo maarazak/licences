@@ -120,12 +120,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('commandes/{id}/reveal', [OrderController::class, 'revealCredentials'])->name('orders.reveal');
         Route::post('commandes/{id}/deliver-manual', [OrderController::class, 'manualDelivery'])->name('orders.deliver_manual');
         Route::post('commandes/{id}/note', [OrderController::class, 'saveNote'])->name('orders.note');
+        Route::post('commandes/{id}/credit', [OrderController::class, 'refundBalance'])->name('orders.credit');
+        Route::post('commandes/{id}/mark-failed', [OrderController::class, 'markFailed'])->name('orders.mark_failed');
         Route::post('commandes/{id}/refund-balance', [OrderController::class, 'refundBalance'])->name('orders.refund_balance');
         Route::post('commandes/{id}/refund-gateway', [OrderController::class, 'refundGateway'])->name('orders.refund_gateway');
 
         // Produits
         Route::get('produits', [ProductController::class, 'index'])->name('products.index');
         Route::post('produits/synchroniser', [ProductController::class, 'syncCatalog'])->name('products.sync');
+        Route::post('produits/publier-tout', [ProductController::class, 'publishAllSellable'])->name('products.publish_all');
         Route::post('produits/solde-fournisseur', [ProductController::class, 'refreshSupplierBalance'])->name('products.refresh_balance');
         Route::get('produits/{id}', [ProductController::class, 'edit'])->name('products.edit');
         Route::post('produits/{id}', [ProductController::class, 'update'])->name('products.update');
@@ -142,6 +145,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('assistance/{id}', [TicketController::class, 'show'])->name('tickets.show');
         Route::post('assistance/{id}/reply', [TicketController::class, 'reply'])->name('tickets.reply');
         Route::post('assistance/{id}/close', [TicketController::class, 'close'])->name('tickets.close');
+        Route::post('assistance/{id}/status', [TicketController::class, 'setStatus'])->name('tickets.status');
 
         // Journal d'audit
         Route::get('journal', [JournalController::class, 'index'])->name('journal.index');
