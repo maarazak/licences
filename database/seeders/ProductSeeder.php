@@ -10,9 +10,16 @@ class ProductSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     * Environnement local et testing UNIQUEMENT.
      */
     public function run(): void
     {
+        // En production, le catalogue est alimenté via l'API revendeur Flowseller ou manuellement par l'admin
+        if (!app()->environment('local', 'testing')) {
+            $this->command?->warn('ProductSeeder : ignoré en production.');
+            return;
+        }
+
         $products = [
             [
                 'id' => Str::uuid()->toString(),

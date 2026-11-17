@@ -12,13 +12,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 1. Données indispensables en tout environnement (Production & Local)
         $this->call(PermissionSeeder::class);
         $this->call(RoleSeeder::class);
         $this->call(SettingSeeder::class);
-        $this->call(UserSeeder::class);
-        $this->call(ProductSeeder::class);
+        $this->call(AdminSeeder::class);
 
-        // Nettoyage des caches applicatifs
+        // 2. Données de démonstration : environnement LOCAL et TESTING UNIQUEMENT
+        // Ne s'exécutera JAMAIS en production
+        if (app()->environment('local', 'testing')) {
+            $this->call(CustomerSeeder::class);
+            $this->call(ProductSeeder::class);
+        }
+
+        // 3. Nettoyage des caches applicatifs
         Artisan::call('cache:clear');
         Artisan::call('permission:cache-reset');
 
@@ -26,27 +33,33 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * Affiche un récapitulatif clair des comptes créés en console.
+     * Affiche un récapitulatif clair adapté à l'environnement.
      */
     private function userInfo(): void
     {
+        $env = app()->environment();
         $this->command->line('');
         $this->command->info('================================================================');
-        $this->command->info('  Licences & Logiciels — Base de données initialisée avec succès');
+        $this->command->info("  Licences & Logiciels — Base de données initialisée ({$env})");
         $this->command->info('================================================================');
         $this->command->line('');
         $this->command->warn('Compte Administrateur Backoffice (Blade) :');
-        $this->command->line(' - URL de connexion : /admin/connexion');
-        $this->command->line(' - E-mail : abdoulrazakmaali@gmail.com');
-        $this->command->line(' - Mot de passe : Admin123!');
-        $this->command->line(' - Compte de secours : admin@licences.local / password');
+        $this->command->line(' - URL : /admin/connexion');
+        $this->command->line(' - E-mail : ' . env('ADMIN_EMAIL', 'abdoulrazakmaali@gmail.com'));
         $this->command->line('');
-        $this->command->warn('Compte Client Boutique (Vue 3 / Inertia) :');
-        $this->command->line(' - URL de connexion : /connexion');
-        $this->command->line(' - E-mail : test@example.com');
-        $this->command->line(' - Mot de passe : password');
-        $this->command->line(' - Solde de test crédité : 25 000 FCFA');
-        $this->command->line('');
+
+        if (app()->environment('local', 'testing')) {
+            $this->command->warn('Données de démonstration chargées (LOCAL / TESTING) :');
+            $this->command->line(' - Client démo : test@example.com / password (Solde: 25 000 FCFA)');
+            $this->command->line(' - Admin démo : admin@licences.local / password');
+            $this->command->line(' - Catalogue démo : 4 produits de test créés');
+            $this->command->line('');
+        } else {
+            $this->command->comment('Mode PRODUCTION : Aucune donnée fictive (client démo, faux produits) n\'a été insérée.');
+            $this->command->comment('Utilisez [php artisan catalog:sync] pour alimenter le catalogue officiel via Flowseller.');
+            $this->command->line('');
+        }
+
         $this->command->info('================================================================');
         $this->command->line('');
     }
