@@ -282,7 +282,7 @@ const submitCheckout = () => {
 
           <button
             type="submit"
-            :disabled="form.processing || !phoneValidation.valid"
+            :disabled="form.processing"
             class="btn btn-primary btn-block min-h-12 text-base shadow-glow cursor-pointer"
           >
             <span v-if="form.processing">{{ t('Vérification de l\'offre…') }}</span>
