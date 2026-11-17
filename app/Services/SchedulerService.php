@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class SchedulerService
 {
-    public const MIN_SYNC_GAP_SECONDS = 45;
+    public const MIN_SYNC_GAP_SECONDS = 300;
 
     protected OrderFulfillmentService $fulfillment;
     protected CatalogService $catalog;
@@ -60,20 +60,25 @@ class SchedulerService
                 $report['orders'] = ['error' => $e->getMessage()];
             }
 
-            // 2. Catalog sync (avec respect du gap minimum de 45 secondes)
+            // 2. Catalog sync (avec respect du gap minimum de 5 minutes et vérification de cooldown)
             try {
+                $rateLimitedUntil = (int) Setting::get('flowseller_rate_limited_until', 0);
+                $inCooldown = time() < $rateLimitedUntil;
+
                 $lastSync = Setting::get('lastCatalogSyncAt');
-                $shouldSync = true;
-                if ($lastSync) {
+                $shouldSync = !$inCooldown;
+                if ($lastSync && $shouldSync) {
                     $lastTime = strtotime($lastSync);
                     if ($lastTime && (time() - $lastTime < self::MIN_SYNC_GAP_SECONDS)) {
                         $shouldSync = false;
-                        $report['catalog'] = 'à jour (< 45s)';
+                        $report['catalog'] = 'à jour (< 5 min)';
                     }
                 }
 
                 if ($shouldSync) {
                     $report['catalog'] = $this->catalog->syncCatalog();
+                } elseif ($inCooldown) {
+                    $report['catalog'] = 'temporisation fournisseur (' . ($rateLimitedUntil - time()) . 's)';
                 }
             } catch (\Throwable $e) {
                 Log::error("[CronTick] Erreur catalog: {$e->getMessage()}");
@@ -81,10 +86,25 @@ class SchedulerService
                 $report['catalog'] = ['error' => $e->getMessage()];
             }
 
-            // 3. Balance refresh
+            // 3. Balance refresh (toutes les 5 minutes et pas en cooldown)
             try {
-                $this->catalog->refreshSupplierBalance();
-                $report['balance'] = 'ok';
+                $rateLimitedUntil = (int) Setting::get('flowseller_rate_limited_until', 0);
+                $inCooldown = time() < $rateLimitedUntil;
+
+                $lastBal = Setting::get('lastSupplierBalanceCheckAt');
+                $shouldCheckBal = !$inCooldown;
+                if ($lastBal && $shouldCheckBal) {
+                    $lastBalTime = strtotime($lastBal);
+                    if ($lastBalTime && (time() - $lastBalTime < 300)) {
+                        $shouldCheckBal = false;
+                        $report['balance'] = 'à jour (< 5 min)';
+                    }
+                }
+
+                if ($shouldCheckBal) {
+                    $this->catalog->refreshSupplierBalance();
+                    $report['balance'] = 'ok';
+                }
             } catch (\Throwable $e) {
                 $report['balance'] = ['error' => $e->getMessage()];
             }

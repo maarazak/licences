@@ -96,9 +96,14 @@ class FlowsellerService
                     $retryAfter = (int) $m[1];
                 }
 
-                if ($response->status() === 429 && $retryAfter > 0 && $retryAfter <= 3) {
-                    sleep($retryAfter);
-                    return $this->request($method, $path, $data, $idempotencyKey, $timeout);
+                if ($response->status() === 429) {
+                    $cooldown = max(5, $retryAfter ?: 30);
+                    \App\Models\Setting::set('flowseller_rate_limited_until', (string) (time() + $cooldown));
+
+                    if ($retryAfter > 0 && $retryAfter <= 5) {
+                        sleep($retryAfter);
+                        return $this->request($method, $path, $data, $idempotencyKey, $timeout);
+                    }
                 }
 
                 throw new FlowsellerException($response->status(), (string) $code, (string) $message, $retryAfter);

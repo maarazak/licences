@@ -30,12 +30,28 @@ class CatalogService
             return ['skipped' => 'Fournisseur non configuré'];
         }
 
-        // Évite le déclenchement en rafale si un sync a réussi il y a moins de 15s
+        // Si le fournisseur est en temporisation (rate limit) et que nous avons déjà les produits
+        $rateLimitedUntil = (int) Setting::get('flowseller_rate_limited_until', 0);
+        $remainingCooldown = $rateLimitedUntil - time();
+        if ($remainingCooldown > 0 && Product::count() > 0 && !$force) {
+            return [
+                'total' => Product::count(),
+                'created' => 0,
+                'updated' => 0,
+                'unchanged' => Product::count(),
+                'deactivated' => 0,
+                'held' => 0,
+                'cached' => true,
+                'cooldown' => $remainingCooldown,
+            ];
+        }
+
+        // Évite le déclenchement en rafale si un sync a réussi il y a moins de 30s
         if (!$force) {
             $lastSync = Setting::get('lastCatalogSyncAt');
             if ($lastSync) {
                 $diff = time() - strtotime($lastSync);
-                if ($diff < 15 && Product::count() > 0) {
+                if ($diff < 30 && Product::count() > 0) {
                     return [
                         'total' => Product::count(),
                         'created' => 0,
@@ -52,7 +68,29 @@ class CatalogService
         $now = now();
         $autoPublish = Setting::get('autoPublish') === 'true';
 
-        $remote = $this->flowseller->listAllProducts();
+        try {
+            $remote = $this->flowseller->listAllProducts();
+        } catch (FlowsellerException $e) {
+            if ($e->status === 429) {
+                $cooldown = max(5, $e->retryAfterSeconds ?: 30);
+                Setting::set('flowseller_rate_limited_until', (string) (time() + $cooldown));
+                Setting::set('lastCatalogSyncAt', $now->toIso8601String());
+                if (Product::count() > 0) {
+                    return [
+                        'total' => Product::count(),
+                        'created' => 0,
+                        'updated' => 0,
+                        'unchanged' => Product::count(),
+                        'deactivated' => 0,
+                        'held' => 0,
+                        'cached' => true,
+                        'cooldown' => $cooldown,
+                    ];
+                }
+            }
+            throw $e;
+        }
+
         $products = $remote['products'];
         $seenIds = $remote['seenIds'];
 
@@ -179,6 +217,11 @@ class CatalogService
     public function refreshSupplierBalance(): void
     {
         if (!$this->flowseller->isConfigured()) {
+            return;
+        }
+
+        $rateLimitedUntil = (int) Setting::get('flowseller_rate_limited_until', 0);
+        if (time() < $rateLimitedUntil) {
             return;
         }
 

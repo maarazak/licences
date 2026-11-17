@@ -125,7 +125,7 @@ class CronSchedulerTest extends TestCase
         $scheduler = app(SchedulerService::class);
         $report = $scheduler->runTick();
 
-        $this->assertEquals('à jour (< 45s)', $report['catalog']);
+        $this->assertEquals('à jour (< 5 min)', $report['catalog']);
     }
 
     public function test_artisan_cron_tick_command(): void

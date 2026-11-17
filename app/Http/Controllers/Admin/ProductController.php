@@ -125,17 +125,28 @@ class ProductController extends Controller
     {
         try {
             $report = app(\App\Services\CatalogService::class)->syncCatalog(false);
-            app(\App\Services\CatalogService::class)->refreshSupplierBalance();
+            if (empty($report['cached']) || empty($report['cooldown'])) {
+                app(\App\Services\CatalogService::class)->refreshSupplierBalance();
+            }
 
             AuditLog::record('catalogue.synchroniser', 'catalog', $report);
 
-            $msg = !empty($report['cached'])
-                ? "Catalogue déjà à jour (dernière vérification il y a moins de 15 secondes)."
-                : "Catalogue synchronisé avec succès ({$report['total']} offres traitées).";
+            if (!empty($report['cached'])) {
+                if (!empty($report['cooldown'])) {
+                    $msg = "Le catalogue local est à jour ({$report['total']} produits). Le fournisseur applique une temporisation (disponible dans {$report['cooldown']}s).";
+                } else {
+                    $msg = "Catalogue déjà à jour ({$report['total']} offres disponibles).";
+                }
+                return back()->with('info', $msg);
+            }
 
+            $msg = "Catalogue synchronisé avec succès ({$report['total']} offres traitées, {$report['created']} créées, {$report['updated']} mises à jour).";
             return back()->with('success', $msg);
         } catch (\App\Services\FlowsellerException $e) {
             $retry = $e->retryAfterSeconds > 0 ? " Veuillez patienter {$e->retryAfterSeconds}s avant de relancer." : "";
+            if (Product::count() > 0) {
+                return back()->with('info', "Le catalogue local actuel (" . Product::count() . " produits) reste actif. Le fournisseur demande de patienter{$retry}");
+            }
             return back()->with('error', "Le fournisseur limite temporairement les requêtes.{$retry}");
         } catch (\Throwable $e) {
             return back()->with('error', "Échec de la synchronisation du catalogue : " . $e->getMessage());

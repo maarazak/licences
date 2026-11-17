@@ -181,6 +181,12 @@
                 </div>
             @endif
 
+            @if(session('info'))
+                <div class="alert alert-info mb-6">
+                    {{ session('info') }}
+                </div>
+            @endif
+
             @if(session('error'))
                 <div class="alert alert-error mb-6">
                     {{ session('error') }}
