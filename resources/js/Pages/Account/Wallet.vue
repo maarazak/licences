@@ -122,32 +122,24 @@ const submitDeposit = () => {
             />
           </div>
 
-          <!-- Country & Phone -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="label text-xs">Pays de paiement</label>
-              <select
-                v-model="depositForm.country"
-                class="input"
+          <!-- Country selection (operator & phone handled directly on pawaPay) -->
+          <div>
+            <label class="label text-xs">Pays de paiement (Mobile Money)</label>
+            <select
+              v-model="depositForm.country"
+              class="input cursor-pointer"
+            >
+              <option
+                v-for="c in COUNTRIES"
+                :key="c.code"
+                :value="c.code"
               >
-                <option
-                  v-for="c in COUNTRIES"
-                  :key="c.code"
-                  :value="c.code"
-                >
-                  {{ c.flag }} {{ c.name }} ({{ c.dial }})
-                </option>
-              </select>
-            </div>
-            <div>
-              <label class="label text-xs">Numéro Mobile Money (facultatif)</label>
-              <input
-                v-model="depositForm.phone"
-                type="tel"
-                placeholder="Ex. 70 00 00 00"
-                class="input font-mono"
-              />
-            </div>
+                {{ c.flag }} {{ c.name }} ({{ c.dial }})
+              </option>
+            </select>
+            <p class="mt-1.5 text-xs text-slate-500">
+              Le choix de votre opérateur (Orange Money, Moov, MTN, Wave...) et la validation s'effectuent directement sur la page sécurisée pawaPay.
+            </p>
           </div>
 
           <div class="flex items-center justify-between pt-2">

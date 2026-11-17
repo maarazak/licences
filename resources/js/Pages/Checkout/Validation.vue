@@ -41,12 +41,9 @@ const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
 const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
-const phoneInput = ref('');
 const payChoice = ref<'gateway' | 'balance'>('gateway');
 
 const currentCountry = computed(() => getCountry(selectedCountry.value));
-const phoneDigits = computed(() => phoneInput.value.replace(/[^0-9]/g, ''));
-const phoneValidation = computed(() => validatePhoneForCountry(phoneInput.value, selectedCountry.value));
 
 const totalXof = computed(() => props.product.unitPriceXof * quantity.value);
 const canUseBalance = computed(() => props.balanceXof >= totalXof.value);
@@ -82,7 +79,7 @@ const form = useForm({
 
 const submitCheckout = () => {
   form.quantity = quantity.value;
-  form.phone = phoneInput.value;
+  form.phone = '';
   form.country = selectedCountry.value;
   form.expectedTotalXof = totalXof.value;
   form.activationEmails = props.product.requiresEmail ? activationEmails.value : [];
@@ -129,41 +126,20 @@ const submitCheckout = () => {
               </div>
 
               <div>
-                <label for="phone" class="label">
-                  Numéro de téléphone Mobile Money <span class="text-brand">*</span>
+                <label for="country" class="label">
+                  Pays de paiement (Mobile Money)
                 </label>
-                <div class="relative flex rounded-xl border border-line bg-canvas transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
-                  <select
-                    id="country"
-                    v-model="selectedCountry"
-                    aria-label="Indicatif pays"
-                    class="h-11 max-w-[145px] sm:max-w-[185px] shrink-0 cursor-pointer rounded-l-xl border-r border-line bg-canvas pl-3 pr-2 text-sm font-medium text-ink focus:outline-none"
-                  >
-                    <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">
-                      {{ c.flag }} {{ c.dial }} ({{ c.name }})
-                    </option>
-                  </select>
-                  <input
-                    id="phone"
-                    v-model="phoneInput"
-                    type="tel"
-                    required
-                    autocomplete="tel-national"
-                    inputmode="numeric"
-                    :placeholder="currentCountry.placeholder"
-                    class="h-11 w-full rounded-r-xl bg-transparent px-3.5 text-sm text-ink placeholder:text-muted/60 focus:outline-none"
-                  />
-                </div>
-                <div class="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-xs text-muted">
-                  <span>
-                    Pays : <strong class="font-medium text-ink">{{ currentCountry.name }}</strong> ({{ currentCountry.dial }}) · {{ currentCountry.minDigits === currentCountry.maxDigits ? `${currentCountry.minDigits} chiffres attendus` : `${currentCountry.minDigits} à ${currentCountry.maxDigits} chiffres attendus` }}
-                  </span>
-                  <span v-if="phoneDigits.length > 0" :class="phoneValidation.valid ? 'font-semibold text-emerald-600' : 'font-medium text-amber-600'">
-                    {{ phoneDigits.length }}/{{ currentCountry.minDigits }} {{ phoneValidation.valid ? '✓' : '' }}
-                  </span>
-                </div>
-                <p v-if="!phoneValidation.valid && phoneDigits.length > 0" class="mt-1 text-xs text-amber-700">
-                  {{ phoneValidation.message }}
+                <select
+                  id="country"
+                  v-model="selectedCountry"
+                  class="input cursor-pointer"
+                >
+                  <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">
+                    {{ c.flag }} {{ c.name }} ({{ c.dial }})
+                  </option>
+                </select>
+                <p class="mt-1.5 text-xs text-muted">
+                  Le choix de votre opérateur (Orange Money, Moov, MTN, Wave...) et la validation par numéro s'effectuent directement sur la page sécurisée pawaPay.
                 </p>
               </div>
             </div>
