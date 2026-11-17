@@ -124,12 +124,19 @@ class ProductController extends Controller
     public function syncCatalog()
     {
         try {
-            $report = app(\App\Services\CatalogService::class)->syncCatalog();
+            $report = app(\App\Services\CatalogService::class)->syncCatalog(false);
             app(\App\Services\CatalogService::class)->refreshSupplierBalance();
 
             AuditLog::record('catalogue.synchroniser', 'catalog', $report);
 
-            return back()->with('success', "Catalogue synchronisé : {$report['total']} produits traités.");
+            $msg = !empty($report['cached'])
+                ? "Catalogue déjà à jour (dernière vérification il y a moins de 15 secondes)."
+                : "Catalogue synchronisé avec succès ({$report['total']} offres traitées).";
+
+            return back()->with('success', $msg);
+        } catch (\App\Services\FlowsellerException $e) {
+            $retry = $e->retryAfterSeconds > 0 ? " Veuillez patienter {$e->retryAfterSeconds}s avant de relancer." : "";
+            return back()->with('error', "Le fournisseur limite temporairement les requêtes.{$retry}");
         } catch (\Throwable $e) {
             return back()->with('error', "Échec de la synchronisation du catalogue : " . $e->getMessage());
         }

@@ -133,4 +133,87 @@ class OrderFulfillmentAndWalletTest extends TestCase
             ->expectsOutputToContain('Maintenance terminée avec succès.')
             ->assertExitCode(0);
     }
+
+    public function test_client_wallet_deposit_creates_deposit_with_reference(): void
+    {
+        $user = User::factory()->create([
+            'balance_xof' => 5000,
+            'role' => 'client',
+        ]);
+
+        $mockPawaPay = \Mockery::mock(\App\Services\PawaPayService::class);
+        $mockPawaPay->shouldReceive('createPaymentPage')
+            ->once()
+            ->andReturn([
+                'deposit_id' => 'pawapay-dep-test-123',
+                'depositId' => 'pawapay-dep-test-123',
+                'redirect_url' => 'https://sandbox.pawapay.io/checkout/dep-123',
+                'redirectUrl' => 'https://sandbox.pawapay.io/checkout/dep-123',
+                'status' => 'ACCEPTED',
+            ]);
+        $this->app->instance(\App\Services\PawaPayService::class, $mockPawaPay);
+
+        $this->actingAs($user, 'web');
+
+        $response = $this->withHeaders(['X-Inertia' => 'true'])
+            ->post(route('account.wallet.deposit'), [
+                'amount_xof' => 10000,
+                'phone' => '+22507000000',
+                'country' => 'CI',
+                'fullName' => 'Kouassi Yao',
+            ]);
+
+        $response->assertStatus(409); // Inertia external redirect status
+
+        $deposit = \App\Models\WalletDeposit::where('user_id', $user->id)->first();
+        $this->assertNotNull($deposit);
+        $this->assertStringStartsWith('DEP-', $deposit->reference);
+        $this->assertEquals(10000, $deposit->amount_xof);
+        $this->assertEquals('pending', $deposit->status);
+        $this->assertEquals('pawapay-dep-test-123', $deposit->payment_checkout_id);
+    }
+
+    public function test_payment_return_syncs_and_credits_wallet_deposit(): void
+    {
+        $user = User::factory()->create([
+            'balance_xof' => 2000,
+            'role' => 'client',
+        ]);
+
+        $deposit = \App\Models\WalletDeposit::create([
+            'id' => (string) Str::uuid(),
+            'reference' => 'DEP-SYNC-' . strtoupper(Str::random(6)),
+            'user_id' => $user->id,
+            'amount_xof' => 8000,
+            'status' => 'pending',
+            'payment_checkout_id' => 'pawa-checkout-' . Str::random(6),
+        ]);
+
+        $mockPawaPay = \Mockery::mock(\App\Services\PawaPayService::class);
+        $mockPawaPay->shouldReceive('getDeposit')
+            ->with($deposit->payment_checkout_id)
+            ->once()
+            ->andReturn([
+                'status' => 'COMPLETED',
+                'amount' => 8000,
+                'currency' => 'XOF',
+            ]);
+        $this->app->instance(\App\Services\PawaPayService::class, $mockPawaPay);
+
+        $this->actingAs($user, 'web');
+
+        $response = $this->get("/paiement/retour?depot={$deposit->id}");
+
+        $response->assertRedirect(route('account.wallet.index'));
+
+        $this->assertEquals(10000, $user->fresh()->balance_xof);
+        $this->assertEquals('completed', $deposit->fresh()->status);
+        $this->assertNotNull($deposit->fresh()->credited_at);
+
+        $this->assertDatabaseHas('wallet_entries', [
+            'user_id' => $user->id,
+            'amount_xof' => 8000,
+            'balance_after_xof' => 10000,
+        ]);
+    }
 }

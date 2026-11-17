@@ -142,7 +142,7 @@ class WebhookController extends Controller
                         ]);
                     }
 
-                    $deposit->update([
+                    $locked->update([
                         'status' => 'completed',
                         'paid_at' => now(),
                         'credited_at' => now(),

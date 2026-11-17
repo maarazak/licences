@@ -182,26 +182,20 @@ class AccountController extends Controller
             'amount_xof' => 'required|integer|min:500|max:1000000',
             'phone' => 'nullable|string|max:30',
             'country' => 'required|string|max:5',
+            'fullName' => 'nullable|string|max:120',
         ]);
 
         $user = $this->user();
         $depositId = Str::uuid()->toString();
-        $ref = 'SOLDE-' . strtoupper(Str::random(8));
-
-        $deposit = WalletDeposit::create([
-            'id' => $depositId,
-            'user_id' => $user->id,
-            'amount_xof' => $validated['amount_xof'],
-            'status' => 'pending',
-            'created_at' => now(),
-        ]);
+        $ref = 'DEP-' . strtoupper(Str::random(8));
 
         try {
             $pawaPay = app(PawaPayService::class);
-            $returnUrl = url('/compte/solde');
+            $returnUrl = url("/paiement/retour?depot={$depositId}");
 
             $session = $pawaPay->createPaymentPage([
                 'deposit_id' => $depositId,
+                'order_id' => $depositId,
                 'reference' => $ref,
                 'amount_xof' => $validated['amount_xof'],
                 'country' => $validated['country'],
@@ -209,9 +203,38 @@ class AccountController extends Controller
                 'email' => $user->email,
                 'return_url' => $returnUrl,
                 'description' => "Recharge de solde ({$validated['amount_xof']} FCFA)",
+                'lang' => $user->lang ?? 'fr',
             ]);
 
-            return Inertia::location($session['redirectUrl']);
+            $redirectUrl = $session['redirectUrl'] ?? $session['redirect_url'] ?? $session['payment_url'] ?? null;
+
+            if (!$redirectUrl) {
+                return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement introuvable.");
+            }
+
+            WalletDeposit::create([
+                'id' => $depositId,
+                'reference' => $ref,
+                'user_id' => $user->id,
+                'amount_xof' => $validated['amount_xof'],
+                'customer_phone' => $validated['phone'] ?? null,
+                'customer_country' => $validated['country'],
+                'customer_name' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
+                'status' => 'pending',
+                'payment_checkout_id' => $session['depositId'] ?? $session['deposit_id'] ?? $depositId,
+                'payment_intent_id' => $session['depositId'] ?? $session['deposit_id'] ?? $depositId,
+                'payment_url' => $redirectUrl,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Mémorise les coordonnées du client pour les futurs achats
+            $userUpdates = [];
+            if (!empty($validated['phone']) && !$user->phone) $userUpdates['phone'] = $validated['phone'];
+            if (!empty($validated['country']) && !$user->country) $userUpdates['country'] = $validated['country'];
+            if (!empty($userUpdates)) $user->update($userUpdates);
+
+            return Inertia::location($redirectUrl);
         } catch (\Throwable $e) {
             \Log::error("Erreur deposit pawaPay : " . $e->getMessage());
             return back()->with('error', "Impossible d'initialiser la recharge : " . $e->getMessage());

@@ -24,10 +24,29 @@ class CatalogService
      * Respecte l'idempotence et ne touche JAMAIS aux personnalisations admin
      * (is_published, shop_category, display_name, descriptions, instructions, prix fixes).
      */
-    public function syncCatalog(): array
+    public function syncCatalog(bool $force = false): array
     {
         if (!$this->flowseller->isConfigured()) {
             return ['skipped' => 'Fournisseur non configuré'];
+        }
+
+        // Évite le déclenchement en rafale si un sync a réussi il y a moins de 15s
+        if (!$force) {
+            $lastSync = Setting::get('lastCatalogSyncAt');
+            if ($lastSync) {
+                $diff = time() - strtotime($lastSync);
+                if ($diff < 15 && Product::count() > 0) {
+                    return [
+                        'total' => Product::count(),
+                        'created' => 0,
+                        'updated' => 0,
+                        'unchanged' => Product::count(),
+                        'deactivated' => 0,
+                        'held' => 0,
+                        'cached' => true,
+                    ];
+                }
+            }
         }
 
         $now = now();

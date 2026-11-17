@@ -231,7 +231,7 @@ class CheckoutController extends Controller
                     'unit_price_xof' => $unitPriceXof,
                     'total_xof' => $totalXof,
                     'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
-                    'usd_rate' => 669,
+                    'usd_rate' => (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669)),
                     'paid_with' => 'balance',
                     'status' => 'paid',
                     'paid_at' => $now,
@@ -279,7 +279,7 @@ class CheckoutController extends Controller
             'unit_price_xof' => $unitPriceXof,
             'total_xof' => $totalXof,
             'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
-            'usd_rate' => 669,
+            'usd_rate' => (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669)),
             'paid_with' => 'pawapay',
             'status' => 'pending_payment',
             'payment_checkout_id' => $orderId,
@@ -387,7 +387,7 @@ class CheckoutController extends Controller
                     }
                 }
 
-                return redirect()->route('account.wallet')->with('success', 'Votre solde a été mis à jour.');
+                return redirect()->route('account.wallet.index')->with('success', 'Votre solde a été mis à jour.');
             }
         }
 

@@ -92,6 +92,14 @@ class FlowsellerService
                 $code = $err['code'] ?? ('http_' . $response->status());
                 $message = $err['message'] ?? ("Erreur fournisseur HTTP {$response->status()}");
                 $retryAfter = (int) ($response->header('Retry-After') ?? 0);
+                if ($retryAfter === 0 && preg_match('/Retry in (\d+)s/i', $message, $m)) {
+                    $retryAfter = (int) $m[1];
+                }
+
+                if ($response->status() === 429 && $retryAfter > 0 && $retryAfter <= 3) {
+                    sleep($retryAfter);
+                    return $this->request($method, $path, $data, $idempotencyKey, $timeout);
+                }
 
                 throw new FlowsellerException($response->status(), (string) $code, (string) $message, $retryAfter);
             }
@@ -124,6 +132,9 @@ class FlowsellerService
         $invalid = 0;
 
         for ($page = 1; $page <= 50; $page++) {
+            if ($page > 1) {
+                usleep(150000); // Pause de 150ms pour respecter le débit de l'API
+            }
             $payload = $this->request('GET', "/products?page={$page}&per_page=100");
             $data = $payload['data'] ?? [];
 

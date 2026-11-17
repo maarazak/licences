@@ -42,7 +42,7 @@ class OrderApiController extends Controller
 
         $product = Product::findOrFail($validated['product_id']);
 
-        if (!$product->is_active) {
+        if (!$product->is_published || !$product->supplier_active) {
             return response()->json(['error' => 'Ce produit n\'est plus disponible à la vente.'], 400);
         }
 
@@ -61,10 +61,11 @@ class OrderApiController extends Controller
             ]
         );
 
-        $unitPrice = $product->fixed_price_xof ?? 2000;
+        $unitPrice = (int) $product->price_xof;
         $totalXof = $unitPrice * $validated['quantity'];
         $orderId = Str::uuid()->toString();
         $reference = 'CMD-' . strtoupper(Str::random(8));
+        $usdRate = (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669));
 
         // Paiement par solde
         if ($validated['pay_with'] === 'balance') {
@@ -72,7 +73,7 @@ class OrderApiController extends Controller
                 return response()->json(['error' => 'Solde insuffisant pour régler cette commande.'], 400);
             }
 
-            return DB::transaction(function () use ($user, $product, $orderId, $reference, $totalXof, $unitPrice, $validated) {
+            return DB::transaction(function () use ($user, $product, $orderId, $reference, $totalXof, $unitPrice, $validated, $usdRate) {
                 $user = User::lockForUpdate()->find($user->id);
                 $newBalance = $user->balance_xof - $totalXof;
                 $user->balance_xof = $newBalance;
@@ -95,10 +96,13 @@ class OrderApiController extends Controller
                     'reference' => $reference,
                     'user_id' => $user->id,
                     'product_id' => $product->id,
-                    'product_name' => $product->name,
+                    'product_name' => $product->display_name ?: $product->name,
+                    'supplier_product_id' => $product->supplier_id,
                     'quantity' => $validated['quantity'],
                     'unit_price_xof' => $unitPrice,
                     'total_xof' => $totalXof,
+                    'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
+                    'usd_rate' => $usdRate,
                     'customer_first_name' => $validated['first_name'] ?? null,
                     'customer_last_name' => $validated['last_name'] ?? null,
                     'customer_phone' => $validated['phone'] ?? null,
@@ -134,10 +138,13 @@ class OrderApiController extends Controller
             'reference' => $reference,
             'user_id' => $user->id,
             'product_id' => $product->id,
-            'product_name' => $product->name,
+            'product_name' => $product->display_name ?: $product->name,
+            'supplier_product_id' => $product->supplier_id,
             'quantity' => $validated['quantity'],
             'unit_price_xof' => $unitPrice,
             'total_xof' => $totalXof,
+            'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
+            'usd_rate' => $usdRate,
             'customer_first_name' => $validated['first_name'] ?? null,
             'customer_last_name' => $validated['last_name'] ?? null,
             'customer_phone' => $validated['phone'] ?? null,

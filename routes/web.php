@@ -74,6 +74,7 @@ Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(funct
 
     // Solde
     Route::get('/solde', [AccountController::class, 'wallet'])->name('wallet.index');
+    Route::get('/solde-redirect', fn() => redirect()->route('account.wallet.index'))->name('wallet');
     Route::post('/solde/recharger', [AccountController::class, 'deposit'])->name('wallet.deposit');
 
     // Assistance & Tickets
