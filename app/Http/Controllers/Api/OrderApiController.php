@@ -184,7 +184,6 @@ class OrderApiController extends Controller
                 'amount_xof' => $totalXof,
                 'description' => "{$product->name} x {$validated['quantity']} — commande {$reference}",
                 'email' => $user->email,
-                'phone' => $validated['phone'] ?? null,
                 'country' => $validated['country'] ?? 'BF',
                 'return_url' => $validated['return_url'],
             ]);
@@ -258,7 +257,6 @@ class OrderApiController extends Controller
                 'amount_xof' => $order->total_xof,
                 'description' => "{$order->product_name} — reprise paiement {$order->reference}",
                 'email' => $order->customer_email ?: ($order->user->email ?? 'client@example.com'),
-                'phone' => $order->customer_phone,
                 'country' => $order->customer_country,
                 'return_url' => $request->query('return_url', url("/paiement/retour?commande={$order->id}")),
             ]);

@@ -312,7 +312,6 @@ class CheckoutController extends Controller
                 'reference' => $ref,
                 'amount_xof' => $totalXof,
                 'country' => $country,
-                'phone' => $phone,
                 'email' => $user->email,
                 'firstName' => $firstName,
                 'lastName' => $lastName,

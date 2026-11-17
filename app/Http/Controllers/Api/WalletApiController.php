@@ -66,7 +66,6 @@ class WalletApiController extends Controller
                 'amount_xof' => $validated['amount_xof'],
                 'description' => "Recharge de solde — {$deposit->reference}",
                 'email' => $user->email,
-                'phone' => $validated['phone'] ?? null,
                 'country' => $validated['country'] ?? 'BF',
                 'return_url' => $validated['return_url'],
             ]);

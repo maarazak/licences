@@ -198,7 +198,6 @@ class AccountController extends Controller
                 'reference' => $ref,
                 'amount_xof' => $validated['amount_xof'],
                 'country' => $validated['country'],
-                'phone' => $validated['phone'] ?? null,
                 'email' => $user->email,
                 'fullName' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
                 'return_url' => $returnUrl,
