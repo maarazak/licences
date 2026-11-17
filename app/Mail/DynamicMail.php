@@ -29,9 +29,10 @@ class DynamicMail extends Mailable
         );
     }
 
-    public function build()
+    public function content(): Content
     {
-        return $this->html($this->htmlContent)
-            ->rawText($this->textContent);
+        return new Content(
+            htmlString: $this->htmlContent,
+        );
     }
 }
