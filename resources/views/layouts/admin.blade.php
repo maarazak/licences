@@ -6,6 +6,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'Administration' }} — Licences</title>
     
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icon.svg">
+    
     <!-- Tailwind CSS CDN pour affichage instantané et fiable -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>

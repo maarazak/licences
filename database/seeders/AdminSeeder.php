@@ -20,7 +20,7 @@ class AdminSeeder extends Seeder
         $adminRoleWeb   = Role::where(['name' => 'admin', 'guard_name' => 'web'])->first();
 
         $email = env('ADMIN_EMAIL', 'abdoulrazakmaali@gmail.com');
-        $password = env('ADMIN_PASSWORD', 'Admin123!');
+        $password = env('ADMIN_PASSWORD', 'Admin@2026');
 
         $admin = User::firstOrCreate(
             ['email' => $email],
