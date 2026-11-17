@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Accès administrateur — Licences</title>
+    
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+    <link rel="shortcut icon" href="/favicon.ico?v=2">
+    <link rel="apple-touch-icon" href="/icon.svg?v=2">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -36,12 +42,14 @@
 <body class="min-h-full flex items-center justify-center px-4 py-12 text-slate-800">
     <div class="w-full max-w-sm">
         <div class="mb-6 flex justify-center">
-            <a href="{{ route('home') }}" class="inline-flex items-center gap-2 group">
-                <span class="flex size-10 items-center justify-center rounded-xl bg-brand text-white font-bold text-xl shadow-sm transition group-hover:scale-105">
-                    L
-                </span>
-                <span class="text-xl font-extrabold tracking-tight text-slate-900">
-                    Licences<span class="text-accent">.</span>
+            <a href="{{ route('home') }}" class="inline-flex items-center gap-2.5 group">
+                <svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true" class="transition group-hover:scale-105 shadow-sm rounded-xl">
+                    <path d="M12 0H36A12 12 0 0 1 48 12V19.5A4.5 4.5 0 0 0 48 28.5V36A12 12 0 0 1 36 48H12A12 12 0 0 1 0 36V28.5A4.5 4.5 0 0 0 0 19.5V12A12 12 0 0 1 12 0Z" fill="#0d5c4a"/>
+                    <path d="M16 12H23V29.5H33V36H16Z" fill="#ffffff"/>
+                    <circle cx="29.5" cy="15.5" r="3.5" fill="#e8590c"/>
+                </svg>
+                <span class="text-2xl font-extrabold tracking-tight text-slate-900">
+                    Licences<span class="text-[#e8590c]">.</span>
                 </span>
             </a>
         </div>

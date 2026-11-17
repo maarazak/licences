@@ -6,9 +6,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'Administration' }} — Licences</title>
     
-    <link rel="icon" type="image/svg+xml" href="/icon.svg">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="apple-touch-icon" href="/icon.svg">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+    <link rel="shortcut icon" href="/favicon.ico?v=2">
+    <link rel="apple-touch-icon" href="/icon.svg?v=2">
     
     <!-- Tailwind CSS CDN pour affichage instantané et fiable -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,12 +39,14 @@
     <!-- Sidebar Navigation -->
     <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col shrink-0">
         <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
-            <div class="size-8 rounded-lg bg-teal-500 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                L
-            </div>
-            <div>
-                <span class="font-bold text-white tracking-wide">Licences</span>
-                <span class="text-xs px-2 py-0.5 ml-1.5 rounded-full bg-teal-900/80 text-teal-300 font-medium">Admin</span>
+            <svg width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" class="shrink-0 shadow-sm rounded-lg">
+                <path d="M12 0H36A12 12 0 0 1 48 12V19.5A4.5 4.5 0 0 0 48 28.5V36A12 12 0 0 1 36 48H12A12 12 0 0 1 0 36V28.5A4.5 4.5 0 0 0 0 19.5V12A12 12 0 0 1 12 0Z" fill="#0d5c4a"/>
+                <path d="M16 12H23V29.5H33V36H16Z" fill="#ffffff"/>
+                <circle cx="29.5" cy="15.5" r="3.5" fill="#e8590c"/>
+            </svg>
+            <div class="flex items-center">
+                <span class="font-bold text-white tracking-wide text-base">Licences</span>
+                <span class="text-[10px] px-2 py-0.5 ml-2 rounded-full bg-teal-900/80 text-teal-300 font-semibold border border-teal-700/50">Admin</span>
             </div>
         </div>
 
