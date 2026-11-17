@@ -2,162 +2,211 @@
 import { ref } from 'vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import {
-  Mail,
+  ArrowLeft,
   ArrowRight,
-  ShieldCheck,
   KeyRound,
-  CheckCircle2,
+  Mail,
+  ShieldCheck,
+  Zap,
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
+import { SITE_NAME } from '@/Utils/site';
 
 const props = defineProps<{
   next?: string;
 }>();
 
 const page = usePage();
-const step = ref<'email' | 'code'>((page.props.flash as any)?.step || 'email');
-const emailHolder = ref<string>((page.props.flash as any)?.email || '');
+const flash = page.props.flash as any;
+const step = ref<'email' | 'code'>(flash?.step === 'code' ? 'code' : 'email');
+const emailHolder = ref<string>(flash?.email || '');
+const generalError = ref<string>((page.props.errors as any)?.email || flash?.error || '');
 
 const requestForm = useForm({
-  email: '',
+  email: flash?.email || '',
 });
 
 const verifyForm = useForm({
-  email: '',
+  email: flash?.email || '',
   code: '',
   next: props.next || '/compte/achats',
 });
 
+const points = [
+  { icon: KeyRound, text: 'Aucun mot de passe à retenir' },
+  { icon: Zap, text: 'Connexion en 30 secondes' },
+  { icon: ShieldCheck, text: 'Vos accès réservés à votre compte' },
+];
+
 const submitEmail = () => {
+  generalError.value = '';
   requestForm.post('/connexion/demander-code', {
+    preserveScroll: true,
     onSuccess: (pageRes: any) => {
       emailHolder.value = requestForm.email;
       verifyForm.email = requestForm.email;
       step.value = 'code';
     },
+    onError: (err) => {
+      if (err.email) generalError.value = err.email;
+    }
   });
 };
 
 const submitCode = () => {
+  generalError.value = '';
   verifyForm.post('/connexion/verifier-code', {
     preserveScroll: true,
+    onError: (err) => {
+      if (err.code) generalError.value = err.code;
+    }
   });
 };
 
-const changeEmail = () => {
+const handleCodeInput = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  target.value = target.value.replace(/\D/g, '').slice(0, 6);
+  verifyForm.code = target.value;
+};
+
+const useOtherEmail = () => {
   step.value = 'email';
   verifyForm.code = '';
+  generalError.value = '';
 };
 </script>
 
 <template>
   <SiteLayout>
-    <Head title="Connexion à votre espace client" />
+    <Head title="Connexion" />
 
-    <div class="container-page py-16 max-w-md">
-      <div class="card p-8 space-y-6 shadow-pop">
-        <!-- Header -->
-        <div class="text-center space-y-2">
-          <div class="size-14 rounded-2xl bg-[#0d5c4a]/10 text-[#0d5c4a] flex items-center justify-center mx-auto mb-3">
-            <KeyRound class="size-7" />
-          </div>
-          <h1 class="h2 text-2xl">Espace client</h1>
-          <p class="text-xs text-slate-500 leading-relaxed">
-            Accédez à vos commandes, licences livrées et à votre solde en toute sécurité.
-          </p>
-        </div>
-
-        <!-- Step 1 : Request Code by Email -->
-        <form
-          v-if="step === 'email'"
-          @submit.prevent="submitEmail"
-          class="space-y-4"
-        >
-          <div>
-            <label class="label text-xs">Votre adresse e-mail</label>
-            <div class="relative">
-              <Mail class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                v-model="requestForm.email"
-                type="email"
-                required
-                autofocus
-                placeholder="votre.email@gmail.com"
-                class="input pl-10"
-              />
-            </div>
-            <p class="hint">Aucun mot de passe à retenir : un code de connexion à 6 chiffres vous sera envoyé.</p>
-          </div>
-
-          <button
-            type="submit"
-            :disabled="requestForm.processing"
-            class="btn btn-primary btn-block min-h-12 shadow-glow"
+    <div class="bg-hero relative overflow-hidden">
+      <div aria-hidden="true" class="grid-lines absolute inset-0" />
+      <div class="container-page relative flex justify-center py-12 sm:py-16">
+        <div class="w-full max-w-md">
+          <Link
+            href="/boutique"
+            class="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink transition"
           >
-            <span v-if="requestForm.processing">Envoi du code...</span>
-            <span v-else class="flex items-center justify-center gap-2">
-              Recevoir mon code de connexion
-              <ArrowRight class="size-4" />
-            </span>
-          </button>
-        </form>
+            <ArrowLeft class="size-4" aria-hidden="true" />
+            Retour à la boutique
+          </Link>
 
-        <!-- Step 2 : Verify 6-digit Code -->
-        <form
-          v-else
-          @submit.prevent="submitCode"
-          class="space-y-4"
-        >
-          <div class="p-3.5 bg-teal-50 border border-teal-200/80 rounded-2xl text-xs text-slate-700 space-y-1">
-            <p class="font-bold text-[#0d5c4a] flex items-center gap-1.5">
-              <CheckCircle2 class="size-4 shrink-0" />
-              Code envoyé !
+          <div class="card mt-4 p-6 shadow-pop sm:p-8">
+            <h1 class="h2">Connectez-vous à {{ SITE_NAME }}</h1>
+            <p class="mt-2 mb-6 text-sm leading-relaxed text-muted">
+              Saisissez votre e-mail : nous vous envoyons un code. Votre compte est créé automatiquement à la première connexion.
             </p>
-            <p>
-              Un code à 6 chiffres a été expédié à <strong>{{ emailHolder }}</strong>. Vérifiez également vos courriers indésirables.
-            </p>
+
+            <!-- Étape 2 : Code reçu par email -->
+            <form
+              v-if="step === 'code'"
+              @submit.prevent="submitCode"
+              class="space-y-4"
+            >
+              <input type="hidden" name="email" :value="emailHolder" />
+              <input type="hidden" name="next" :value="props.next || '/compte/achats'" />
+
+              <p class="alert alert-info flex gap-3 text-xs leading-relaxed">
+                <Mail class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  Un code à 6 chiffres a été envoyé à <strong class="break-all">{{ emailHolder }}</strong>. Pensez à vérifier vos courriers indésirables.
+                </span>
+              </p>
+
+              <div>
+                <label for="code" class="label">Code reçu par e-mail</label>
+                <input
+                  id="code"
+                  :value="verifyForm.code"
+                  @input="handleCodeInput"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxlength="6"
+                  required
+                  autofocus
+                  placeholder="000000"
+                  class="input text-center font-display text-xl tracking-[0.4em]"
+                />
+              </div>
+
+              <div v-if="verifyForm.errors.code || generalError" class="alert alert-error text-xs">
+                {{ verifyForm.errors.code || generalError }}
+              </div>
+
+              <button
+                type="submit"
+                :disabled="verifyForm.processing || verifyForm.code.length !== 6"
+                class="btn btn-primary btn-block min-h-12 shadow-glow"
+              >
+                <span v-if="verifyForm.processing">Vérification...</span>
+                <span v-else class="flex items-center justify-center gap-2">
+                  Se connecter
+                  <ArrowRight class="size-4" aria-hidden="true" />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                @click="useOtherEmail"
+                class="btn btn-soft btn-block"
+              >
+                Utiliser une autre adresse
+              </button>
+            </form>
+
+            <!-- Étape 1 : Demande d'e-mail -->
+            <form
+              v-else
+              @submit.prevent="submitEmail"
+              class="space-y-4"
+            >
+              <div>
+                <label for="email" class="label">Adresse e-mail</label>
+                <input
+                  id="email"
+                  v-model="requestForm.email"
+                  type="email"
+                  autocomplete="email"
+                  required
+                  autofocus
+                  maxlength="191"
+                  placeholder="votre.email@exemple.com"
+                  class="input"
+                />
+                <p class="hint">Pas de mot de passe. Le code est valable 10 minutes.</p>
+              </div>
+
+              <div v-if="requestForm.errors.email || generalError" class="alert alert-error text-xs">
+                {{ requestForm.errors.email || generalError }}
+              </div>
+
+              <button
+                type="submit"
+                :disabled="requestForm.processing"
+                class="btn btn-primary btn-block min-h-12 shadow-glow"
+              >
+                <span v-if="requestForm.processing">Envoi du code...</span>
+                <span v-else class="flex items-center justify-center gap-2">
+                  Recevoir un code
+                  <ArrowRight class="size-4" aria-hidden="true" />
+                </span>
+              </button>
+            </form>
           </div>
 
-          <div>
-            <label class="label text-xs text-center block">Saisissez le code à 6 chiffres</label>
-            <input
-              v-model="verifyForm.code"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]{6}"
-              maxlength="6"
-              required
-              autofocus
-              placeholder="123456"
-              class="input text-center text-2xl font-mono tracking-[0.4em] font-bold"
-            />
-          </div>
-
-          <button
-            type="submit"
-            :disabled="verifyForm.processing || verifyForm.code.length !== 6"
-            class="btn btn-primary btn-block min-h-12 shadow-glow"
-          >
-            <span v-if="verifyForm.processing">Vérification...</span>
-            <span v-else class="flex items-center justify-center gap-2">
-              Valider et se connecter
-              <ArrowRight class="size-4" />
-            </span>
-          </button>
-
-          <button
-            type="button"
-            @click="changeEmail"
-            class="btn btn-soft btn-block min-h-10 text-xs text-slate-600"
-          >
-            Utiliser une autre adresse e-mail
-          </button>
-        </form>
-
-        <!-- Security footer badge -->
-        <div class="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
-          <ShieldCheck class="size-4 text-[#0d5c4a]" />
-          <span>Authentification sécurisée sans mot de passe</span>
+          <!-- Points rassurants sous la carte -->
+          <ul class="mt-6 space-y-2.5">
+            <li
+              v-for="({ icon, text }) in points"
+              :key="text"
+              class="flex items-center gap-3 text-sm font-medium text-ink/75"
+            >
+              <component :is="icon" class="size-4 text-brand" aria-hidden="true" />
+              {{ text }}
+            </li>
+          </ul>
         </div>
       </div>
     </div>

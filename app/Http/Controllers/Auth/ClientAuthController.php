@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\MailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -20,7 +21,7 @@ class ClientAuthController extends Controller
         }
 
         return Inertia::render('Auth/Login', [
-            'next' => $request->query('next', '/compte'),
+            'next' => $request->query('next', '/compte/achats'),
         ]);
     }
 
@@ -32,8 +33,21 @@ class ClientAuthController extends Controller
 
         $email = strtolower(trim($validated['email']));
         $ip = $request->ip();
-        $now = now();
 
+        // Rate limit: 5 demandes par tranche de 15 minutes par IP / Email
+        $keyIp = 'login-code-req-ip:' . $ip;
+        $keyEmail = 'login-code-req-email:' . $email;
+        if (RateLimiter::tooManyAttempts($keyIp, 5) || RateLimiter::tooManyAttempts($keyEmail, 5)) {
+            $seconds = max(RateLimiter::availableIn($keyIp), RateLimiter::availableIn($keyEmail));
+            return back()->with([
+                'error' => "Trop de demandes de code. Veuillez patienter {$seconds} secondes avant de réessayer.",
+            ])->withErrors(['email' => "Trop de demandes. Réessayez dans {$seconds}s."]);
+        }
+
+        RateLimiter::hit($keyIp, 900);
+        RateLimiter::hit($keyEmail, 900);
+
+        $now = now();
         // 6-digit code
         $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
         $codeHash = hash_hmac('sha256', "{$email}:{$code}", config('app.key'));
@@ -44,13 +58,13 @@ class ClientAuthController extends Controller
             ->whereNull('consumed_at')
             ->update(['consumed_at' => $now]);
 
-        // Insert new code
+        // Insert new code (valid for 10 minutes)
         DB::table('login_codes')->insert([
             'id' => Str::uuid()->toString(),
             'email' => $email,
             'code_hash' => $codeHash,
             'attempts' => 0,
-            'expires_at' => $now->copy()->addMinutes(15),
+            'expires_at' => $now->copy()->addMinutes(10),
             'consumed_at' => null,
             'ip' => $ip,
             'created_at' => $now,
@@ -58,7 +72,7 @@ class ClientAuthController extends Controller
 
         // Send email with code
         try {
-            app(\App\Services\MailService::class)->sendLoginCode($email, $code);
+            app(MailService::class)->sendLoginCode($email, $code);
         } catch (\Throwable $e) {
             \Log::warning("Erreur envoi email code de connexion : " . $e->getMessage());
         }
@@ -80,8 +94,22 @@ class ClientAuthController extends Controller
 
         $email = strtolower(trim($validated['email']));
         $code = trim($validated['code']);
-        $now = now();
+        $ip = $request->ip();
 
+        // Rate limit: 20 vérifications par heure par IP
+        $keyVerifyIp = 'login-code-verify-ip:' . $ip;
+        if (RateLimiter::tooManyAttempts($keyVerifyIp, 20)) {
+            $seconds = RateLimiter::availableIn($keyVerifyIp);
+            return back()->with([
+                'step' => 'code',
+                'email' => $email,
+                'error' => "Trop de tentatives de vérification. Réessayez dans {$seconds} secondes.",
+            ])->withErrors(['code' => "Trop de tentatives. Réessayez plus tard."]);
+        }
+
+        RateLimiter::hit($keyVerifyIp, 3600);
+
+        $now = now();
         $codeRow = DB::table('login_codes')
             ->where('email', $email)
             ->whereNull('consumed_at')
@@ -91,18 +119,18 @@ class ClientAuthController extends Controller
 
         if (!$codeRow) {
             return back()->with([
-                'step' => 'code',
+                'step' => 'email',
                 'email' => $email,
-                'error' => 'Code incorrect ou expiré. Veuillez en demander un nouveau.',
-            ]);
+                'error' => 'Code expiré ou déjà utilisé. Veuillez en demander un nouveau.',
+            ])->withErrors(['email' => 'Code expiré ou déjà utilisé.']);
         }
 
         if ($codeRow->attempts >= 5) {
             return back()->with([
-                'step' => 'code',
+                'step' => 'email',
                 'email' => $email,
                 'error' => 'Nombre d\'essais dépassé. Demandez un nouveau code.',
-            ]);
+            ])->withErrors(['email' => 'Nombre d\'essais dépassé.']);
         }
 
         // Increment attempts
@@ -117,7 +145,7 @@ class ClientAuthController extends Controller
                 'step' => 'code',
                 'email' => $email,
                 'error' => 'Code incorrect. Vérifiez vos e-mails ou réessayez.',
-            ]);
+            ])->withErrors(['code' => 'Code incorrect.']);
         }
 
         // Mark code consumed
@@ -145,12 +173,14 @@ class ClientAuthController extends Controller
             ]);
         }
 
+        $user->update(['last_login_at' => $now]);
+
         // Connect client
         Auth::guard('web')->login($user, true);
         $request->session()->regenerate();
 
         $nextUrl = $validated['next'] ?? '/compte/achats';
-        if (!str_starts_with($nextUrl, '/')) {
+        if (!str_starts_with($nextUrl, '/') || str_starts_with($nextUrl, '//')) {
             $nextUrl = '/compte/achats';
         }
 

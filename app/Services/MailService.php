@@ -97,9 +97,29 @@ HTML;
             'Votre code de connexion',
             [
                 "Code : {$code}",
-                "Il est valable 15 minutes et ne peut servir qu'une fois.",
+                "Il est valable 10 minutes et ne peut servir qu'une fois.",
                 "Si vous n'avez pas demandé ce code, ignorez cet e-mail : personne ne peut se connecter sans lui.",
             ]
+        );
+
+        return $this->send($to, $subject, $rendered);
+    }
+
+    /**
+     * Code 2FA Administrateur (6 chiffres)
+     */
+    public function sendAdmin2faCode(string $to, string $code): bool
+    {
+        $subject = "{$code} est votre code de vérification administrateur {$this->siteName}";
+        $rendered = $this->renderTemplate(
+            'Vérification de connexion administrateur',
+            [
+                "Code : {$code}",
+                "Il est valable 10 minutes et ne peut servir qu'une fois.",
+                "Si vous n'êtes pas à l'origine de cette connexion, ne communiquez ce code à personne et changez votre mot de passe sans attendre.",
+            ],
+            null,
+            "Cet e-mail vous est envoyé par {$this->siteName}. Ne transmettez jamais vos codes ni vos mots de passe."
         );
 
         return $this->send($to, $subject, $rendered);

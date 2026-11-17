@@ -93,13 +93,15 @@ Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(funct
 */
 
 Route::prefix('admin')->name('admin.')->group(function () {
-    // Connexion / Déconnexion Admin
+    // Connexion / Déconnexion Admin avec 2FA par e-mail
     Route::get('connexion', [AdminAuthController::class, 'showLoginForm'])->name('login');
     Route::post('connexion', [AdminAuthController::class, 'login']);
+    Route::post('connexion/verifier', [AdminAuthController::class, 'verify2fa'])->name('2fa.verify');
+    Route::get('connexion/annuler', [AdminAuthController::class, 'cancel2fa'])->name('2fa.cancel');
     Route::post('deconnexion', [AdminAuthController::class, 'logout'])->name('logout');
 
-    // Backoffice protégé par authentification et rôle admin (Spatie)
-    Route::middleware(['auth:admin', 'role:admin'])->group(function () {
+    // Backoffice protégé furtivement (404 si non admin)
+    Route::middleware([\App\Http\Middleware\EnsureAdminAuthenticated::class])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
         // Commandes

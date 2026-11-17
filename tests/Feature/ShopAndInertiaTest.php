@@ -98,13 +98,29 @@ class ShopAndInertiaTest extends TestCase
     {
         $response = $this->get('/admin/connexion');
         $response->assertStatus(200);
-        $response->assertSee('Backoffice Administrateur');
+        $response->assertSee('Accès administrateur');
 
+        // Création ou récupération d'un admin
+        $admin = User::firstOrCreate(
+            ['email' => 'abdoulrazakmaali@gmail.com'],
+            [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'name' => 'Abdoul Razak',
+                'role' => 'admin',
+                'password' => \Illuminate\Support\Facades\Hash::make('Admin123!'),
+            ]
+        );
+        $admin->password = \Illuminate\Support\Facades\Hash::make('Admin123!');
+        $admin->role = 'admin';
+        $admin->save();
+
+        // Étape 1 : mot de passe -> pose cookie admin2fa
         $loginResponse = $this->post('/admin/connexion', [
             'email' => 'abdoulrazakmaali@gmail.com',
             'password' => 'Admin123!',
         ]);
 
-        $loginResponse->assertRedirect('/admin');
+        $loginResponse->assertRedirect(route('admin.login'));
+        $loginResponse->assertCookie('admin2fa');
     }
 }

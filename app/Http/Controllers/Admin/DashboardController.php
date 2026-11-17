@@ -19,7 +19,7 @@ class DashboardController extends Controller
         $deliveredCount = Order::where('status', 'delivered')->count();
         $pendingCount = Order::where('status', 'pending_payment')->count();
         $failedCount = Order::where('status', 'failed')->count();
-        $activeProductsCount = Product::where('is_active', true)->count();
+        $activeProductsCount = Product::where('is_published', true)->where('supplier_active', true)->count();
         $openTicketsCount = Ticket::where('status', 'open')->count();
         $clientsCount = User::where('role', 'client')->count();
 
