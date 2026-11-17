@@ -51,7 +51,8 @@ class StockAlertService
             }
 
             try {
-                $mailService->sendStockAlert($alert);
+                $lang = $user->lang ?? 'fr';
+                $mailService->sendStockAlert($user->email, $product, $lang);
                 $sent++;
             } catch (\Throwable $e) {
                 Log::warning("[StockAlertService] Échec envoi alerte stock: {$e->getMessage()}");
