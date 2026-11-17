@@ -110,6 +110,22 @@
                         <pre id="creds-output" class="hidden p-3 bg-slate-900 text-emerald-400 font-mono rounded-lg overflow-x-auto whitespace-pre-wrap"></pre>
                     </div>
                 @endif
+
+                @if(!$order->delivered_at && $order->status !== 'refunded')
+                    <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-3">
+                        <div>
+                            <span class="font-bold text-emerald-900 uppercase tracking-wider text-[11px] block">Livraison manuelle (Fournisseur externe ou secours)</span>
+                            <p class="text-emerald-700 mt-0.5">Saisissez les clés, identifiants ou liens d'accès obtenus auprès d'un autre fournisseur. Ils seront chiffrés et immédiatement mis à disposition du client.</p>
+                        </div>
+                        <form action="{{ route('admin.orders.deliver_manual', $order->id) }}" method="POST" class="space-y-2">
+                            @csrf
+                            <textarea name="credentials" rows="3" required placeholder="Collez ici les accès (ex: email:password, clé de licence, lien d'invitation)..." class="w-full px-3 py-2 rounded-xl border border-emerald-300 text-xs font-mono focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 outline-none transition bg-white"></textarea>
+                            <button type="submit" class="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl text-xs transition shadow-sm">
+                                Chiffrer & Livrer au client
+                            </button>
+                        </form>
+                    </div>
+                @endif
             </div>
 
             <!-- Note administrative interne -->

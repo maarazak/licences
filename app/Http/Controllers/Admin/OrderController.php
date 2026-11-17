@@ -195,4 +195,43 @@ class OrderController extends Controller
             'credentials' => $credentials,
         ]);
     }
+
+    public function manualDelivery(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+
+        $request->validate([
+            'credentials' => 'required|string|min:3',
+        ]);
+
+        $plain = trim($request->input('credentials'));
+        $encrypted = \App\Services\CryptoService::encrypt($plain, $order->id);
+
+        $order->update([
+            'status' => 'delivered',
+            'delivery_encrypted' => $encrypted,
+            'delivered_at' => now(),
+            'failure_message' => null,
+            'fulfil_locked_at' => null,
+        ]);
+
+        OrderEvent::create([
+            'id' => Str::uuid()->toString(),
+            'order_id' => $order->id,
+            'type' => 'delivered_manual',
+            'message' => 'Accès et identifiants livrés manuellement par l\'administrateur.',
+            'actor' => auth()->user()->email,
+            'created_at' => now(),
+        ]);
+
+        AuditLog::record('order.manual_delivery', $order->id, [
+            'reference' => $order->reference,
+        ]);
+
+        try {
+            app(\App\Services\MailService::class)->sendOrderDelivered($order);
+        } catch (\Throwable $e) {}
+
+        return back()->with('success', "Identifiants enregistrés et commande {$order->reference} marquée comme livrée !");
+    }
 }

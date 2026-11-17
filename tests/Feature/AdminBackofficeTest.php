@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CryptoService;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -136,6 +137,44 @@ class AdminBackofficeTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'settings.update',
+        ]);
+    }
+
+    public function test_admin_can_deliver_order_manually(): void
+    {
+        Mail::fake();
+
+        $order = Order::create([
+            'id' => (string) Str::uuid(),
+            'reference' => 'CMD-MANUAL-' . strtoupper(Str::random(6)),
+            'user_id' => $this->admin->id,
+            'product_name' => 'Canva Pro Ext',
+            'quantity' => 1,
+            'unit_price_xof' => 4500,
+            'total_xof' => 4500,
+            'status' => 'paid',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin, 'admin')
+            ->post("/admin/commandes/{$order->id}/deliver-manual", [
+                'credentials' => "email: ext-supplier@gmail.com\npass: Secret123",
+            ]);
+
+        $response->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertEquals('delivered', $order->status);
+        $this->assertNotNull($order->delivered_at);
+        $this->assertNotNull($order->delivery_encrypted);
+
+        // Déchiffrement AES-256-GCM
+        $decrypted = \App\Services\CryptoService::decrypt($order->delivery_encrypted, $order->id);
+        $this->assertStringContainsString('ext-supplier@gmail.com', $decrypted);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'order.manual_delivery',
+            'target' => $order->id,
         ]);
     }
 }

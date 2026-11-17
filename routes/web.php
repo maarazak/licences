@@ -118,6 +118,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('commandes/{id}/sync', [OrderController::class, 'syncPayment'])->name('orders.sync');
         Route::post('commandes/{id}/retry', [OrderController::class, 'retryFulfilment'])->name('orders.retry');
         Route::get('commandes/{id}/reveal', [OrderController::class, 'revealCredentials'])->name('orders.reveal');
+        Route::post('commandes/{id}/deliver-manual', [OrderController::class, 'manualDelivery'])->name('orders.deliver_manual');
         Route::post('commandes/{id}/note', [OrderController::class, 'saveNote'])->name('orders.note');
         Route::post('commandes/{id}/refund-balance', [OrderController::class, 'refundBalance'])->name('orders.refund_balance');
         Route::post('commandes/{id}/refund-gateway', [OrderController::class, 'refundGateway'])->name('orders.refund_gateway');
