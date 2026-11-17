@@ -41,7 +41,7 @@ const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
 const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
-const phoneInput = ref(props.defaults.phone || '');
+const phoneInput = ref('');
 const payChoice = ref<'gateway' | 'balance'>('gateway');
 
 const currentCountry = computed(() => getCountry(selectedCountry.value));

@@ -207,6 +207,200 @@
         </main>
     </div>
 
+    <!-- SweetAlert2 Scripts & Helpers -->
+    <script>
+        window.confirmAction = function(opts) {
+            Swal.fire({
+                title: opts.title || 'Confirmation requise',
+                text: opts.text || '',
+                icon: opts.icon || 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d5c4a',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: opts.confirmText || 'Oui, confirmer',
+                cancelButtonText: opts.cancelText || 'Annuler',
+                reverseButtons: true,
+                customClass: {
+                    popup: 'swal-popup',
+                    title: 'swal-title',
+                    htmlContainer: 'swal-text',
+                    actions: 'swal-actions'
+                }
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    if (opts.loadingText) {
+                        Swal.fire({
+                            title: opts.loadingText,
+                            allowOutsideClick: false,
+                            didOpen: function() { Swal.showLoading(); }
+                        });
+                    }
+                    if (opts.formId) {
+                        var form = document.getElementById(opts.formId);
+                        if (form) form.submit();
+                    } else if (typeof opts.callback === 'function') {
+                        opts.callback();
+                    }
+                }
+            });
+        };
+
+        window.swalConfirm = function(message, callback, title) {
+            window.confirmAction({
+                title: title || 'Confirmation requise',
+                text: message,
+                callback: callback
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. Interception de tous les formulaires avec data-confirm ou onsubmit="return confirm(...)"
+            document.querySelectorAll('form[data-confirm], form[onsubmit*="confirm("]').forEach(function(form) {
+                var msg = form.getAttribute('data-confirm');
+                if (!msg) {
+                    var onsubmitStr = form.getAttribute('onsubmit') || '';
+                    var match = onsubmitStr.match(/confirm\(['"](.*?)['"]\)/);
+                    msg = match ? match[1] : 'Confirmer cette action ?';
+                    form.removeAttribute('onsubmit');
+                }
+
+                form.addEventListener('submit', function(e) {
+                    if (form.dataset.swalConfirmed === 'true') {
+                        return true;
+                    }
+                    e.preventDefault();
+
+                    var loadingText = form.getAttribute('data-loading');
+
+                    Swal.fire({
+                        title: 'Confirmation requise',
+                        text: msg,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#0d5c4a',
+                        cancelButtonColor: '#94a3b8',
+                        confirmButtonText: 'Oui, confirmer',
+                        cancelButtonText: 'Annuler',
+                        reverseButtons: true,
+                        customClass: {
+                            popup: 'swal-popup',
+                            title: 'swal-title',
+                            htmlContainer: 'swal-text',
+                            actions: 'swal-actions'
+                        }
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            form.dataset.swalConfirmed = 'true';
+                            if (loadingText) {
+                                Swal.fire({
+                                    title: loadingText,
+                                    allowOutsideClick: false,
+                                    didOpen: function() { Swal.showLoading(); }
+                                });
+                            }
+                            form.submit();
+                        }
+                    });
+                });
+            });
+
+            // 2. Gestion des formulaires avec indicateur de chargement uniquement (ex: Synchroniser)
+            document.querySelectorAll('form[data-loading]:not([data-confirm])').forEach(function(form) {
+                form.addEventListener('submit', function() {
+                    var loadingText = form.getAttribute('data-loading') || 'Traitement en cours...';
+                    Swal.fire({
+                        title: loadingText,
+                        allowOutsideClick: false,
+                        didOpen: function() { Swal.showLoading(); }
+                    });
+                });
+            });
+
+            // 3. Boutons ou liens directs avec data-confirm
+            document.querySelectorAll('button[data-confirm]:not([type="submit"]), a[data-confirm]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    var msg = el.getAttribute('data-confirm');
+                    e.preventDefault();
+                    Swal.fire({
+                        title: 'Confirmation requise',
+                        text: msg,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#0d5c4a',
+                        cancelButtonColor: '#94a3b8',
+                        confirmButtonText: 'Oui, continuer',
+                        cancelButtonText: 'Annuler',
+                        reverseButtons: true,
+                        customClass: {
+                            popup: 'swal-popup',
+                            title: 'swal-title',
+                            htmlContainer: 'swal-text',
+                            actions: 'swal-actions'
+                        }
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            if (el.tagName === 'A' && el.href) {
+                                window.location.href = el.href;
+                            } else if (el.form) {
+                                el.form.dataset.swalConfirmed = 'true';
+                                el.form.submit();
+                            }
+                        }
+                    });
+                });
+            });
+
+            // 4. Notifications flash SweetAlert2
+            @if(session('success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Succès',
+                    text: {!! json_encode(session('success')) !!},
+                    timer: 3500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end',
+                    customClass: {
+                        popup: 'swal-toast',
+                        title: 'swal-toast-title'
+                    }
+                });
+            @endif
+
+            @if(session('info'))
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Information',
+                    text: {!! json_encode(session('info')) !!},
+                    timer: 4500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end',
+                    customClass: {
+                        popup: 'swal-toast',
+                        title: 'swal-toast-title'
+                    }
+                });
+            @endif
+
+            @if(session('error'))
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erreur',
+                    text: {!! json_encode(session('error')) !!},
+                    confirmButtonColor: '#0d5c4a',
+                    confirmButtonText: 'Compris',
+                    customClass: {
+                        popup: 'swal-popup',
+                        title: 'swal-title',
+                        htmlContainer: 'swal-text',
+                        actions: 'swal-actions'
+                    }
+                });
+            @endif
+        });
+    </script>
+
     @stack('scripts')
 </body>
 </html>

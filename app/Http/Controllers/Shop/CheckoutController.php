@@ -84,7 +84,7 @@ class CheckoutController extends Controller
                 'fullName' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: ($user->name ?? ''),
                 'firstName' => $user->first_name ?? '',
                 'lastName' => $user->last_name ?? '',
-                'phone' => $user->phone ?? '',
+                'phone' => '',
                 'country' => $user->country ?? 'BF',
                 'email' => $user->email,
             ],

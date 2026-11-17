@@ -8,13 +8,13 @@
             <p class="lead mt-2 max-w-2xl">Le catalogue vient du fournisseur. Vous décidez de ce qui est publié et à quel prix.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <form action="{{ route('admin.products.sync') }}" method="POST">
+            <form action="{{ route('admin.products.sync') }}" method="POST" data-loading="Synchronisation du catalogue...">
                 @csrf
                 <button type="submit" class="btn btn-soft btn-sm">
                     Synchroniser
                 </button>
             </form>
-            <form action="{{ route('admin.products.publish_all') }}" method="POST" onsubmit="return confirm('Publier tous les produits vendables qui ne le sont pas encore ?');">
+            <form action="{{ route('admin.products.publish_all') }}" method="POST" data-confirm="Publier tous les produits vendables qui ne le sont pas encore ?" data-loading="Publication des offres vendables...">
                 @csrf
                 <button type="submit" class="btn btn-brand btn-sm">
                     Publier tout le vendable

@@ -91,7 +91,7 @@
             <p class="alert alert-error">Dernière synchronisation en échec : {{ $settings['catalogSyncError'] }}. Le catalogue enregistré reste en vente.</p>
         @endif
 
-        <form action="{{ route('admin.products.sync') }}" method="POST">
+        <form action="{{ route('admin.products.sync') }}" method="POST" data-loading="Synchronisation du catalogue...">
             @csrf
             <button type="submit" class="btn btn-brand btn-sm">
                 Synchroniser maintenant

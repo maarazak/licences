@@ -30,7 +30,7 @@ const quickAmounts = [2000, 5000, 10000, 25000, 50000];
 const depositForm = useForm({
   amount_xof: 5000,
   country: authUser?.country || 'BF',
-  phone: authUser?.phone || '',
+  phone: '',
 });
 
 const selectQuickAmount = (val: number) => {

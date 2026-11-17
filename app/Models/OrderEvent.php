@@ -13,7 +13,16 @@ class OrderEvent extends Model
     protected $table = 'order_events';
     protected $keyType = 'string';
     public $incrementing = false;
-    public $timestamps = false;
+    public $timestamps = true;
+
+    protected static function booted()
+    {
+        static::creating(function ($event) {
+            if (!$event->created_at) {
+                $event->created_at = now();
+            }
+        });
+    }
 
     protected $fillable = [
         'id',

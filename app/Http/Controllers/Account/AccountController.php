@@ -127,13 +127,13 @@ class AccountController extends Controller
                 'delivery_content' => $decryptedDelivery,
                 'delivered_at' => $order->delivered_at ? $order->delivered_at->toIso8601String() : null,
                 'paid_at' => $order->paid_at ? $order->paid_at->toIso8601String() : null,
-                'created_at' => $order->created_at->toIso8601String(),
+                'created_at' => $order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String(),
                 'payment_url' => $order->payment_url,
                 'events' => $order->events->map(fn ($e) => [
                     'id' => $e->id,
                     'event' => $e->event ?: $e->type,
                     'message' => $e->message,
-                    'created_at' => $e->created_at->toIso8601String(),
+                    'created_at' => $e->created_at ? $e->created_at->toIso8601String() : ($order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String()),
                 ]),
             ],
         ]);
