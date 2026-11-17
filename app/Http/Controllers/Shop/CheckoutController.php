@@ -105,13 +105,16 @@ class CheckoutController extends Controller
         $ref = 'CMD-' . strtoupper(Str::random(8));
         $orderId = Str::uuid()->toString();
 
+        $firstName = $clientUser->first_name ?: ($clientUser->name ?: 'Client');
+        $lastName = $clientUser->last_name ?: '';
+
         // 1. Paid with wallet balance
         if ($validated['paid_with'] === 'balance') {
             if ($clientUser->balance_xof < $totalXof) {
                 return back()->with('error', 'Solde insuffisant pour régler cette commande.');
             }
 
-            DB::transaction(function () use ($clientUser, $totalXof, $orderId, $product, $validated, $ref) {
+            DB::transaction(function () use ($clientUser, $totalXof, $orderId, $product, $validated, $ref, $firstName, $lastName) {
                 // Deduct balance
                 $clientUser->decrement('balance_xof', $totalXof);
 
@@ -120,6 +123,7 @@ class CheckoutController extends Controller
                     'id' => Str::uuid()->toString(),
                     'user_id' => $clientUser->id,
                     'type' => 'debit',
+                    'kind' => 'purchase',
                     'amount_xof' => -$totalXof,
                     'balance_after_xof' => $clientUser->balance_xof,
                     'description' => "Paiement commande {$ref} ({$product->name})",
@@ -135,11 +139,14 @@ class CheckoutController extends Controller
                     'user_id' => $clientUser->id,
                     'product_id' => $product->id,
                     'product_name' => $product->name,
+                    'supplier_product_id' => $product->supplier_id,
                     'quantity' => $validated['quantity'],
                     'unit_price_xof' => $product->price_xof,
                     'total_xof' => $totalXof,
                     'paid_with' => 'balance',
                     'status' => 'paid',
+                    'customer_first_name' => $firstName,
+                    'customer_last_name' => $lastName,
                     'customer_email' => $clientUser->email,
                     'customer_phone' => $validated['phone'] ?? null,
                     'customer_country' => $validated['country'],
@@ -151,12 +158,20 @@ class CheckoutController extends Controller
                 OrderEvent::create([
                     'id' => Str::uuid()->toString(),
                     'order_id' => $order->id,
+                    'type' => 'paid',
                     'event' => 'paid',
                     'actor' => 'client',
                     'message' => "Commande réglée avec succès par solde du compte ({$totalXof} FCFA).",
                     'created_at' => now(),
                 ]);
             });
+
+            // Déclenchement de la livraison automatique
+            try {
+                app(\App\Services\OrderFulfillmentService::class)->fulfil($orderId);
+            } catch (\Throwable $e) {
+                \Log::warning("Erreur déclenchement fulfillment solde: " . $e->getMessage());
+            }
 
             return redirect()->route('account.orders.show', $orderId)->with('success', 'Commande validée et payée avec succès !');
         }
@@ -170,12 +185,15 @@ class CheckoutController extends Controller
             'user_id' => $clientUser->id,
             'product_id' => $product->id,
             'product_name' => $product->name,
+            'supplier_product_id' => $product->supplier_id,
             'quantity' => $validated['quantity'],
             'unit_price_xof' => $product->price_xof,
             'total_xof' => $totalXof,
             'paid_with' => 'pawapay',
             'status' => 'pending_payment',
             'payment_checkout_id' => $depositId,
+            'customer_first_name' => $firstName,
+            'customer_last_name' => $lastName,
             'customer_email' => $clientUser->email,
             'customer_phone' => $validated['phone'] ?? null,
             'customer_country' => $validated['country'],
@@ -186,6 +204,7 @@ class CheckoutController extends Controller
         OrderEvent::create([
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
+            'type' => 'created',
             'event' => 'created',
             'actor' => 'client',
             'message' => "Commande initiée via Mobile Money pawaPay.",
@@ -249,6 +268,12 @@ class CheckoutController extends Controller
                         'message' => "Paiement Mobile Money confirmé par pawaPay.",
                         'created_at' => now(),
                     ]);
+
+                    try {
+                        app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
+                    } catch (\Throwable $e) {
+                        \Log::warning("Erreur déclenchement fulfillment retour: " . $e->getMessage());
+                    }
                 }
             } catch (\Throwable $e) {
                 \Log::warning("Erreur sync deposit retour : " . $e->getMessage());

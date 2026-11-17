@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'flowseller' => [
+        'url' => env('SUPPLIER_API_URL', 'https://flowseller-api.pe-supplykh.com'),
+        'key' => env('SUPPLIER_API_KEY'),
+    ],
+
+    'pawapay' => [
+        'url' => env('PAWAPAY_API_URL', 'https://api.sandbox.pawapay.cloud'),
+        'token' => env('PAWAPAY_API_TOKEN'),
+    ],
+
 ];

@@ -13,11 +13,22 @@ return new class extends Migration
     {
         if (!Schema::hasTable('users')) {
             Schema::create('users', function (Blueprint $table) {
-                $table->id();
-                $table->string('name');
-                $table->string('email')->unique();
+                $table->uuid('id')->primary();
+                $table->string('name')->nullable();
+                $table->string('first_name', 100)->nullable();
+                $table->string('last_name', 100)->nullable();
+                $table->string('email', 191)->unique();
+                $table->string('phone', 32)->nullable();
+                $table->string('country', 8)->nullable()->default('BF');
+                $table->integer('balance_xof')->default(0);
+                $table->string('role', 20)->default('client');
+                $table->string('password')->nullable();
+                $table->string('password_hash', 255)->nullable();
+                $table->boolean('is_blocked')->default(false);
+                $table->string('lang', 2)->default('fr');
+                $table->boolean('mail_reminders')->default(true);
+                $table->timestamp('last_login_at')->nullable();
                 $table->timestamp('email_verified_at')->nullable();
-                $table->string('password');
                 $table->rememberToken();
                 $table->timestamps();
             });
@@ -34,7 +45,7 @@ return new class extends Migration
         if (!Schema::hasTable('sessions')) {
             Schema::create('sessions', function (Blueprint $table) {
                 $table->string('id')->primary();
-                $table->foreignId('user_id')->nullable()->index();
+                $table->uuid('user_id')->nullable()->index();
                 $table->string('ip_address', 45)->nullable();
                 $table->text('user_agent')->nullable();
                 $table->longText('payload');

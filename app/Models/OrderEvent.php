@@ -19,6 +19,7 @@ class OrderEvent extends Model
         'id',
         'order_id',
         'type',
+        'event',
         'message',
         'actor',
         'created_at',

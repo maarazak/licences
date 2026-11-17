@@ -89,6 +89,13 @@ class WebhookController extends Controller
                     'actor' => 'pawapay',
                     'created_at' => now(),
                 ]);
+
+                // Lancement de la livraison automatique
+                try {
+                    app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
+                } catch (\Throwable $e) {
+                    Log::warning("[Webhook pawaPay] Erreur fulfillment commande {$order->reference}: {$e->getMessage()}");
+                }
             }
         } elseif ($state['payment_status'] === 'failed' && $order->status === 'pending_payment') {
             $order->update([
