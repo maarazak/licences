@@ -90,8 +90,9 @@ class WebhookController extends Controller
                     'created_at' => now(),
                 ]);
 
-                // Lancement de la livraison automatique
+                // Notification et lancement de la livraison automatique
                 try {
+                    app(\App\Services\MailService::class)->sendOrderPaid($order);
                     app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
                 } catch (\Throwable $e) {
                     Log::warning("[Webhook pawaPay] Erreur fulfillment commande {$order->reference}: {$e->getMessage()}");

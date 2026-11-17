@@ -166,8 +166,9 @@ class CheckoutController extends Controller
                 ]);
             });
 
-            // Déclenchement de la livraison automatique
+            // Déclenchement de la livraison automatique et notification
             try {
+                app(\App\Services\MailService::class)->sendOrderPaid(Order::find($orderId));
                 app(\App\Services\OrderFulfillmentService::class)->fulfil($orderId);
             } catch (\Throwable $e) {
                 \Log::warning("Erreur déclenchement fulfillment solde: " . $e->getMessage());

@@ -192,6 +192,12 @@ class OrderFulfillmentService
                 'message' => 'Accès et licences livrés (' . count($items) . ' élément(s)).',
                 'actor' => 'supplier',
             ]);
+
+            try {
+                app(MailService::class)->sendOrderDelivered($order);
+            } catch (\Throwable $e) {
+                Log::warning("[Mail] Erreur notification livraison {$order->reference}: " . $e->getMessage());
+            }
             return;
         }
 
@@ -207,6 +213,12 @@ class OrderFulfillmentService
                 'message' => 'Activation en attente chez le fournisseur.',
                 'actor' => 'supplier',
             ]);
+
+            try {
+                app(MailService::class)->sendOrderActivation($order);
+            } catch (\Throwable $e) {
+                Log::warning("[Mail] Erreur notification activation {$order->reference}: " . $e->getMessage());
+            }
             return;
         }
 
@@ -249,6 +261,12 @@ class OrderFulfillmentService
             'message' => "Livraison impossible ({$code}) : {$message}",
             'actor' => 'system',
         ]);
+
+        try {
+            app(MailService::class)->sendOrderDelayed($order);
+        } catch (\Throwable $e) {
+            Log::warning("[Mail] Erreur notification retard {$order->reference}: " . $e->getMessage());
+        }
     }
 
     /**

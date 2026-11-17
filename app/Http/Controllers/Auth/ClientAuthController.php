@@ -58,9 +58,7 @@ class ClientAuthController extends Controller
 
         // Send email with code
         try {
-            Mail::raw("Votre code de connexion pour Licences est : {$code}\n\nCe code est valable 15 minutes.", function ($message) use ($email) {
-                $message->to($email)->subject("Votre code de connexion Licences : {$code}");
-            });
+            app(\App\Services\MailService::class)->sendLoginCode($email, $code);
         } catch (\Throwable $e) {
             \Log::warning("Erreur envoi email code de connexion : " . $e->getMessage());
         }
