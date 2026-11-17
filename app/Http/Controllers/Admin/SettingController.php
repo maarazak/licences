@@ -12,38 +12,52 @@ class SettingController extends Controller
 {
     public function index()
     {
-        $usdRate = Setting::get('usd_rate', '620');
-        $marginPercent = Setting::get('default_margin_percent', '25');
-        $maintenance = Setting::get('maintenance_mode', '0');
+        $usdRate = Setting::get('usd_rate', '669');
+        $marginPercent = Setting::get('default_margin_percent', '100');
+        $minMarginXof = Setting::get('min_margin_xof', '1000');
+        $roundingStep = Setting::get('rounding_step', '250');
+        $autoPublish = (bool) Setting::get('auto_publish', '1');
+        $notice = Setting::get('notice', '');
 
-        return view('admin.settings.index', compact('usdRate', 'marginPercent', 'maintenance'));
+        $checks = [
+            ["Clé API fournisseur (SUPPLIER_API_KEY)", !empty(env('SUPPLIER_API_KEY'))],
+            ["Jeton API pawaPay (PAWAPAY_API_TOKEN)", !empty(env('PAWAPAY_API_TOKEN'))],
+            ["Envoi d'e-mails (MAIL_HOST)", !empty(env('MAIL_HOST'))],
+            ["Adresse d'assistance (SUPPORT_EMAIL)", !empty(env('SUPPORT_EMAIL', env('MAIL_FROM_ADDRESS')))],
+            ["Site en HTTPS (APP_URL)", str_starts_with(env('APP_URL', ''), 'https://')],
+        ];
+
+        return view('admin.settings.index', compact(
+            'usdRate',
+            'marginPercent',
+            'minMarginXof',
+            'roundingStep',
+            'autoPublish',
+            'notice',
+            'checks'
+        ));
     }
 
     public function update(Request $request)
     {
         $validated = $request->validate([
-            'usd_rate' => 'required|numeric|min:100|max:2000',
-            'default_margin_percent' => 'required|numeric|min:0|max:200',
-            'maintenance_mode' => 'nullable|boolean',
+            'usdRate' => 'required|numeric|min:100|max:2000',
+            'marginPercent' => 'required|numeric|min:0|max:500',
+            'minMarginXof' => 'required|numeric|min:0|max:50000',
+            'roundingStep' => 'required|numeric|min:1|max:5000',
+            'autoPublish' => 'nullable|boolean',
+            'notice' => 'nullable|string|max:300',
         ]);
 
-        Setting::set('usd_rate', (string) $validated['usd_rate']);
-        Setting::set('default_margin_percent', (string) $validated['default_margin_percent']);
-        Setting::set('maintenance_mode', $request->has('maintenance_mode') ? '1' : '0');
+        Setting::set('usd_rate', (string) $validated['usdRate']);
+        Setting::set('default_margin_percent', (string) $validated['marginPercent']);
+        Setting::set('min_margin_xof', (string) $validated['minMarginXof']);
+        Setting::set('rounding_step', (string) $validated['roundingStep']);
+        Setting::set('auto_publish', $request->has('autoPublish') ? '1' : '0');
+        Setting::set('notice', $validated['notice'] ?? '');
 
-        AuditLog::create([
-            'id' => Str::uuid()->toString(),
-            'actor_type' => 'user',
-            'actor_id' => auth()->id(),
-            'action' => 'settings.update',
-            'target_type' => 'settings',
-            'target_id' => 'system',
-            'meta' => $validated,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'created_at' => now(),
-        ]);
+        AuditLog::record('settings.update', 'system', $validated);
 
-        return back()->with('success', 'Paramètres mis à jour avec succès.');
+        return back()->with('success', 'Paramètres de la boutique enregistrés avec succès.');
     }
 }

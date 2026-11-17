@@ -13,23 +13,32 @@ class AuditLog extends Model
     protected $table = 'audit_logs';
     protected $keyType = 'string';
     public $incrementing = false;
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'id',
-        'actor_type',
-        'actor_id',
+        'admin_id',
+        'admin_email',
         'action',
-        'target_type',
-        'target_id',
-        'meta',
-        'ip_address',
-        'user_agent',
+        'target',
+        'details',
+        'ip',
         'created_at',
+        'updated_at',
     ];
 
-    protected $casts = [
-        'meta' => 'array',
-        'created_at' => 'datetime',
-    ];
+    public static function record(string $action, string $target = '', string|array $details = ''): self
+    {
+        $user = auth()->user();
+        return self::create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'admin_id' => $user?->id ?? '00000000-0000-0000-0000-000000000000',
+            'admin_email' => $user?->email ?? 'system',
+            'action' => $action,
+            'target' => $target,
+            'details' => is_array($details) ? json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : (string) $details,
+            'ip' => request()->ip(),
+            'created_at' => now(),
+        ]);
+    }
 }

@@ -70,17 +70,9 @@ class ProductController extends Controller
             'instructions' => $validated['instructions'] ?? null,
         ]);
 
-        AuditLog::create([
-            'id' => Str::uuid()->toString(),
-            'actor_type' => 'user',
-            'actor_id' => auth()->id(),
-            'action' => 'product.update',
-            'target_type' => 'product',
-            'target_id' => $product->id,
-            'meta' => ['name' => $product->name, 'price_override' => $product->price_xof_override],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'created_at' => now(),
+        AuditLog::record('product.update', $product->id, [
+            'name' => $product->name,
+            'price_override' => $product->price_xof_override,
         ]);
 
         return redirect()->route('admin.products.index')->with('success', "Le produit {$product->name} a été mis à jour.");
@@ -94,5 +86,31 @@ class ProductController extends Controller
 
         $status = $product->is_published ? 'publié' : 'retiré de la vente';
         return back()->with('success', "Produit {$product->name} {$status}.");
+    }
+
+    public function syncCatalog()
+    {
+        try {
+            $report = app(\App\Services\CatalogService::class)->syncCatalog();
+
+            AuditLog::record('catalog.sync', 'catalog', $report);
+
+            return back()->with('success', "Catalogue synchronisé avec succès ({$report['synced']} offres synchronisées).");
+        } catch (\Throwable $e) {
+            return back()->with('error', "Échec de la synchronisation du catalogue : " . $e->getMessage());
+        }
+    }
+
+    public function refreshSupplierBalance()
+    {
+        try {
+            app(\App\Services\CatalogService::class)->refreshSupplierBalance();
+
+            AuditLog::record('supplier.balance_refresh', 'supplier');
+
+            return back()->with('success', 'Solde revendeur Flowseller actualisé avec succès.');
+        } catch (\Throwable $e) {
+            return back()->with('error', "Échec de la relecture du solde fournisseur : " . $e->getMessage());
+        }
     }
 }

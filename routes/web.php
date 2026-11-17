@@ -111,12 +111,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Commandes
         Route::get('commandes', [OrderController::class, 'index'])->name('orders.index');
         Route::get('commandes/{id}', [OrderController::class, 'show'])->name('orders.show');
+        Route::post('commandes/{id}/sync', [OrderController::class, 'syncPayment'])->name('orders.sync');
+        Route::post('commandes/{id}/retry', [OrderController::class, 'retryFulfilment'])->name('orders.retry');
+        Route::get('commandes/{id}/reveal', [OrderController::class, 'revealCredentials'])->name('orders.reveal');
         Route::post('commandes/{id}/note', [OrderController::class, 'saveNote'])->name('orders.note');
         Route::post('commandes/{id}/refund-balance', [OrderController::class, 'refundBalance'])->name('orders.refund_balance');
         Route::post('commandes/{id}/refund-gateway', [OrderController::class, 'refundGateway'])->name('orders.refund_gateway');
 
         // Produits
         Route::get('produits', [ProductController::class, 'index'])->name('products.index');
+        Route::post('produits/synchroniser', [ProductController::class, 'syncCatalog'])->name('products.sync');
+        Route::post('produits/solde-fournisseur', [ProductController::class, 'refreshSupplierBalance'])->name('products.refresh_balance');
         Route::get('produits/{id}', [ProductController::class, 'edit'])->name('products.edit');
         Route::post('produits/{id}', [ProductController::class, 'update'])->name('products.update');
         Route::post('produits/{id}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle_active');

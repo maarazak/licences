@@ -5,14 +5,32 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-xl font-bold text-slate-900">Catalogue des produits</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Tarification, disponibilité et catégories</p>
+            <p class="text-xs text-slate-500 mt-0.5">Tarification, disponibilité et synchronisation fournisseur</p>
         </div>
-        <form method="GET" action="{{ route('admin.products.index') }}" class="flex items-center gap-2">
-            <input type="search" name="q" value="{{ $search }}" placeholder="Rechercher un produit..." class="px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition w-64">
-            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium text-sm rounded-xl transition">
-                Filtrer
-            </button>
-        </form>
+        <div class="flex items-center gap-2">
+            <form action="{{ route('admin.products.refresh_balance') }}" method="POST">
+                @csrf
+                <button type="submit" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5">
+                    <i data-lucide="wallet" class="size-3.5"></i>
+                    <span>Solde Fournisseur</span>
+                </button>
+            </form>
+
+            <form action="{{ route('admin.products.sync') }}" method="POST">
+                @csrf
+                <button type="submit" class="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="size-3.5"></i>
+                    <span>Synchroniser catalogue</span>
+                </button>
+            </form>
+
+            <form method="GET" action="{{ route('admin.products.index') }}" class="flex items-center gap-2">
+                <input type="search" name="q" value="{{ $search }}" placeholder="Rechercher..." class="px-3 py-2 rounded-xl border border-slate-300 text-xs focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 outline-none transition w-48">
+                <button type="submit" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs rounded-xl transition">
+                    Filtrer
+                </button>
+            </form>
+        </div>
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">

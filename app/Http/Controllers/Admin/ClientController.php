@@ -69,17 +69,9 @@ class ClientController extends Controller
             'created_at' => now(),
         ]);
 
-        AuditLog::create([
-            'id' => Str::uuid()->toString(),
-            'actor_type' => 'user',
-            'actor_id' => auth()->id(),
-            'action' => 'client.adjust_balance',
-            'target_type' => 'user',
-            'target_id' => $client->id,
-            'meta' => ['amount' => $amount, 'reason' => $validated['reason']],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'created_at' => now(),
+        AuditLog::record('client.adjust_balance', $client->id, [
+            'amount' => $amount,
+            'reason' => $validated['reason'],
         ]);
 
         return back()->with('success', "Le solde a été mis à jour ({$newBalance} FCFA).");

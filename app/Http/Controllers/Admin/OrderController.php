@@ -115,17 +115,9 @@ class OrderController extends Controller
                 'created_at' => now(),
             ]);
 
-            AuditLog::create([
-                'id' => Str::uuid()->toString(),
-                'actor_type' => 'user',
-                'actor_id' => auth()->id(),
-                'action' => 'order.refund_balance',
-                'target_type' => 'order',
-                'target_id' => $order->id,
-                'meta' => ['amount_xof' => $order->total_xof, 'reference' => $order->reference],
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-                'created_at' => now(),
+            AuditLog::record('order.refund_balance', $order->id, [
+                'amount_xof' => $order->total_xof,
+                'reference' => $order->reference,
             ]);
         });
 
@@ -154,19 +146,53 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
-        AuditLog::create([
-            'id' => Str::uuid()->toString(),
-            'actor_type' => 'user',
-            'actor_id' => auth()->id(),
-            'action' => 'order.refund_gateway',
-            'target_type' => 'order',
-            'target_id' => $order->id,
-            'meta' => ['amount_xof' => $order->total_xof, 'reference' => $order->reference],
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'created_at' => now(),
+        AuditLog::record('order.refund_gateway', $order->id, [
+            'amount_xof' => $order->total_xof,
+            'reference' => $order->reference,
         ]);
 
         return back()->with('success', 'Commande marquée remboursée sur le moyen de paiement.');
+    }
+
+    public function syncPayment($id)
+    {
+        $order = Order::findOrFail($id);
+        $fresh = app(\App\Services\OrderFulfillmentService::class)->syncPayment($order->id);
+
+        AuditLog::record('order.sync_payment', $order->id, [
+            'reference' => $order->reference,
+            'status_after' => $fresh?->status,
+        ]);
+
+        return back()->with('success', "Paiement synchronisé auprès de pawaPay (statut : {$fresh?->status}).");
+    }
+
+    public function retryFulfilment($id)
+    {
+        $order = Order::findOrFail($id);
+        app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
+
+        AuditLog::record('order.retry_fulfilment', $order->id, [
+            'reference' => $order->reference,
+        ]);
+
+        return back()->with('success', "Livraison relancée pour la commande {$order->reference}.");
+    }
+
+    public function revealCredentials($id)
+    {
+        $order = Order::findOrFail($id);
+        $credentials = null;
+        if ($order->delivery_encrypted) {
+            $credentials = \App\Services\CryptoService::decrypt($order->delivery_encrypted, $order->id);
+        }
+
+        AuditLog::record('order.reveal_credentials', $order->id, [
+            'reference' => $order->reference,
+        ]);
+
+        return response()->json([
+            'credentials' => $credentials,
+        ]);
     }
 }

@@ -14,13 +14,31 @@
         </div>
 
         <div class="flex items-center gap-2">
+            @if($order->status === 'pending' || $order->paid_with === 'pawapay')
+                <form action="{{ route('admin.orders.sync', $order->id) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition">
+                        Synchroniser pawaPay
+                    </button>
+                </form>
+            @endif
+
+            @if(in_array($order->status, ['paid', 'failed']) && !$order->delivered_at)
+                <form action="{{ route('admin.orders.retry', $order->id) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-xl shadow-sm transition">
+                        Relancer livraison
+                    </button>
+                </form>
+            @endif
+
             @if($order->status !== 'refunded')
                 <button type="button" onclick="confirmAction({
                     title: 'Rembourser sur le solde client ?',
                     text: 'Le montant de {{ number_format($order->total_xof, 0, ',', ' ') }} FCFA sera immédiatement crédité sur le portefeuille de {{ $order->user->email }}.',
                     confirmText: 'Créditer le solde',
                     formId: 'form-refund-balance'
-                })" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-sm transition">
+                })" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-sm transition">
                     Rembourser sur solde
                 </button>
                 <form id="form-refund-balance" action="{{ route('admin.orders.refund_balance', $order->id) }}" method="POST" class="hidden">
@@ -32,7 +50,7 @@
                     text: 'Indique que le remboursement Mobile Money a été exécuté sur pawaPay.',
                     confirmText: 'Confirmer remboursement',
                     formId: 'form-refund-gateway'
-                })" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-sm transition">
+                })" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-sm transition">
                     Remboursement passerelle
                 </button>
                 <form id="form-refund-gateway" action="{{ route('admin.orders.refund_gateway', $order->id) }}" method="POST" class="hidden">
@@ -78,6 +96,18 @@
                     <div class="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs space-y-1">
                         <strong class="font-semibold block">Dernier statut d'erreur pawaPay / fournisseur :</strong>
                         <p class="font-mono">{{ $order->failure_message }}</p>
+                    </div>
+                @endif
+
+                @if($order->delivery_encrypted || $order->delivered_at)
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Identifiants de licence</span>
+                            <button type="button" onclick="revealCredentials('{{ route('admin.orders.reveal', $order->id) }}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg text-xs transition">
+                                Afficher les identifiants (Audit)
+                            </button>
+                        </div>
+                        <pre id="creds-output" class="hidden p-3 bg-slate-900 text-emerald-400 font-mono rounded-lg overflow-x-auto whitespace-pre-wrap"></pre>
                     </div>
                 @endif
             </div>
@@ -151,4 +181,22 @@
         </div>
     </div>
 </div>
+
+<script>
+function revealCredentials(url) {
+    if (!confirm('Attention : La consultation des identifiants est journalisée dans l\'audit. Confirmer ?')) return;
+    const output = document.getElementById('creds-output');
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.credentials) {
+                output.textContent = data.credentials;
+                output.classList.remove('hidden');
+            } else {
+                alert(data.error || 'Aucun identifiant disponible');
+            }
+        })
+        .catch(err => alert('Erreur lors du déchiffrement'));
+}
+</script>
 @endsection
