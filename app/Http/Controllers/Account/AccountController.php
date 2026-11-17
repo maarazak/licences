@@ -1,0 +1,343 @@
+<?php
+
+namespace App\Http\Controllers\Account;
+
+use App\Http\Controllers\Controller;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\StockAlert;
+use App\Models\Ticket;
+use App\Models\TicketMessage;
+use App\Models\User;
+use App\Models\WalletDeposit;
+use App\Models\WalletEntry;
+use App\Services\CryptoService;
+use App\Services\PawaPayService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+
+class AccountController extends Controller
+{
+    protected function user(): User
+    {
+        return Auth::guard('web')->user();
+    }
+
+    public function dashboard()
+    {
+        $user = $this->user();
+
+        $recentOrders = Order::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get();
+
+        $openTicketsCount = Ticket::where('user_id', $user->id)
+            ->where('status', '!=', 'closed')
+            ->count();
+
+        $alertsCount = StockAlert::where('user_id', $user->id)->count();
+
+        return Inertia::render('Account/Dashboard', [
+            'recentOrders' => $recentOrders,
+            'openTicketsCount' => $openTicketsCount,
+            'alertsCount' => $alertsCount,
+        ]);
+    }
+
+    public function orders()
+    {
+        $user = $this->user();
+
+        $orders = Order::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return Inertia::render('Account/Orders', [
+            'orders' => $orders,
+        ]);
+    }
+
+    public function orderDetail($id)
+    {
+        $user = $this->user();
+
+        $order = Order::where('id', $id)
+            ->where('user_id', $user->id)
+            ->with(['events' => fn ($q) => $q->orderBy('created_at', 'asc')])
+            ->firstOrFail();
+
+        $decryptedDelivery = null;
+        if ($order->delivery_encrypted) {
+            $decryptedDelivery = CryptoService::decrypt($order->delivery_encrypted, $order->id);
+        }
+
+        return Inertia::render('Account/OrderShow', [
+            'order' => [
+                'id' => $order->id,
+                'reference' => $order->reference,
+                'product_name' => $order->product_name,
+                'quantity' => $order->quantity,
+                'total_xof' => $order->total_xof,
+                'status' => $order->status,
+                'paid_with' => $order->paid_with,
+                'customer_phone' => $order->customer_phone,
+                'customer_country' => $order->customer_country,
+                'delivery_content' => $decryptedDelivery,
+                'delivered_at' => $order->delivered_at ? $order->delivered_at->toIso8601String() : null,
+                'paid_at' => $order->paid_at ? $order->paid_at->toIso8601String() : null,
+                'created_at' => $order->created_at->toIso8601String(),
+                'payment_url' => $order->payment_url,
+                'events' => $order->events->map(fn ($e) => [
+                    'id' => $e->id,
+                    'event' => $e->event,
+                    'message' => $e->message,
+                    'created_at' => $e->created_at->toIso8601String(),
+                ]),
+            ],
+        ]);
+    }
+
+    public function wallet()
+    {
+        $user = $this->user();
+
+        $entries = WalletEntry::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        return Inertia::render('Account/Wallet', [
+            'entries' => $entries,
+        ]);
+    }
+
+    public function deposit(Request $request)
+    {
+        $validated = $request->validate([
+            'amount_xof' => 'required|integer|min:500|max:1000000',
+            'phone' => 'nullable|string|max:30',
+            'country' => 'required|string|max:5',
+        ]);
+
+        $user = $this->user();
+        $depositId = Str::uuid()->toString();
+        $ref = 'SOLDE-' . strtoupper(Str::random(8));
+
+        $deposit = WalletDeposit::create([
+            'id' => $depositId,
+            'user_id' => $user->id,
+            'amount_xof' => $validated['amount_xof'],
+            'status' => 'pending',
+            'created_at' => now(),
+        ]);
+
+        try {
+            $pawaPay = app(PawaPayService::class);
+            $returnUrl = url('/compte/solde');
+
+            $session = $pawaPay->createPaymentPage([
+                'deposit_id' => $depositId,
+                'reference' => $ref,
+                'amount_xof' => $validated['amount_xof'],
+                'country' => $validated['country'],
+                'phone' => $validated['phone'] ?? null,
+                'email' => $user->email,
+                'return_url' => $returnUrl,
+                'description' => "Recharge de solde ({$validated['amount_xof']} FCFA)",
+            ]);
+
+            return Inertia::location($session['redirectUrl']);
+        } catch (\Throwable $e) {
+            \Log::error("Erreur deposit pawaPay : " . $e->getMessage());
+            return back()->with('error', "Impossible d'initialiser la recharge : " . $e->getMessage());
+        }
+    }
+
+    public function tickets()
+    {
+        $user = $this->user();
+
+        $tickets = Ticket::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('Account/Tickets', [
+            'tickets' => $tickets,
+        ]);
+    }
+
+    public function newTicket(Request $request)
+    {
+        $orderId = $request->query('commande');
+        $user = $this->user();
+
+        $order = null;
+        if ($orderId) {
+            $order = Order::where('id', $orderId)->where('user_id', $user->id)->first();
+        }
+
+        return Inertia::render('Account/TicketCreate', [
+            'order' => $order ? [
+                'id' => $order->id,
+                'reference' => $order->reference,
+                'product_name' => $order->product_name,
+            ] : null,
+        ]);
+    }
+
+    public function createTicket(Request $request)
+    {
+        $validated = $request->validate([
+            'subject' => 'required|string|max:200',
+            'message' => 'required|string|max:5000',
+            'order_id' => 'nullable|exists:orders,id',
+        ]);
+
+        $user = $this->user();
+        $ticketId = Str::uuid()->toString();
+
+        DB::transaction(function () use ($user, $validated, $ticketId) {
+            $ticket = Ticket::create([
+                'id' => $ticketId,
+                'user_id' => $user->id,
+                'order_id' => $validated['order_id'] ?? null,
+                'subject' => $validated['subject'],
+                'status' => 'open',
+                'created_at' => now(),
+            ]);
+
+            TicketMessage::create([
+                'id' => Str::uuid()->toString(),
+                'ticket_id' => $ticket->id,
+                'user_id' => $user->id,
+                'message' => $validated['message'],
+                'is_staff' => false,
+                'created_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('account.tickets.show', $ticketId)->with('success', 'Votre ticket a été créé avec succès.');
+    }
+
+    public function showTicket($id)
+    {
+        $user = $this->user();
+
+        $ticket = Ticket::where('id', $id)
+            ->where('user_id', $user->id)
+            ->with(['messages' => fn ($q) => $q->orderBy('created_at', 'asc')])
+            ->firstOrFail();
+
+        return Inertia::render('Account/TicketShow', [
+            'ticket' => [
+                'id' => $ticket->id,
+                'subject' => $ticket->subject,
+                'status' => $ticket->status,
+                'created_at' => $ticket->created_at->toIso8601String(),
+                'messages' => $ticket->messages->map(fn ($m) => [
+                    'id' => $m->id,
+                    'message' => $m->message,
+                    'is_staff' => (bool) $m->is_staff,
+                    'created_at' => $m->created_at->toIso8601String(),
+                ]),
+            ],
+        ]);
+    }
+
+    public function replyTicket(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'message' => 'required|string|max:5000',
+        ]);
+
+        $user = $this->user();
+        $ticket = Ticket::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+
+        TicketMessage::create([
+            'id' => Str::uuid()->toString(),
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+            'message' => $validated['message'],
+            'is_staff' => false,
+            'created_at' => now(),
+        ]);
+
+        $ticket->update(['status' => 'open']);
+
+        return back()->with('success', 'Votre réponse a été envoyée.');
+    }
+
+    public function alerts()
+    {
+        $user = $this->user();
+
+        $alerts = StockAlert::where('user_id', $user->id)
+            ->with('product')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('Account/Alerts', [
+            'alerts' => $alerts,
+        ]);
+    }
+
+    public function createAlert(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $user = $this->user();
+
+        StockAlert::firstOrCreate([
+            'user_id' => $user->id,
+            'product_id' => $validated['product_id'],
+        ], [
+            'id' => Str::uuid()->toString(),
+            'email' => $user->email,
+            'created_at' => now(),
+        ]);
+
+        return back()->with('success', 'Vous serez alerté dès le réapprovisionnement.');
+    }
+
+    public function deleteAlert($id)
+    {
+        $user = $this->user();
+        StockAlert::where('id', $id)->where('user_id', $user->id)->delete();
+
+        return back()->with('success', 'Alerte supprimée.');
+    }
+
+    public function profile()
+    {
+        $user = $this->user();
+
+        return Inertia::render('Account/Profile', [
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'country' => $user->country ?? 'BF',
+                'lang' => $user->lang ?? 'fr',
+            ],
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'phone' => 'nullable|string|max:30',
+            'country' => 'required|string|max:5',
+            'lang' => 'required|in:fr,en',
+        ]);
+
+        $user = $this->user();
+        $user->update($validated);
+
+        return back()->with('success', 'Vos préférences ont été enregistrées.');
+    }
+}

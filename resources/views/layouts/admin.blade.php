@@ -83,7 +83,7 @@
         <div class="p-4 border-t border-slate-800">
             <div class="flex items-center justify-between">
                 <div class="truncate mr-2">
-                    <p class="text-xs font-semibold text-white truncate">{{ auth()->user()->email ?? 'Administrateur' }}</p>
+                    <p class="text-xs font-semibold text-white truncate">{{ auth('admin')->user()->email ?? 'Administrateur' }}</p>
                     <p class="text-[11px] text-teal-400">Rôle : Admin (Spatie)</p>
                 </div>
                 <form action="{{ route('admin.logout') }}" method="POST">
@@ -102,9 +102,9 @@
         <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 sticky top-0 z-10">
             <h1 class="text-lg font-bold text-slate-800">{{ $header ?? 'Tableau de bord' }}</h1>
             <div class="flex items-center gap-4">
-                <a href="http://localhost:3001" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">
+                <a href="{{ route('home') }}" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">
                     <i data-lucide="external-link" class="size-3.5"></i>
-                    Voir la boutique (Next.js)
+                    Voir la boutique (Vue 3)
                 </a>
             </div>
         </header>

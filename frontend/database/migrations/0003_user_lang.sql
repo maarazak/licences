@@ -1,1 +1,0 @@
-ALTER TABLE `users` ADD `lang` varchar(2) DEFAULT 'fr' NOT NULL;

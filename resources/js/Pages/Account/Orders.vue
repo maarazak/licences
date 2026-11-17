@@ -1,0 +1,97 @@
+<script setup lang="ts">
+import { Head, Link } from '@inertiajs/vue3';
+import { Package, ArrowRight, ExternalLink } from 'lucide-vue-next';
+import AccountLayout from '@/Layouts/AccountLayout.vue';
+import { ORDER_STATUS_LABELS } from '@/Types/enums';
+
+const props = defineProps<{
+  orders: {
+    data: any[];
+    current_page: number;
+    last_page: number;
+    links: any[];
+  };
+}>();
+</script>
+
+<template>
+  <AccountLayout>
+    <Head title="Mes achats — Espace client" />
+
+    <div class="space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="h1 text-2xl">Mes achats</h1>
+          <p class="text-xs text-slate-500 mt-1">
+            Retrouvez l'historique complet de vos commandes et vos accès numériques livrés.
+          </p>
+        </div>
+
+        <Link href="/boutique" class="btn btn-primary btn-sm hidden sm:inline-flex">
+          Nouvel achat
+        </Link>
+      </div>
+
+      <div class="card p-6 shadow-card overflow-hidden">
+        <div v-if="orders.data.length" class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-100 uppercase tracking-wider font-semibold">
+              <tr>
+                <th class="pb-3.5">Date</th>
+                <th class="pb-3.5">Référence</th>
+                <th class="pb-3.5">Offre & Quantité</th>
+                <th class="pb-3.5">Montant</th>
+                <th class="pb-3.5">Statut</th>
+                <th class="pb-3.5 text-right">Détails</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+              <tr v-for="order in orders.data" :key="order.id" class="hover:bg-slate-50/70 transition">
+                <td class="py-4 text-slate-500">
+                  {{ new Date(order.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}
+                </td>
+                <td class="py-4 font-mono font-bold text-slate-900">{{ order.reference }}</td>
+                <td class="py-4 max-w-xs truncate">
+                  <span class="font-bold text-slate-800">{{ order.product_name }}</span>
+                  <span class="text-slate-400 ml-1">× {{ order.quantity }}</span>
+                </td>
+                <td class="py-4 font-bold text-[#0d5c4a]">
+                  {{ (order.total_xof || 0).toLocaleString('fr-FR') }} FCFA
+                </td>
+                <td class="py-4">
+                  <span
+                    :class="[
+                      'badge text-[11px]',
+                      order.status === 'paid' || order.status === 'delivered' ? 'badge-success' : '',
+                      order.status === 'pending_payment' ? 'badge-warning' : '',
+                      order.status === 'failed' || order.status === 'payment_failed' ? 'badge-danger' : '',
+                    ]"
+                  >
+                    {{ ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] || order.status }}
+                  </span>
+                </td>
+                <td class="py-4 text-right">
+                  <Link
+                    :href="`/compte/achats/${order.id}`"
+                    class="btn btn-soft btn-sm text-xs py-1 inline-flex items-center gap-1.5"
+                  >
+                    Afficher
+                    <ArrowRight class="size-3.5" />
+                  </Link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="text-center py-12 text-xs text-slate-400 space-y-3">
+          <Package class="size-10 mx-auto text-slate-300" />
+          <p>Aucun achat n'a été effectué pour le moment.</p>
+          <Link href="/boutique" class="btn btn-primary btn-sm inline-flex">
+            Visiter la boutique
+          </Link>
+        </div>
+      </div>
+    </div>
+  </AccountLayout>
+</template>

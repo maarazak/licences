@@ -56,4 +56,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(WalletDeposit::class, 'user_id');
     }
+
+    public function getRememberTokenName()
+    {
+        return '';
+    }
 }

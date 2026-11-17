@@ -3,11 +3,10 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "concurrently -c \"blue,green\" \"php artisan serve --port=8000\" \"npm run dev --prefix frontend -- -p 3001\"",
-        "dev:laravel": "php artisan serve --port=8000",
-        "dev:frontend": "npm run dev --prefix frontend -- -p 3001",
-        "build": "vite build && npm run build --prefix frontend",
-        "test": "npm test --prefix frontend"
+        "dev": "vite",
+        "build": "vite build",
+        "serve": "php artisan serve",
+        "test": "php artisan test"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
@@ -18,5 +17,18 @@
     },
     "optionalDependencies": {
         "@laravel/multiplex": "^0.4.1"
+    },
+    "dependencies": {
+        "@inertiajs/vue3": "^3.11.0",
+        "@lucide/vue": "^1.74.0",
+        "@types/node": "^26.6.6",
+        "@vitejs/plugin-vue": "^6.0.11",
+        "axios": "^1.21.1",
+        "lucide-vue-next": "^1.0.0",
+        "pinia": "^4.1.0",
+        "sweetalert2": "^11.26.25",
+        "typescript": "^7.0.2",
+        "vue": "^3.5.45",
+        "ziggy-js": "^2.7.0"
     }
 }

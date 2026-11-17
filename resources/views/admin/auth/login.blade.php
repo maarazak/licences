@@ -41,8 +41,8 @@
         </form>
 
         <div class="text-center">
-            <a href="http://localhost:3001" class="text-xs font-medium text-slate-500 hover:text-teal-600 transition">
-                ← Retour au site public
+            <a href="{{ route('home') }}" class="text-xs font-medium text-slate-500 hover:text-teal-600 transition">
+                ← Retour à la boutique
             </a>
         </div>
     </div>

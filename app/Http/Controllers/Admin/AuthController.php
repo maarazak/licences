@@ -10,7 +10,7 @@ class AuthController extends Controller
 {
     public function showLoginForm()
     {
-        if (Auth::check() && Auth::user()->hasRole('admin')) {
+        if (Auth::guard('admin')->check() && Auth::guard('admin')->user()->hasRole('admin')) {
             return redirect()->route('admin.dashboard');
         }
         return view('admin.auth.login');
@@ -23,11 +23,11 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials, true)) {
+        if (Auth::guard('admin')->attempt($credentials, false)) {
             $request->session()->regenerate();
 
-            if (!Auth::user()->hasRole('admin')) {
-                Auth::logout();
+            if (!Auth::guard('admin')->user()->hasRole('admin')) {
+                Auth::guard('admin')->logout();
                 return back()->withErrors(['email' => 'Accès refusé. Vous n\'avez pas le rôle administrateur.']);
             }
 
@@ -39,10 +39,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
+        Auth::guard('admin')->logout();
         return redirect()->route('admin.login')->with('success', 'Déconnexion effectuée.');
     }
 }

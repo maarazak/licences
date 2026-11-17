@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\AuthController;
+
+// Admin Controllers
+use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ProductController;
@@ -10,25 +12,94 @@ use App\Http\Controllers\Admin\TicketController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\JournalController;
 
+// Shop & Client Controllers
+use App\Http\Controllers\Shop\HomeController;
+use App\Http\Controllers\Shop\CatalogController;
+use App\Http\Controllers\Shop\CheckoutController;
+use App\Http\Controllers\Shop\PageController;
+use App\Http\Controllers\Auth\ClientAuthController;
+use App\Http\Controllers\Account\AccountController;
+
 /*
 |--------------------------------------------------------------------------
-| Web Routes (Backoffice Admin Blade)
+| Public Boutique & Shop Routes (Vue 3 / Inertia)
 |--------------------------------------------------------------------------
 */
 
-// Redirection vers le backoffice admin
-Route::get('/', function () {
-    return redirect()->route('admin.dashboard');
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/boutique', [CatalogController::class, 'index'])->name('shop.index');
+Route::get('/boutique/{slug}', [CatalogController::class, 'show'])->name('shop.show');
+
+// Checkout & Payments
+Route::get('/commande/validation', [CheckoutController::class, 'showValidation'])->name('checkout.validation');
+Route::post('/commande/validation', [CheckoutController::class, 'createOrder'])->name('checkout.store');
+Route::get('/paiement/retour', [CheckoutController::class, 'showReturn'])->name('payment.return');
+Route::get('/paiement/reprendre', [CheckoutController::class, 'resumeOrder'])->name('payment.resume');
+
+// Pages institutionnelles
+Route::get('/comment-ca-marche', [PageController::class, 'howItWorks'])->name('pages.how_it_works');
+Route::get('/assistance', [PageController::class, 'support'])->name('pages.support');
+Route::get('/conditions', [PageController::class, 'terms'])->name('pages.terms');
+Route::get('/confidentialite', [PageController::class, 'privacy'])->name('pages.privacy');
+Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
+
+/*
+|--------------------------------------------------------------------------
+| Client Authentication (Code par e-mail)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/connexion', [ClientAuthController::class, 'showLogin'])->name('login');
+Route::post('/connexion/demander-code', [ClientAuthController::class, 'requestCode'])->name('login.request_code');
+Route::post('/connexion/verifier-code', [ClientAuthController::class, 'verifyCode'])->name('login.verify_code');
+Route::post('/deconnexion', [ClientAuthController::class, 'logout'])->name('logout');
+
+/*
+|--------------------------------------------------------------------------
+| Espace Client (Protégé par auth:web)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(function () {
+    Route::get('/', [AccountController::class, 'dashboard'])->name('dashboard');
+    Route::get('/achats', [AccountController::class, 'orders'])->name('orders.index');
+    Route::get('/achats/{id}', [AccountController::class, 'orderDetail'])->name('orders.show');
+
+    // Solde
+    Route::get('/solde', [AccountController::class, 'wallet'])->name('wallet.index');
+    Route::post('/solde/recharger', [AccountController::class, 'deposit'])->name('wallet.deposit');
+
+    // Assistance & Tickets
+    Route::get('/assistance', [AccountController::class, 'tickets'])->name('tickets.index');
+    Route::get('/assistance/nouveau', [AccountController::class, 'newTicket'])->name('tickets.create');
+    Route::post('/assistance', [AccountController::class, 'createTicket'])->name('tickets.store');
+    Route::get('/assistance/{id}', [AccountController::class, 'showTicket'])->name('tickets.show');
+    Route::post('/assistance/{id}/repondre', [AccountController::class, 'replyTicket'])->name('tickets.reply');
+
+    // Alertes
+    Route::get('/alertes', [AccountController::class, 'alerts'])->name('alerts.index');
+    Route::post('/alertes', [AccountController::class, 'createAlert'])->name('alerts.store');
+    Route::delete('/alertes/{id}', [AccountController::class, 'deleteAlert'])->name('alerts.destroy');
+
+    // Profil
+    Route::get('/profil', [AccountController::class, 'profile'])->name('profile.index');
+    Route::post('/profil', [AccountController::class, 'updateProfile'])->name('profile.update');
 });
 
+/*
+|--------------------------------------------------------------------------
+| Backoffice Admin (Blade, Spatie Permission)
+|--------------------------------------------------------------------------
+*/
+
 Route::prefix('admin')->name('admin.')->group(function () {
-    // Connexion / Déconnexion
-    Route::get('connexion', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('connexion', [AuthController::class, 'login']);
-    Route::post('deconnexion', [AuthController::class, 'logout'])->name('logout');
+    // Connexion / Déconnexion Admin
+    Route::get('connexion', [AdminAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('connexion', [AdminAuthController::class, 'login']);
+    Route::post('deconnexion', [AdminAuthController::class, 'logout'])->name('logout');
 
     // Backoffice protégé par authentification et rôle admin (Spatie)
-    Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::middleware(['auth:admin', 'role:admin'])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
         // Commandes
