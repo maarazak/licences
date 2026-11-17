@@ -1,80 +1,90 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import {
-  ShieldCheck,
-  Lock,
-  ArrowRight,
-  Wallet,
-  Smartphone,
-  Minus,
-  Plus,
-  AlertCircle,
-  Zap,
-} from 'lucide-vue-next';
+import { ArrowRight, Lock, Minus, Plus } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
-import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
-import { COUNTRIES } from '@/Utils/countries';
+import { COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
+import { formatXof, formatCurrency } from '@/Utils/format';
 
 interface ProductItem {
   id: string;
   slug: string;
   name: string;
-  display_name?: string;
-  category?: string;
-  shop_category?: string;
-  image_url?: string;
-  price_xof: number;
-  delivery_kind?: string;
-  requires_email?: boolean;
+  title: string;
+  unitPriceXof: number;
+  available: boolean;
+  stock?: number;
+  maxQuantity: number;
+  requiresEmail: boolean;
+  accessLabel: string;
+  durationLabel: string;
+  warranty?: string;
 }
 
 const props = defineProps<{
+  clientToken: string;
   product: ProductItem;
-  clientUser?: {
-    id: string;
+  defaults: {
+    fullName: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    country: string;
     email: string;
-    balance_xof: number;
-    country?: string;
-    phone?: string;
-  } | null;
+  };
+  balanceXof: number;
 }>();
 
-const title = computed(() => props.product.display_name || props.product.name);
 const quantity = ref(1);
-const selectedCountry = ref(props.clientUser?.country || 'BF');
+const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
+const phoneInput = ref(props.defaults.phone || '');
+const payChoice = ref<'gateway' | 'balance'>('gateway');
 
-const currentCountryInfo = computed(() => {
-  return COUNTRIES.find((c) => c.code === selectedCountry.value) || COUNTRIES[0];
-});
+const currentCountry = computed(() => getCountry(selectedCountry.value));
+const phoneDigits = computed(() => phoneInput.value.replace(/[^0-9]/g, ''));
+const phoneValidation = computed(() => validatePhoneForCountry(phoneInput.value, selectedCountry.value));
 
-const form = useForm({
-  product_id: props.product.id,
-  quantity: 1,
-  email: props.clientUser?.email || '',
-  phone: props.clientUser?.phone || '',
-  country: selectedCountry.value,
-  paid_with: 'pawapay', // 'pawapay' or 'balance'
-  custom_fields: {} as Record<string, any>,
-});
+const totalXof = computed(() => props.product.unitPriceXof * quantity.value);
+const canUseBalance = computed(() => props.balanceXof >= totalXof.value);
+const effectivePayWith = computed(() => (canUseBalance.value ? payChoice.value : 'gateway'));
 
-const totalXof = computed(() => props.product.price_xof * quantity.value);
-const userBalance = computed(() => props.clientUser?.balance_xof || 0);
-const canPayWithBalance = computed(() => userBalance.value >= totalXof.value);
+const activationEmails = ref<string[]>(Array.from({ length: 1 }, (_, i) => (i === 0 ? props.defaults.email : '')));
 
 const updateQuantity = (newQty: number) => {
-  if (newQty >= 1 && newQty <= 10) {
-    quantity.value = newQty;
-    form.quantity = newQty;
-    if (form.paid_with === 'balance' && !canPayWithBalance.value) {
-      form.paid_with = 'pawapay';
+  const max = props.product.maxQuantity || 10;
+  const clamped = Math.max(1, Math.min(newQty, max));
+  quantity.value = clamped;
+
+  if (props.product.requiresEmail) {
+    const current = [...activationEmails.value];
+    while (current.length < clamped) {
+      current.push('');
     }
+    activationEmails.value = current.slice(0, clamped);
   }
 };
 
-const submitOrder = () => {
+const form = useForm({
+  productId: props.product.id,
+  quantity: 1,
+  fullName: props.defaults.fullName || '',
+  phone: '',
+  country: selectedCountry.value,
+  expectedTotalXof: totalXof.value,
+  clientToken: props.clientToken,
+  activationEmails: [] as string[],
+  payWith: 'gateway',
+});
+
+const submitCheckout = () => {
+  form.quantity = quantity.value;
+  form.phone = phoneInput.value;
   form.country = selectedCountry.value;
+  form.expectedTotalXof = totalXof.value;
+  form.activationEmails = props.product.requiresEmail ? activationEmails.value : [];
+  form.payWith = effectivePayWith.value;
+
   form.post('/commande/validation', {
     preserveScroll: true,
   });
@@ -83,232 +93,235 @@ const submitOrder = () => {
 
 <template>
   <SiteLayout>
-    <Head title="Valider votre commande — Paiement sécurisé" />
+    <Head title="Valider votre commande" />
 
-    <div class="container-page py-10 max-w-4xl space-y-8">
-      <div>
-        <h1 class="h1 text-2xl sm:text-3xl">Finaliser votre commande</h1>
-        <p class="lead text-sm mt-1">
-          Réglez en toute sécurité par Mobile Money ou avec votre solde en Francs CFA.
-        </p>
-      </div>
+    <div class="container-page py-10">
+      <h1 class="h1 mb-8">Valider votre commande</h1>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <!-- Left: Form inputs -->
-        <div class="lg:col-span-7 space-y-6">
-          <!-- Item Card in order -->
-          <div class="card p-5 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-4 min-w-0">
-              <BrandLogo :name="title" :image="product.image_url" size="md" />
-              <div class="min-w-0">
-                <h3 class="font-bold text-slate-900 truncate">{{ title }}</h3>
-                <p class="text-xs text-slate-500 mt-0.5">
-                  {{ (product.price_xof || 0).toLocaleString('fr-FR') }} FCFA / unité
+      <form @submit.prevent="submitCheckout" class="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+        <div class="min-w-0 space-y-8">
+          <!-- Coordonnées -->
+          <section class="card p-5 sm:p-6">
+            <h2 class="h3 text-lg">Vos coordonnées</h2>
+            <p class="hint">Transmises au prestataire de paiement pour cet achat.</p>
+            <p class="mt-3 text-sm break-all">
+              <span class="text-muted">Compte : </span>
+              <span class="font-semibold text-ink">{{ defaults.email }}</span>
+            </p>
+
+            <div class="mt-4 space-y-4">
+              <div>
+                <label for="fullName" class="label">
+                  Nom complet <span class="text-brand">*</span>
+                </label>
+                <input
+                  id="fullName"
+                  v-model="form.fullName"
+                  required
+                  autocomplete="name"
+                  maxlength="150"
+                  placeholder="Ex. Awa Traoré"
+                  class="input"
+                />
+              </div>
+
+              <div>
+                <label for="phone" class="label">
+                  Numéro de téléphone Mobile Money <span class="text-brand">*</span>
+                </label>
+                <div class="relative flex rounded-xl border border-line bg-canvas transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
+                  <select
+                    id="country"
+                    v-model="selectedCountry"
+                    aria-label="Indicatif pays"
+                    class="h-11 max-w-[145px] sm:max-w-[185px] shrink-0 cursor-pointer rounded-l-xl border-r border-line bg-canvas pl-3 pr-2 text-sm font-medium text-ink focus:outline-none"
+                  >
+                    <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">
+                      {{ c.flag }} {{ c.dial }} ({{ c.name }})
+                    </option>
+                  </select>
+                  <input
+                    id="phone"
+                    v-model="phoneInput"
+                    type="tel"
+                    required
+                    autocomplete="tel-national"
+                    inputmode="numeric"
+                    :placeholder="currentCountry.placeholder"
+                    class="h-11 w-full rounded-r-xl bg-transparent px-3.5 text-sm text-ink placeholder:text-muted/60 focus:outline-none"
+                  />
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-xs text-muted">
+                  <span>
+                    Pays : <strong class="font-medium text-ink">{{ currentCountry.name }}</strong> ({{ currentCountry.dial }}) · {{ currentCountry.minDigits === currentCountry.maxDigits ? `${currentCountry.minDigits} chiffres attendus` : `${currentCountry.minDigits} à ${currentCountry.maxDigits} chiffres attendus` }}
+                  </span>
+                  <span v-if="phoneDigits.length > 0" :class="phoneValidation.valid ? 'font-semibold text-emerald-600' : 'font-medium text-amber-600'">
+                    {{ phoneDigits.length }}/{{ currentCountry.minDigits }} {{ phoneValidation.valid ? '✓' : '' }}
+                  </span>
+                </div>
+                <p v-if="!phoneValidation.valid && phoneDigits.length > 0" class="mt-1 text-xs text-amber-700">
+                  {{ phoneValidation.message }}
                 </p>
               </div>
             </div>
+          </section>
 
-            <!-- Quantity stepper -->
-            <div class="flex items-center gap-2 border border-slate-200 rounded-xl p-1 bg-slate-50">
+          <!-- Quantité -->
+          <section class="card p-5 sm:p-6">
+            <h2 class="h3 text-lg">Quantité</h2>
+            <div class="mt-3 flex items-center gap-2 max-w-44">
               <button
                 type="button"
                 @click="updateQuantity(quantity - 1)"
                 :disabled="quantity <= 1"
-                class="size-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-100 transition"
+                class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-canvas text-base font-bold text-ink transition hover:border-brand/40 disabled:opacity-40"
+                aria-label="Diminuer la quantité"
               >
-                <Minus class="size-3.5" />
+                −
               </button>
-              <span class="w-6 text-center text-sm font-bold text-slate-800">{{ quantity }}</span>
+              <input
+                id="quantity"
+                type="number"
+                min="1"
+                :max="product.maxQuantity"
+                step="1"
+                required
+                :value="quantity"
+                @change="(e: any) => updateQuantity(parseInt(e.target.value, 10) || 1)"
+                class="input h-11 text-center text-base font-semibold"
+              />
               <button
                 type="button"
                 @click="updateQuantity(quantity + 1)"
-                :disabled="quantity >= 10"
-                class="size-7 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 disabled:opacity-40 hover:bg-slate-100 transition"
+                :disabled="quantity >= product.maxQuantity"
+                class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-canvas text-base font-bold text-ink transition hover:border-brand/40 disabled:opacity-40"
+                aria-label="Augmenter la quantité"
               >
-                <Plus class="size-3.5" />
+                +
               </button>
             </div>
-          </div>
 
-          <!-- Customer details -->
-          <div class="card p-6 space-y-5">
-            <h2 class="h3 text-base flex items-center gap-2">
-              <span class="size-6 rounded-full bg-[#0d5c4a]/10 text-[#0d5c4a] text-xs flex items-center justify-center font-bold">1</span>
-              Vos coordonnées
-            </h2>
-
-            <div class="space-y-4 text-sm">
-              <div>
-                <label class="label text-xs">Adresse e-mail de réception <span class="text-red-500">*</span></label>
-                <input
-                  v-model="form.email"
-                  type="email"
-                  required
-                  placeholder="votre.email@gmail.com"
-                  class="input"
-                  :disabled="!!clientUser"
-                />
-                <p class="hint">Vos identifiants et le reçu de paiement y seront immédiatement envoyés.</p>
-              </div>
-
-              <div>
-                <label class="label text-xs">Pays de paiement <span class="text-red-500">*</span></label>
-                <select
-                  v-model="selectedCountry"
-                  class="input font-medium"
-                >
-                  <option
-                    v-for="c in COUNTRIES"
-                    :key="c.code"
-                    :value="c.code"
-                  >
-                    {{ c.flag }} {{ c.name }} ({{ c.dial }})
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label class="label text-xs">Numéro de téléphone Mobile Money</label>
-                <div class="relative flex items-center">
-                  <span class="absolute left-3.5 text-xs font-mono font-bold text-slate-500">
-                    {{ currentCountryInfo.dial }}
-                  </span>
+            <!-- Adresses d'activation si requis -->
+            <div v-if="product.requiresEmail" class="mt-6">
+              <h3 class="h3">{{ quantity > 1 ? 'Adresses e-mail à activer' : 'Adresse e-mail à activer' }}</h3>
+              <p class="hint">
+                Cette offre s'active sur une adresse e-mail. Indiquez-en une par unité, toutes différentes. Vérifiez l'orthographe : elle ne peut pas être changée après le paiement.
+              </p>
+              <div class="mt-3 space-y-3">
+                <div v-for="(_, i) in quantity" :key="i">
+                  <label :for="`activation-${i}`" class="sr-only">
+                    Adresse e-mail à activer n° {{ i + 1 }}
+                  </label>
                   <input
-                    v-model="form.phone"
-                    type="tel"
-                    :placeholder="currentCountryInfo.placeholder"
-                    class="input pl-16 font-mono"
+                    :id="`activation-${i}`"
+                    v-model="activationEmails[i]"
+                    type="email"
+                    required
+                    maxlength="191"
+                    :placeholder="`Adresse n° ${i + 1}`"
+                    class="input"
                   />
                 </div>
-                <p class="hint">Numéro lié à votre compte Orange Money, Moov, MTN ou Wave.</p>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Payment Choice -->
-          <div class="card p-6 space-y-5">
-            <h2 class="h3 text-base flex items-center gap-2">
-              <span class="size-6 rounded-full bg-[#0d5c4a]/10 text-[#0d5c4a] text-xs flex items-center justify-center font-bold">2</span>
-              Moyen de règlement
-            </h2>
-
-            <div class="space-y-3">
-              <!-- Mobile Money option -->
-              <label
-                :class="[
-                  'flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition',
-                  form.paid_with === 'pawapay'
-                    ? 'border-[#0d5c4a] bg-teal-50/40 ring-2 ring-[#0d5c4a]/20'
-                    : 'border-slate-200 bg-white hover:bg-slate-50',
-                ]"
-              >
+          <!-- Moyen de paiement -->
+          <section class="card p-5 sm:p-6">
+            <h2 class="h3 text-lg">Moyen de paiement</h2>
+            <div class="mt-3 space-y-2.5">
+              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50 transition">
                 <input
-                  v-model="form.paid_with"
                   type="radio"
-                  value="pawapay"
-                  class="mt-1 size-4 accent-[#0d5c4a]"
+                  name="payWith"
+                  value="gateway"
+                  :checked="effectivePayWith === 'gateway'"
+                  @change="payChoice = 'gateway'"
+                  class="mt-1 size-4 accent-brand"
                 />
-                <div class="flex-1 space-y-1">
-                  <div class="flex items-center justify-between">
-                    <span class="font-bold text-slate-900 text-sm">Mobile Money (pawaPay)</span>
-                    <span class="badge badge-success text-[10px]">Recommandé</span>
-                  </div>
-                  <p class="text-xs text-slate-500">
-                    Orange Money, Moov Money, MTN MoMo, Wave. Validation instantanée.
-                  </p>
-                  <div class="pt-2">
-                    <PaymentLogos layout="row" />
-                  </div>
-                </div>
-              </label>
-
-              <!-- Wallet Balance option -->
-              <label
-                :class="[
-                  'flex items-start gap-4 p-4 rounded-2xl border transition',
-                  canPayWithBalance ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed bg-slate-50',
-                  form.paid_with === 'balance'
-                    ? 'border-[#0d5c4a] bg-teal-50/40 ring-2 ring-[#0d5c4a]/20'
-                    : 'border-slate-200 bg-white hover:bg-slate-50',
-                ]"
-              >
-                <input
-                  v-model="form.paid_with"
-                  type="radio"
-                  value="balance"
-                  :disabled="!canPayWithBalance"
-                  class="mt-1 size-4 accent-[#0d5c4a]"
-                />
-                <div class="flex-1 space-y-1">
-                  <div class="flex items-center justify-between">
-                    <span class="font-bold text-slate-900 text-sm">Solde du compte</span>
-                    <span class="text-xs font-mono font-bold text-[#0d5c4a]">
-                      {{ userBalance.toLocaleString('fr-FR') }} FCFA disponible
-                    </span>
-                  </div>
-                  <p class="text-xs text-slate-500">
-                    Débit direct sans redirection. Livraison immédiate.
-                  </p>
-                  <p v-if="!canPayWithBalance" class="text-[11px] text-amber-700 font-medium pt-1">
-                    Solde insuffisant pour ce panier ({{ totalXof.toLocaleString('fr-FR') }} FCFA requis).
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: Order summary & Submit -->
-        <div class="lg:col-span-5 sticky top-24">
-          <div class="card p-6 space-y-6 shadow-pop">
-            <h2 class="h3 text-base border-b border-slate-100 pb-3">Récapitulatif</h2>
-
-            <div class="space-y-3 text-sm">
-              <div class="flex justify-between text-slate-600">
-                <span>{{ title }} × {{ quantity }}</span>
-                <span class="font-semibold text-slate-900">{{ totalXof.toLocaleString('fr-FR') }} FCFA</span>
-              </div>
-              <div class="flex justify-between text-slate-600 text-xs">
-                <span>Frais de traitement</span>
-                <span class="text-emerald-600 font-bold">Gratuit (0 FCFA)</span>
-              </div>
-              <div class="flex justify-between text-slate-600 text-xs">
-                <span>Délai de livraison</span>
-                <span class="font-medium text-slate-800">Quelques minutes</span>
-              </div>
-
-              <div class="pt-3 border-t border-slate-100 flex justify-between items-baseline">
-                <span class="font-bold text-slate-900 text-base">Total à payer</span>
-                <span class="font-display text-2xl font-extrabold text-[#0d5c4a]">
-                  {{ totalXof.toLocaleString('fr-FR') }} FCFA
+                <span class="text-sm">
+                  <span class="font-semibold text-ink">Mobile Money</span>
+                  <span class="block text-muted">Orange Money, Moov, MTN, Wave selon votre pays.</span>
                 </span>
-              </div>
+              </label>
+
+              <label
+                :class="[
+                  'flex items-start gap-3 rounded-xl border border-line p-3.5 transition',
+                  canUseBalance ? 'cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50' : 'cursor-not-allowed bg-canvas-subtle/50 opacity-60'
+                ]"
+              >
+                <input
+                  type="radio"
+                  name="payWith"
+                  value="balance"
+                  :checked="effectivePayWith === 'balance'"
+                  @change="payChoice = 'balance'"
+                  :disabled="!canUseBalance"
+                  class="mt-1 size-4 accent-brand disabled:cursor-not-allowed"
+                />
+                <span class="text-sm">
+                  <span class="font-semibold text-ink">
+                    Mon solde ({{ formatXof(balanceXof) }})
+                  </span>
+                  <span class="block text-muted">
+                    {{ canUseBalance ? 'Le solde paie la commande entière.' : 'Solde insuffisant pour cette commande.' }}
+                  </span>
+                </span>
+              </label>
             </div>
+          </section>
+        </div>
 
-            <button
-              type="button"
-              @click="submitOrder"
-              :disabled="form.processing"
-              class="btn btn-primary btn-block min-h-12 text-base shadow-glow"
-            >
-              <Lock class="size-4" />
-              <span v-if="form.processing">Traitement en cours...</span>
-              <span v-else-if="form.paid_with === 'balance'">Confirmer et payer par solde</span>
-              <span v-else>Payer {{ totalXof.toLocaleString('fr-FR') }} FCFA</span>
-            </button>
-
-            <div class="space-y-2 pt-2 text-[11px] text-slate-500 text-center leading-relaxed">
-              <p class="flex items-center justify-center gap-1.5 font-medium text-slate-600">
-                <ShieldCheck class="size-4 text-[#0d5c4a]" />
-                Transaction sécurisée avec pawaPay
-              </p>
-              <p>
-                En confirmant, vous acceptez les conditions générales de vente et la garantie de remplacement.
+        <!-- Sidebar Récapitulatif -->
+        <aside class="card space-y-4 p-5 shadow-pop lg:sticky lg:top-24">
+          <div class="flex items-center gap-3.5">
+            <BrandLogo :name="product.name" :title="product.title" size="md" />
+            <div class="min-w-0">
+              <p class="h3 leading-snug">{{ product.title }}</p>
+              <p class="mt-0.5 text-xs text-muted">
+                {{ product.durationLabel }} · {{ product.accessLabel }} · Quantité {{ quantity }}
               </p>
             </div>
           </div>
-        </div>
-      </div>
+
+          <div class="flex items-baseline justify-between border-t border-line pt-4">
+            <span class="text-sm font-semibold text-ink">Total</span>
+            <span class="font-display text-3xl font-extrabold tracking-tight text-ink">
+              {{ formatCurrency(totalXof, 'XOF') }}
+            </span>
+          </div>
+
+          <div v-if="form.errors.error || form.errors.expectedTotalXof" class="alert alert-error text-xs">
+            {{ form.errors.error || form.errors.expectedTotalXof }}
+          </div>
+
+          <button
+            type="submit"
+            :disabled="form.processing || !phoneValidation.valid"
+            class="btn btn-primary btn-block min-h-12 text-base shadow-glow"
+          >
+            <span v-if="form.processing">Vérification de l'offre...</span>
+            <span v-else class="flex items-center justify-center gap-2">
+              Passer au paiement
+              <ArrowRight class="size-4" aria-hidden="true" />
+            </span>
+          </button>
+
+          <p class="text-center text-xs leading-relaxed text-muted">
+            En validant votre commande, vous acceptez nos&nbsp;
+            <Link href="/conditions" target="_blank" class="underline hover:text-ink">
+              conditions de vente
+            </Link>
+            .
+          </p>
+
+          <p class="flex items-start gap-2 text-xs leading-relaxed text-muted">
+            <Lock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            Le prix est celui enregistré à la validation. Vous choisirez votre moyen de paiement sur la page sécurisée du prestataire.
+          </p>
+        </aside>
+      </form>
     </div>
   </SiteLayout>
 </template>

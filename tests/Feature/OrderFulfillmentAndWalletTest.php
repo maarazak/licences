@@ -37,7 +37,7 @@ class OrderFulfillmentAndWalletTest extends TestCase
             'balance_xof' => 20000,
         ]);
 
-        $product = Product::first() ?? Product::create([
+        $product = Product::where('is_published', true)->where('supplier_active', true)->first() ?? Product::create([
             'id' => Str::uuid()->toString(),
             'supplier_id' => 'TEST-PROD-1',
             'slug' => 'test-produit-' . Str::random(5),
@@ -46,6 +46,7 @@ class OrderFulfillmentAndWalletTest extends TestCase
             'cost_usd_cents' => 300,
             'price_xof_override' => 5000,
             'is_published' => true,
+            'supplier_active' => true,
             'in_stock' => true,
         ]);
 

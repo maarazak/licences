@@ -6,6 +6,13 @@ export function formatXof(amount: number): string {
   return `${nf.format(amount)} FCFA`;
 }
 
+export function formatCurrency(amount: number, currency: 'XOF' | 'USD' = 'XOF', rate = 669): string {
+  if (currency === 'USD') {
+    return `${usd.format(amount / rate)} $`;
+  }
+  return formatXof(amount);
+}
+
 export function formatUsdCents(cents: number): string {
   return `${usd.format(cents / 100)} $`;
 }

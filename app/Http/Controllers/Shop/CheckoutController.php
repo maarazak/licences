@@ -7,7 +7,10 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
+use App\Services\MailService;
+use App\Services\OrderFulfillmentService;
 use App\Services\PawaPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,192 +27,279 @@ class CheckoutController extends Controller
             return redirect()->route('shop.index');
         }
 
+        // Connexion requise identique à requireUser(next)
+        if (!Auth::guard('web')->check()) {
+            return redirect()->route('login', [
+                'next' => '/commande/validation?produit=' . urlencode($slug),
+            ]);
+        }
+
+        $user = Auth::guard('web')->user();
+
         $product = Product::where('slug', $slug)
             ->where('is_published', true)
+            ->where('supplier_active', true)
             ->firstOrFail();
 
-        $clientUser = Auth::guard('web')->user();
+        $isAvailable = $product->supplier_purchasable
+            && $product->in_stock
+            && !$product->preorder
+            && ($product->stock === null || $product->stock > 0);
+
+        $duration = $product->duration_label ?: match (true) {
+            $product->expire_days >= 365 => '1 an',
+            $product->expire_days === 30 => '1 mois',
+            $product->expire_days > 0 => "{$product->expire_days} jours",
+            default => $product->warranty ?: 'Selon offre',
+        };
+
+        $accessKind = preg_match('/account|link|code/i', (string) $product->category)
+            ? $product->category
+            : ($product->delivery_kind ?: 'key');
+
+        $accessLabel = match (strtolower($accessKind)) {
+            'account' => 'Compte fourni',
+            'link' => 'Lien d\'invitation',
+            'code' => 'Code d\'activation',
+            default => 'Clé de licence',
+        };
 
         return Inertia::render('Checkout/Validation', [
+            'clientToken' => Str::uuid()->toString(),
             'product' => [
                 'id' => $product->id,
                 'slug' => $product->slug,
                 'name' => $product->name,
-                'display_name' => $product->display_name,
-                'category' => $product->category,
-                'shop_category' => $product->shop_category,
-                'image_url' => $product->image_url,
-                'price_xof' => $product->price_xof,
-                'in_stock' => (bool) $product->in_stock,
+                'title' => $product->display_name ?: $product->name,
+                'unitPriceXof' => (int) $product->price_xof,
+                'available' => $isAvailable,
                 'stock' => $product->stock,
-                'preorder' => (bool) $product->preorder,
-                'expire_days' => $product->expire_days,
+                'maxQuantity' => min(10, $product->stock ?? 10),
+                'requiresEmail' => (bool) $product->requires_email,
+                'accessLabel' => $accessLabel,
+                'durationLabel' => $duration,
                 'warranty' => $product->warranty,
-                'delivery_kind' => $product->delivery_kind,
-                'requires_email' => (bool) $product->requires_email,
             ],
-            'clientUser' => $clientUser ? [
-                'id' => $clientUser->id,
-                'email' => $clientUser->email,
-                'balance_xof' => (int) $clientUser->balance_xof,
-                'country' => $clientUser->country ?? 'BF',
-                'phone' => $clientUser->phone ?? '',
-            ] : null,
+            'defaults' => [
+                'fullName' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: ($user->name ?? ''),
+                'firstName' => $user->first_name ?? '',
+                'lastName' => $user->last_name ?? '',
+                'phone' => $user->phone ?? '',
+                'country' => $user->country ?? 'BF',
+                'email' => $user->email,
+            ],
+            'balanceXof' => (int) $user->balance_xof,
         ]);
     }
 
     public function createOrder(Request $request)
     {
-        $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer|min:1|max:10',
-            'email' => 'required|email|max:191',
-            'phone' => 'nullable|string|max:30',
-            'country' => 'required|string|max:5',
-            'paid_with' => 'required|in:pawapay,balance',
-            'custom_fields' => 'nullable|array',
+        if (!Auth::guard('web')->check()) {
+            return redirect()->route('login');
+        }
+
+        $user = Auth::guard('web')->user();
+        if ($user->is_blocked) {
+            return back()->with('error', 'Votre compte est suspendu. Veuillez contacter le support.');
+        }
+
+        // Supporte à la fois camelCase (Next.js) et snake_case
+        $productId = $request->input('productId') ?: $request->input('product_id');
+        $payWith = $request->input('payWith') ?: $request->input('paid_with');
+        $quantity = (int) ($request->input('quantity', 1));
+        $clientToken = $request->input('clientToken') ?: $request->input('client_token');
+
+        $product = Product::where('id', $productId)
+            ->where('is_published', true)
+            ->where('supplier_active', true)
+            ->firstOrFail();
+
+        $unitPriceXof = (int) $product->price_xof;
+        $totalXof = $unitPriceXof * $quantity;
+        $expectedTotalXof = (int) ($request->input('expectedTotalXof') ?? $request->input('expected_total_xof') ?? $totalXof);
+
+        // Validation
+        $request->merge([
+            'productId' => $productId,
+            'payWith' => $payWith,
+            'expectedTotalXof' => $expectedTotalXof,
         ]);
 
-        $product = Product::findOrFail($validated['product_id']);
-        $totalXof = $product->price_xof * $validated['quantity'];
-        $email = strtolower(trim($validated['email']));
+        $validated = $request->validate([
+            'productId' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1|max:10',
+            'fullName' => 'nullable|string|max:150',
+            'firstName' => 'nullable|string|max:100',
+            'lastName' => 'nullable|string|max:100',
+            'phone' => 'nullable|string|max:32',
+            'country' => 'nullable|string|max:5',
+            'expectedTotalXof' => 'required|integer',
+            'clientToken' => 'nullable|string|max:64',
+            'activationEmails' => 'nullable|array',
+            'activationEmails.*' => 'nullable|email|max:191',
+            'payWith' => 'required|in:gateway,balance,pawapay',
+        ]);
 
-        // Find or create customer
-        $clientUser = Auth::guard('web')->user();
-        if (!$clientUser || strtolower($clientUser->email) !== $email) {
-            $clientUser = User::firstOrCreate(
-                ['email' => $email],
-                [
-                    'id' => Str::uuid()->toString(),
-                    'role' => 'client',
-                    'balance_xof' => 0,
-                    'country' => $validated['country'],
-                    'phone' => $validated['phone'] ?? null,
-                    'lang' => 'fr',
-                    'is_blocked' => false,
-                    'created_at' => now(),
-                ]
-            );
+        // Normalisation payWith
+        $payWith = in_array($validated['payWith'], ['gateway', 'pawapay'], true) ? 'pawapay' : 'balance';
 
-            // If not logged in, log them in
-            if (!Auth::guard('web')->check()) {
-                Auth::guard('web')->login($clientUser, true);
+        // Vérification anti-altération de prix
+        if ($totalXof !== (int) $validated['expectedTotalXof']) {
+            return back()->with('error', 'Le prix de cette offre a été mis à jour. Veuillez vérifier le montant et réessayer.');
+        }
+
+        // Idempotence : si une commande avec ce clientToken existe déjà pour ce client
+        if (!empty($validated['clientToken'])) {
+            $existing = Order::where('user_id', $user->id)
+                ->where('client_token', $validated['clientToken'])
+                ->first();
+
+            if ($existing) {
+                if ($existing->status === 'pending_payment' && $existing->payment_url) {
+                    return Inertia::location($existing->payment_url);
+                }
+                return redirect()->route('account.orders.show', $existing->id);
             }
         }
 
-        if ($clientUser->is_blocked) {
-            return back()->with('error', 'Votre compte est suspendu. Contactez le support.');
+        // Extraction prénom / nom
+        $firstName = trim($validated['firstName'] ?? '');
+        $lastName = trim($validated['lastName'] ?? '');
+        if (!empty($validated['fullName']) && (empty($firstName) || empty($lastName))) {
+            $parts = explode(' ', trim($validated['fullName']), 2);
+            $firstName = $parts[0] ?? '';
+            $lastName = $parts[1] ?? '';
         }
+        if (empty($firstName)) $firstName = $user->first_name ?: ($user->name ?: 'Client');
+        if (empty($lastName)) $lastName = $user->last_name ?: '';
 
-        // Generate short reference e.g. CMD-XXXXXX
-        $ref = 'CMD-' . strtoupper(Str::random(8));
+        $phone = $validated['phone'] ?? $user->phone;
+        $country = $validated['country'] ?? ($user->country ?: 'BF');
+
+        // Mémorisation profil pour les futurs achats
+        $user->update([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'phone' => $phone,
+            'country' => $country,
+        ]);
+
         $orderId = Str::uuid()->toString();
+        $ref = 'CMD-' . strtoupper(Str::random(8));
+        $now = now();
+        $emails = !empty($validated['activationEmails']) ? array_values(array_filter($validated['activationEmails'])) : null;
 
-        $firstName = $clientUser->first_name ?: ($clientUser->name ?: 'Client');
-        $lastName = $clientUser->last_name ?: '';
-
-        // 1. Paid with wallet balance
-        if ($validated['paid_with'] === 'balance') {
-            if ($clientUser->balance_xof < $totalXof) {
-                return back()->with('error', 'Solde insuffisant pour régler cette commande.');
+        // 1. Paiement par Solde Client
+        if ($payWith === 'balance') {
+            if ($user->balance_xof < $totalXof) {
+                return back()->with('error', 'Votre solde est insuffisant pour régler cette commande entière.');
             }
 
-            DB::transaction(function () use ($clientUser, $totalXof, $orderId, $product, $validated, $ref, $firstName, $lastName) {
-                // Deduct balance
-                $clientUser->decrement('balance_xof', $totalXof);
+            DB::transaction(function () use ($user, $totalXof, $orderId, $product, $quantity, $unitPriceXof, $ref, $firstName, $lastName, $phone, $country, $emails, $validated, $now) {
+                $userLocked = User::lockForUpdate()->find($user->id);
+                if ($userLocked->balance_xof < $totalXof) {
+                    throw new \Exception('Solde insuffisant.');
+                }
 
-                // Wallet entry
+                $newBalance = $userLocked->balance_xof - $totalXof;
+                $userLocked->balance_xof = $newBalance;
+                $userLocked->save();
+
                 WalletEntry::create([
                     'id' => Str::uuid()->toString(),
-                    'user_id' => $clientUser->id,
+                    'user_id' => $userLocked->id,
+                    'amount_xof' => -$totalXof,
+                    'balance_after_xof' => $newBalance,
                     'type' => 'debit',
                     'kind' => 'purchase',
-                    'amount_xof' => -$totalXof,
-                    'balance_after_xof' => $clientUser->balance_xof,
-                    'description' => "Paiement commande {$ref} ({$product->name})",
+                    'description' => "Achat {$product->name} — {$ref}",
                     'reference_type' => 'order',
                     'reference_id' => $orderId,
-                    'created_at' => now(),
+                    'actor' => $userLocked->email,
+                    'created_at' => $now,
                 ]);
 
-                // Create Order
-                $order = Order::create([
+                Order::create([
                     'id' => $orderId,
                     'reference' => $ref,
-                    'user_id' => $clientUser->id,
+                    'client_token' => $validated['clientToken'] ?? null,
+                    'user_id' => $userLocked->id,
                     'product_id' => $product->id,
-                    'product_name' => $product->name,
+                    'product_name' => $product->display_name ?: $product->name,
                     'supplier_product_id' => $product->supplier_id,
-                    'quantity' => $validated['quantity'],
-                    'unit_price_xof' => $product->price_xof,
+                    'quantity' => $quantity,
+                    'unit_price_xof' => $unitPriceXof,
                     'total_xof' => $totalXof,
+                    'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
+                    'usd_rate' => 669,
                     'paid_with' => 'balance',
                     'status' => 'paid',
+                    'paid_at' => $now,
                     'customer_first_name' => $firstName,
                     'customer_last_name' => $lastName,
-                    'customer_email' => $clientUser->email,
-                    'customer_phone' => $validated['phone'] ?? null,
-                    'customer_country' => $validated['country'],
-                    'custom_fields' => $validated['custom_fields'] ?? null,
-                    'paid_at' => now(),
-                    'created_at' => now(),
+                    'customer_email' => $userLocked->email,
+                    'customer_phone' => $phone,
+                    'customer_country' => $country,
+                    'activation_emails' => $emails,
+                    'created_at' => $now,
                 ]);
 
                 OrderEvent::create([
                     'id' => Str::uuid()->toString(),
-                    'order_id' => $order->id,
+                    'order_id' => $orderId,
                     'type' => 'paid',
                     'event' => 'paid',
                     'actor' => 'client',
                     'message' => "Commande réglée avec succès par solde du compte ({$totalXof} FCFA).",
-                    'created_at' => now(),
+                    'created_at' => $now,
                 ]);
             });
 
-            // Déclenchement de la livraison automatique et notification
             try {
-                app(\App\Services\MailService::class)->sendOrderPaid(Order::find($orderId));
-                app(\App\Services\OrderFulfillmentService::class)->fulfil($orderId);
+                $savedOrder = Order::find($orderId);
+                app(MailService::class)->sendOrderPaid($savedOrder);
+                app(OrderFulfillmentService::class)->fulfil($orderId);
             } catch (\Throwable $e) {
-                \Log::warning("Erreur déclenchement fulfillment solde: " . $e->getMessage());
+                \Log::warning("Erreur fulfillment solde: " . $e->getMessage());
             }
 
             return redirect()->route('account.orders.show', $orderId)->with('success', 'Commande validée et payée avec succès !');
         }
 
-        // 2. Paid with Mobile Money (pawaPay)
-        $depositId = Str::uuid()->toString();
-
+        // 2. Paiement via passerelle pawaPay (Mobile Money)
         $order = Order::create([
             'id' => $orderId,
             'reference' => $ref,
-            'user_id' => $clientUser->id,
+            'client_token' => $validated['clientToken'] ?? null,
+            'user_id' => $user->id,
             'product_id' => $product->id,
-            'product_name' => $product->name,
+            'product_name' => $product->display_name ?: $product->name,
             'supplier_product_id' => $product->supplier_id,
-            'quantity' => $validated['quantity'],
-            'unit_price_xof' => $product->price_xof,
+            'quantity' => $quantity,
+            'unit_price_xof' => $unitPriceXof,
             'total_xof' => $totalXof,
+            'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
+            'usd_rate' => 669,
             'paid_with' => 'pawapay',
             'status' => 'pending_payment',
-            'payment_checkout_id' => $depositId,
+            'payment_checkout_id' => $orderId,
             'customer_first_name' => $firstName,
             'customer_last_name' => $lastName,
-            'customer_email' => $clientUser->email,
-            'customer_phone' => $validated['phone'] ?? null,
-            'customer_country' => $validated['country'],
-            'custom_fields' => $validated['custom_fields'] ?? null,
-            'created_at' => now(),
+            'customer_email' => $user->email,
+            'customer_phone' => $phone,
+            'customer_country' => $country,
+            'activation_emails' => $emails,
+            'created_at' => $now,
         ]);
 
         OrderEvent::create([
             'id' => Str::uuid()->toString(),
-            'order_id' => $order->id,
+            'order_id' => $orderId,
             'type' => 'created',
             'event' => 'created',
             'actor' => 'client',
-            'message' => "Commande initiée via Mobile Money pawaPay.",
-            'created_at' => now(),
+            'message' => "Commande créée en attente de paiement Mobile Money ({$totalXof} FCFA).",
+            'created_at' => $now,
         ]);
 
         try {
@@ -217,20 +307,21 @@ class CheckoutController extends Controller
             $returnUrl = url("/paiement/retour?commande={$order->id}");
 
             $session = $pawaPay->createPaymentPage([
-                'deposit_id' => $depositId,
-                'order_id' => $order->id,
+                'deposit_id' => $orderId,
+                'order_id' => $orderId,
                 'reference' => $ref,
                 'amount_xof' => $totalXof,
-                'country' => $validated['country'],
-                'phone' => $validated['phone'] ?? null,
-                'email' => $clientUser->email,
+                'country' => $country,
+                'phone' => $phone,
+                'email' => $user->email,
                 'return_url' => $returnUrl,
-                'description' => "{$product->name} × {$validated['quantity']}",
+                'description' => "{$order->product_name} × {$quantity} — commande {$ref}",
             ]);
 
-            $order->update(['payment_url' => $session['redirectUrl']]);
+            $paymentUrl = $session['redirectUrl'] ?? $session['payment_url'] ?? null;
+            $order->update(['payment_url' => $paymentUrl]);
 
-            return Inertia::location($session['redirectUrl']);
+            return Inertia::location($paymentUrl);
         } catch (\Throwable $e) {
             \Log::error("Erreur pawaPay checkout : " . $e->getMessage());
             $order->update([
@@ -244,40 +335,104 @@ class CheckoutController extends Controller
 
     public function showReturn(Request $request)
     {
-        $orderId = $request->query('commande');
-        if (!$orderId) {
+        $orderId = $request->query('commande') ?: $request->query('order_id');
+        $depositId = $request->query('depositId');
+        $depotId = $request->query('depot');
+
+        // Cas recharge de solde
+        if ($depotId || (!$orderId && $depositId)) {
+            $targetDepot = $depotId ?: $depositId;
+            $walletDeposit = WalletDeposit::where('id', $targetDepot)
+                ->orWhere('payment_checkout_id', $targetDepot)
+                ->first();
+
+            if ($walletDeposit) {
+                if ($walletDeposit->status === 'pending') {
+                    try {
+                        $pawaPay = app(PawaPayService::class);
+                        $state = $pawaPay->getDeposit($walletDeposit->payment_checkout_id ?: $walletDeposit->id);
+                        if (in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
+                            DB::transaction(function () use ($walletDeposit) {
+                                $locked = WalletDeposit::lockForUpdate()->find($walletDeposit->id);
+                                if ($locked && !$locked->credited_at) {
+                                    $user = User::lockForUpdate()->find($locked->user_id);
+                                    if ($user) {
+                                        $user->increment('balance_xof', $locked->amount_xof);
+                                        WalletEntry::create([
+                                            'id' => Str::uuid()->toString(),
+                                            'user_id' => $user->id,
+                                            'amount_xof' => $locked->amount_xof,
+                                            'balance_after_xof' => $user->balance_xof,
+                                            'type' => 'credit',
+                                            'kind' => 'deposit',
+                                            'description' => "Recharge Mobile Money — {$locked->reference}",
+                                            'reference_type' => 'wallet_deposit',
+                                            'reference_id' => $locked->id,
+                                            'created_at' => now(),
+                                        ]);
+                                    }
+                                    $locked->update([
+                                        'status' => 'completed',
+                                        'paid_at' => now(),
+                                        'credited_at' => now(),
+                                    ]);
+                                }
+                            });
+                        }
+                    } catch (\Throwable $e) {
+                        \Log::warning("Erreur sync deposit retour: " . $e->getMessage());
+                    }
+                }
+
+                return redirect()->route('account.wallet')->with('success', 'Votre solde a été mis à jour.');
+            }
+        }
+
+        // Cas commande de licence
+        $targetOrder = $orderId ?: $depositId;
+        if (!$targetOrder) {
             return redirect()->route('shop.index');
         }
 
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('id', $targetOrder)
+            ->orWhere('payment_checkout_id', $targetOrder)
+            ->firstOrFail();
 
-        // Sync with pawaPay if still pending
+        // Relecture sécurisée auprès de pawaPay si le statut est encore en attente
         if ($order->status === 'pending_payment' && $order->payment_checkout_id) {
             try {
                 $pawaPay = app(PawaPayService::class);
-                $deposit = $pawaPay->getDeposit($order->payment_checkout_id);
-                if ($deposit && in_array(strtoupper($deposit['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
+                $state = $pawaPay->getDeposit($order->payment_checkout_id);
+                if (in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
                     $order->update([
                         'status' => 'paid',
                         'paid_at' => now(),
                     ]);
+
                     OrderEvent::create([
                         'id' => Str::uuid()->toString(),
                         'order_id' => $order->id,
+                        'type' => 'paid',
                         'event' => 'paid',
                         'actor' => 'pawapay',
-                        'message' => "Paiement Mobile Money confirmé par pawaPay.",
+                        'message' => "Paiement confirmé lors du retour sur le site.",
                         'created_at' => now(),
                     ]);
 
                     try {
-                        app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
+                        app(MailService::class)->sendOrderPaid($order);
+                        app(OrderFulfillmentService::class)->fulfil($order->id);
                     } catch (\Throwable $e) {
-                        \Log::warning("Erreur déclenchement fulfillment retour: " . $e->getMessage());
+                        \Log::warning("Erreur fulfillment post-retour: " . $e->getMessage());
                     }
+                } elseif (in_array(strtoupper($state['status'] ?? ''), ['FAILED', 'EXPIRED', 'CANCELLED'])) {
+                    $order->update([
+                        'status' => 'payment_failed',
+                        'failure_message' => $state['failure_reason'] ?? 'Paiement non finalisé.',
+                    ]);
                 }
             } catch (\Throwable $e) {
-                \Log::warning("Erreur sync deposit retour : " . $e->getMessage());
+                \Log::warning("Erreur vérification pawaPay lors du retour: " . $e->getMessage());
             }
         }
 
@@ -287,52 +442,10 @@ class CheckoutController extends Controller
                 'reference' => $order->reference,
                 'product_name' => $order->product_name,
                 'quantity' => $order->quantity,
-                'total_xof' => $order->total_xof,
+                'total_xof' => (int) $order->total_xof,
                 'status' => $order->status,
                 'payment_url' => $order->payment_url,
             ],
         ]);
-    }
-
-    public function resumeOrder($id)
-    {
-        $order = Order::findOrFail($id);
-
-        if ($order->status !== 'pending_payment') {
-            return redirect()->route('account.orders.show', $order->id);
-        }
-
-        // Check if payment URL is still fresh
-        if ($order->payment_url && PawaPayService::isPaymentUrlValid($order->payment_url)) {
-            return redirect()->away($order->payment_url);
-        }
-
-        // Renew session
-        try {
-            $pawaPay = app(PawaPayService::class);
-            $newDepositId = Str::uuid()->toString();
-            $returnUrl = url("/paiement/retour?commande={$order->id}");
-
-            $session = $pawaPay->createPaymentPage([
-                'deposit_id' => $newDepositId,
-                'order_id' => $order->id,
-                'reference' => $order->reference,
-                'amount_xof' => $order->total_xof,
-                'country' => $order->customer_country ?? 'BF',
-                'phone' => $order->customer_phone ?? null,
-                'email' => $order->customer_email,
-                'return_url' => $returnUrl,
-                'description' => $order->product_name,
-            ]);
-
-            $order->update([
-                'payment_checkout_id' => $newDepositId,
-                'payment_url' => $session['redirectUrl'],
-            ]);
-
-            return redirect()->away($session['redirectUrl']);
-        } catch (\Throwable $e) {
-            return redirect()->route('account.orders.show', $order->id)->with('error', "Impossible de reprendre le paiement : " . $e->getMessage());
-        }
     }
 }
