@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
+import { usePage, router } from '@inertiajs/vue3';
 
-const currentCurrency = ref(localStorage.getItem('user_currency') || 'XOF');
+const page = usePage();
+const currentCurrency = computed(() => (page.props.locale as any)?.currency || 'XOF');
 
-const setCurrency = (c: string) => {
-  currentCurrency.value = c;
-  localStorage.setItem('user_currency', c);
-  window.dispatchEvent(new CustomEvent('currency-changed', { detail: c }));
+const setCurrency = (currency: string) => {
+  if (currency === currentCurrency.value) return;
+  router.post('/locale/currency', { currency }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      window.location.reload();
+    },
+  });
 };
 </script>
 

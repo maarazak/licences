@@ -22,6 +22,7 @@ import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
 import ProductCard from '@/Components/Shop/ProductCard.vue';
 import { SITE_NAME } from '@/Utils/site';
 import { logoFor, distinctBrands, diversify } from '@/Utils/brands';
+import { useI18n } from '@/Utils/useI18n';
 import type { LogoSpec } from '@/Types/logo';
 
 export interface CatalogProduct {
@@ -91,56 +92,54 @@ const brands = computed(() => {
   return distinctBrands(allLogos, 16);
 });
 
-function stockBadge(p: CatalogProduct): { badge: string; badgeTone: 'success' | 'warning' | 'danger' } {
-  if (!p.available) return { badge: 'Rupture', badgeTone: 'danger' };
-  if (p.stock !== null && p.stock !== undefined && p.stock <= 3) {
-    return { badge: `Plus que ${p.stock}`, badgeTone: 'warning' };
-  }
-  return { badge: 'Disponible', badgeTone: 'success' };
-}
+const { t, format } = useI18n();
 
-const formatPrice = (amount: number) => {
-  return `${amount.toLocaleString('fr-FR')} FCFA`;
-};
+function stockBadge(p: CatalogProduct): { badge: string; badgeTone: 'success' | 'warning' | 'danger' } {
+  if (!p.available) return { badge: t('Rupture'), badgeTone: 'danger' };
+  if (p.stock !== null && p.stock !== undefined && p.stock <= 3) {
+    return { badge: t('Plus que {n}', { n: p.stock }), badgeTone: 'warning' };
+  }
+  return { badge: t('Disponible'), badgeTone: 'success' };
+}
 
 // Slides pour le HeroCarousel 3D
 const slides = computed<HeroSlide[]>(() => {
   return featured.value.slice(0, 6).map((p) => ({
     slug: p.slug,
     title: p.title,
-    duration: p.duration,
-    price: formatPrice(p.priceXof),
-    shelf: p.shelf || '',
+    duration: t(p.duration),
+    price: format(p.priceXof),
+    shelf: p.shelf ? t(p.shelf) : '',
     logo: p.logo!,
     ...stockBadge(p),
   }));
 });
 
-const reasons = [
-  { icon: BadgeCheck, title: 'Prix final en FCFA', text: 'Aucun frais ajouté au moment de payer.', gradient: 'from-orange-400 to-accent' },
-  { icon: KeyRound, title: 'Accès dans votre espace', text: 'Retrouvez-les à tout moment dans Mes achats.', gradient: 'from-emerald-400 to-brand' },
-  { icon: LifeBuoy, title: 'Aide liée à votre commande', text: 'Chaque demande est suivie jusqu’à sa résolution.', gradient: 'from-sky-400 to-indigo-500' },
-  { icon: RefreshCw, title: 'Avoir ou remboursement', text: 'Si la livraison échoue, vous choisissez.', gradient: 'from-violet-400 to-fuchsia-500' },
-];
+const reasons = computed(() => [
+  { icon: BadgeCheck, title: t('Prix final en FCFA'), text: t('Aucun frais ajouté au moment de payer.'), gradient: 'from-orange-400 to-accent' },
+  { icon: KeyRound, title: t('Accès dans votre espace'), text: t('Retrouvez-les à tout moment dans Mes achats.'), gradient: 'from-emerald-400 to-brand' },
+  { icon: LifeBuoy, title: t('Aide liée à votre commande'), text: t('Chaque demande est suivie jusqu’à sa résolution.'), gradient: 'from-sky-400 to-indigo-500' },
+  { icon: RefreshCw, title: t('Avoir ou remboursement'), text: t('Si la livraison échoue, vous choisissez.'), gradient: 'from-violet-400 to-fuchsia-500' },
+]);
 
-const steps = [
-  { icon: ShoppingBag, title: 'Choisissez votre offre', text: 'Type d’accès, durée et garantie sont affichés avant de payer.' },
-  { icon: Smartphone, title: 'Payez en FCFA', text: 'Mobile Money (Orange, Moov, MTN, Wave) en toute sécurité.' },
-  { icon: Package, title: 'Recevez votre accès', text: 'Livraison automatique dans Mes achats, avec un e-mail de confirmation.' },
-];
+const steps = computed(() => [
+  { icon: ShoppingBag, title: t('Choisissez votre offre'), text: t('Type d’accès, durée et garantie sont affichés avant de payer.') },
+  { icon: Smartphone, title: t('Payez en FCFA'), text: t('Mobile Money (Orange, Moov, MTN, Wave) en toute sécurité.') },
+  { icon: Package, title: t('Recevez votre accès'), text: t('Livraison automatique dans Mes achats, avec un e-mail de confirmation.') },
+]);
 
-const faq = [
-  ['Combien de temps pour recevoir mon accès ?', 'En général quelques minutes après la confirmation du paiement. Certaines offres demandent une activation manuelle, indiquée sur la fiche.'],
-  ['Comment payer ?', 'Par mobile money, sur la page sécurisée de notre prestataire de paiement. Le prix affiché est le prix final, en FCFA.'],
-  ['Et si mon accès ne fonctionne pas ?', 'Signalez-le depuis votre commande pendant la durée de garantie : nous le remplaçons ou nous créditons votre solde.'],
-  ['Où retrouver mes accès ?', 'Dans Mes achats, à tout moment, après connexion par code e-mail. Aucun mot de passe à retenir.'],
-];
+const faq = computed(() => [
+  [t('Combien de temps pour recevoir mon accès ?'), t('En général quelques minutes après la confirmation du paiement. Certaines offres demandent une activation manuelle, indiquée sur la fiche.')],
+  [t('Comment payer ?'), t('Par mobile money, sur la page sécurisée de notre prestataire de paiement. Le prix affiché est le prix final, en FCFA.')],
+  [t('Et si mon accès ne fonctionne pas ?'), t('Signalez-le depuis votre commande pendant la durée de garantie : nous le remplaçons ou nous créditons votre solde.')],
+  [t('Où retrouver mes accès ?'), t('Dans Mes achats, à tout moment, après connexion par code e-mail. Aucun mot de passe à retenir.')],
+]);
 
-const trust = [
-  { icon: Zap, text: 'Livraison en quelques minutes' },
-  { icon: ShieldCheck, text: 'Paiement mobile money sécurisé' },
-  { icon: RefreshCw, text: 'Remplacé ou crédité si l’accès échoue' },
-];
+const trust = computed(() => [
+  { icon: Zap, text: t('Livraison en quelques minutes') },
+  { icon: ShieldCheck, text: t('Paiement mobile money sécurisé') },
+  { icon: RefreshCw, text: t('Remplacé ou crédité si l’accès échoue') },
+]);
 
 const handleLoadMore = () => {
   featuredCount.value += FEATURED_PAGE;
@@ -171,10 +170,10 @@ const handleLoadMore = () => {
           </p>
           <div class="mt-8 flex flex-wrap gap-3">
             <a href="#phares" class="btn btn-primary min-h-12 px-7 text-base">
-              Voir les produits phares
+              {{ t('Voir les offres') }}
             </a>
             <Link href="/boutique" class="btn btn-soft min-h-12 px-7 text-base">
-              Toute la boutique
+              {{ t('Toute la boutique') }}
             </Link>
           </div>
           <ul class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-ink/75">
@@ -185,11 +184,11 @@ const handleLoadMore = () => {
           </ul>
         </div>
         <div class="animate-fade-up delay-2">
-          <HeroCarousel :slides="slides" cta="Voir l'offre" />
+          <HeroCarousel :slides="slides" :cta="t('Voir l\'offre')" />
         </div>
       </div>
       <div class="relative border-y border-line bg-white/70">
-        <BrandMarquee :logos="brands" label="Marques proposées" />
+        <BrandMarquee :logos="brands" :label="t('Marques proposées')" />
       </div>
     </section>
 
@@ -197,11 +196,11 @@ const handleLoadMore = () => {
     <section id="phares" class="container-page scroll-mt-24 pt-16">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="eyebrow text-accent-ink">Les plus demandés</p>
-          <h2 class="h2 mt-1">Produits phares</h2>
+          <p class="eyebrow text-accent-ink">{{ t('Les plus demandés') }}</p>
+          <h2 class="h2 mt-1">{{ t('Produits phares') }}</h2>
         </div>
         <Link href="/boutique" class="link text-sm">
-          Toute la boutique
+          {{ t('Toute la boutique') }}
         </Link>
       </div>
 
@@ -229,7 +228,7 @@ const handleLoadMore = () => {
 
     <!-- ── Catégories ── -->
     <section v-if="categories && categories.length" class="container-page pt-14">
-      <h2 class="h3 text-lg">Parcourir par catégorie</h2>
+      <h2 class="h3 text-lg">{{ t('Parcourir par catégorie') }}</h2>
       <div class="mt-4 flex flex-wrap gap-2.5">
         <Link
           v-for="[name, count] in categories.slice(0, 8)"
@@ -238,7 +237,7 @@ const handleLoadMore = () => {
           class="chip"
         >
           <CategoryBubble :name="name" size="sm" />
-          <span>{{ name }}</span>
+          <span>{{ t(name) }}</span>
           <span class="text-xs font-medium text-muted">{{ count }}</span>
         </Link>
       </div>
@@ -246,7 +245,7 @@ const handleLoadMore = () => {
 
     <!-- ── Pourquoi nous ── -->
     <section class="container-page pt-16">
-      <h2 class="h2">Pourquoi acheter chez {{ SITE_NAME }}</h2>
+      <h2 class="h2">{{ t('Pourquoi acheter chez {name}', { name: SITE_NAME }) }}</h2>
       <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div v-for="item in reasons" :key="item.title" class="card p-5">
           <span
@@ -265,7 +264,7 @@ const handleLoadMore = () => {
 
     <!-- ── Comment ça marche ── -->
     <section class="container-page pt-16">
-      <h2 class="h2">Comment ça marche</h2>
+      <h2 class="h2">{{ t('Comment ça marche') }}</h2>
       <ol class="mt-7 grid gap-4 md:grid-cols-3">
         <li v-for="(step, i) in steps" :key="step.title" class="card flex gap-4 p-5">
           <span
@@ -274,7 +273,7 @@ const handleLoadMore = () => {
             <component :is="step.icon" class="size-6" aria-hidden="true" />
           </span>
           <div>
-            <p class="text-xs font-bold text-accent-ink">Étape {{ i + 1 }}</p>
+            <p class="text-xs font-bold text-accent-ink">{{ t('Étape {n}', { n: i + 1 }) }}</p>
             <h3 class="h3 mt-0.5">{{ step.title }}</h3>
             <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ step.text }}</p>
           </div>
@@ -284,7 +283,7 @@ const handleLoadMore = () => {
 
     <!-- ── Questions fréquentes ── -->
     <section class="container-page max-w-3xl pt-16">
-      <h2 class="h2">Questions fréquentes</h2>
+      <h2 class="h2">{{ t('Questions fréquentes') }}</h2>
       <div class="mt-6 space-y-2.5">
         <details v-for="[question, answer] in faq" :key="question" class="card group px-5 py-4">
           <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold">

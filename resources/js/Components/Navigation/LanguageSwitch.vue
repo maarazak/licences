@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
+import { usePage, router } from '@inertiajs/vue3';
 import { Globe } from 'lucide-vue-next';
 
-const currentLang = ref(localStorage.getItem('user_lang') || 'fr');
+const page = usePage();
+const currentLang = computed(() => (page.props.locale as any)?.lang || 'fr');
 
 const changeLang = (event: Event) => {
   const target = event.target as HTMLSelectElement;
-  currentLang.value = target.value;
-  localStorage.setItem('user_lang', target.value);
+  const lang = target.value;
+  router.post('/locale/lang', { lang }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      window.location.reload();
+    },
+  });
 };
 </script>
 
@@ -15,7 +22,7 @@ const changeLang = (event: Event) => {
   <div class="relative">
     <Globe class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
     <select
-      v-model="currentLang"
+      :value="currentLang"
       aria-label="Langue"
       class="min-h-9 cursor-pointer appearance-none rounded-full border border-line bg-white pr-3 pl-9 text-xs font-bold text-ink shadow-sm transition hover:border-ink/40"
       @change="changeLang"

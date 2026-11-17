@@ -15,6 +15,7 @@ import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import BrandTint from '@/Components/Shared/BrandTint.vue';
 import { logoFor } from '@/Utils/brands';
 import { deliveryKindLabel } from '@/Types/enums';
+import { useI18n } from '@/Utils/useI18n';
 
 interface ProductDetail {
   id: string;
@@ -62,37 +63,35 @@ const props = defineProps<{
   related: RelatedProduct[];
 }>();
 
+const { t, formatPrice } = useI18n();
+
 const resolvedLogo = computed(() => logoFor(props.product.name, props.product.display_name));
 
-const formatPrice = (amount: number) => {
-  return `${amount.toLocaleString('fr-FR')} FCFA`;
-};
-
-const accessText = computed(() => deliveryKindLabel(props.product.accessKind || props.product.delivery_kind));
+const accessText = computed(() => t(deliveryKindLabel(props.product.accessKind || props.product.delivery_kind)));
 
 const brandName = computed(() => {
-  return resolvedLogo.value.label || props.product.title.split(' ')[0] || 'la marque';
+  return resolvedLogo.value.label || props.product.title.split(' ')[0] || t('la marque');
 });
 
-const steps = [
-  { title: 'Payez en FCFA', text: 'Le prix affiché est le prix final.' },
-  { title: 'Nous préparons votre accès', text: 'Paiement et livraison sont confirmés séparément et suivis dans Mes achats.' },
-  { title: 'Recevez vos instructions', text: "Lien, code ou compte selon l'offre, dans votre espace." },
-];
+const steps = computed(() => [
+  { title: t('Payez en FCFA'), text: t('Le prix affiché est le prix final.') },
+  { title: t('Nous préparons votre accès'), text: t('Paiement et livraison sont confirmés séparément et suivis dans Mes achats.') },
+  { title: t('Recevez vos instructions'), text: t("Lien, code ou compte selon l'offre, dans votre espace.") },
+]);
 
-const assurances = [
-  { icon: Zap, text: 'Livraison en quelques minutes' },
-  { icon: ShieldCheck, text: 'Paiement mobile money sécurisé' },
-  { icon: RefreshCw, text: 'Remplacé ou crédité si l’accès échoue' },
-  { icon: KeyRound, text: 'Vos accès restent dans Mes achats' },
-];
+const assurances = computed(() => [
+  { icon: Zap, text: t('Livraison en quelques minutes') },
+  { icon: ShieldCheck, text: t('Paiement mobile money sécurisé') },
+  { icon: RefreshCw, text: t('Remplacé ou crédité si l’accès échoue') },
+  { icon: KeyRound, text: t('Vos accès restent dans Mes achats') },
+]);
 
 const terms = computed(() => [
-  `Type d'accès : ${accessText.value}.`,
-  `Durée d'abonnement : ${props.product.duration}.`,
-  `Garantie : ${props.product.warranty || 'Garantie intégrale durant toute la période'}.`,
-  'Livraison numérique dans votre espace « Mes achats » avec notification par e-mail.',
-  'En cas d’impossibilité de livraison, vous choisissez entre un avoir immédiat ou un remboursement.',
+  t("Type d'accès : {value}.", { value: accessText.value }),
+  t("Durée : {value}.", { value: t(props.product.duration) }),
+  props.product.warranty ? t("Garantie : {value}.", { value: props.product.warranty }) : t("Garantie intégrale durant toute la période"),
+  t("Livraison numérique dans votre espace « Mes achats » avec notification par e-mail."),
+  t("En cas d’impossibilité de livraison, vous choisissez entre un avoir immédiat ou un remboursement."),
 ]);
 </script>
 
@@ -102,12 +101,12 @@ const terms = computed(() => [
 
     <div class="container-page py-8">
       <!-- ── Fil d'Ariane ── -->
-      <nav aria-label="Fil d'Ariane" class="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
-        <Link href="/boutique" class="hover:text-ink">Boutique</Link>
+      <nav :aria-label="t('Fil d\'Ariane')" class="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
+        <Link href="/boutique" class="hover:text-ink">{{ t('Boutique') }}</Link>
         <span aria-hidden="true">/</span>
         <template v-if="product.shelf">
           <Link :href="`/boutique?categorie=${encodeURIComponent(product.shelf)}`" class="hover:text-ink">
-            {{ product.shelf }}
+            {{ t(product.shelf) }}
           </Link>
           <span aria-hidden="true">/</span>
         </template>
@@ -121,13 +120,13 @@ const terms = computed(() => [
         <div class="relative flex flex-wrap items-center gap-6 p-6 sm:p-8">
           <BrandLogo :logo="resolvedLogo" size="xl" />
           <div class="min-w-0 flex-1">
-            <p v-if="product.shelf" class="eyebrow text-accent-ink">{{ product.shelf }}</p>
+            <p v-if="product.shelf" class="eyebrow text-accent-ink">{{ t(product.shelf) }}</p>
             <h1 translate="no" class="h1 mt-1 leading-tight">{{ product.title }}</h1>
             <div class="mt-3 flex flex-wrap items-center gap-2">
-              <span class="badge badge-neutral">{{ product.duration }}</span>
+              <span class="badge badge-neutral">{{ t(product.duration) }}</span>
               <span class="badge badge-neutral">{{ accessText }}</span>
-              <span v-if="product.available" class="badge badge-success">Disponible</span>
-              <span v-else class="badge badge-danger">Rupture temporaire</span>
+              <span v-if="product.available" class="badge badge-success">{{ t('Disponible') }}</span>
+              <span v-else class="badge badge-danger">{{ t('Rupture temporaire') }}</span>
             </div>
           </div>
         </div>
@@ -143,30 +142,30 @@ const terms = computed(() => [
 
           <!-- Ce que vous achetez -->
           <section>
-            <h2 class="h3 text-lg">Ce que vous achetez</h2>
+            <h2 class="h3 text-lg">{{ t('Ce que vous achetez') }}</h2>
             <div class="card mt-3 px-5 divide-y divide-line">
               <div class="flex items-center justify-between py-3 text-sm">
-                <span class="text-muted">Type d'accès</span>
+                <span class="text-muted">{{ t("Type d'accès") }}</span>
                 <span class="font-semibold text-ink">{{ accessText }}</span>
               </div>
               <div class="flex items-center justify-between py-3 text-sm">
-                <span class="text-muted">Durée</span>
-                <span class="font-semibold text-ink">{{ product.duration }}</span>
+                <span class="text-muted">{{ t('Durée') }}</span>
+                <span class="font-semibold text-ink">{{ t(product.duration) }}</span>
               </div>
               <div class="flex items-center justify-between py-3 text-sm">
-                <span class="text-muted">Garantie</span>
-                <span class="font-semibold text-ink">{{ product.warranty || 'Garantie intégrale' }}</span>
+                <span class="text-muted">{{ t('Garantie') }}</span>
+                <span class="font-semibold text-ink">{{ product.warranty || t('Garantie intégrale') }}</span>
               </div>
               <div v-if="product.requires_email" class="flex items-center justify-between py-3 text-sm">
-                <span class="text-muted">Activation</span>
-                <span class="font-semibold text-ink">Sur l'adresse e-mail fournie</span>
+                <span class="text-muted">{{ t('Activation') }}</span>
+                <span class="font-semibold text-ink">{{ t("Sur l'adresse e-mail fournie") }}</span>
               </div>
             </div>
           </section>
 
           <!-- Comment ça se passe -->
           <section>
-            <h2 class="h3 text-lg">Comment ça se passe</h2>
+            <h2 class="h3 text-lg">{{ t('Comment ça se passe') }}</h2>
             <ol class="mt-3 grid gap-3 sm:grid-cols-3">
               <li v-for="(st, i) in steps" :key="st.title" class="card p-4">
                 <span class="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-bright to-brand font-display text-sm font-extrabold text-white">
@@ -180,7 +179,7 @@ const terms = computed(() => [
 
           <!-- Mode d'emploi -->
           <section v-if="product.instructions">
-            <h2 class="h3 text-lg">Mode d'emploi</h2>
+            <h2 class="h3 text-lg">{{ t("Mode d'emploi") }}</h2>
             <div class="card mt-3 p-5">
               <p class="text-sm leading-relaxed text-ink whitespace-pre-line">
                 {{ product.instructions }}
@@ -191,9 +190,9 @@ const terms = computed(() => [
           <!-- Conditions de l'offre -->
           <details class="card group px-5 py-4">
             <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-ink">
-              <span>Conditions de l'offre</span>
-              <span class="text-xs font-semibold text-brand group-open:hidden">Voir toutes les conditions</span>
-              <span class="hidden text-xs font-semibold text-muted group-open:inline">Masquer</span>
+              <span>{{ t("Conditions de l'offre") }}</span>
+              <span class="text-xs font-semibold text-brand group-open:hidden">{{ t('Voir toutes les conditions') }}</span>
+              <span class="hidden text-xs font-semibold text-muted group-open:inline">{{ t('Masquer') }}</span>
             </summary>
             <ul class="mt-3 space-y-2 text-sm leading-relaxed text-muted list-disc list-inside">
               <li v-for="term in terms" :key="term">{{ term }}</li>
@@ -202,7 +201,7 @@ const terms = computed(() => [
 
           <!-- Autres formules de la marque -->
           <section v-if="related && related.length">
-            <h2 class="h3 text-lg">Autres formules {{ brandName }}</h2>
+            <h2 class="h3 text-lg">{{ t('Autres formules') }} {{ brandName }}</h2>
             <ul class="mt-3 space-y-2.5">
               <li v-for="item in related" :key="item.id">
                 <Link
@@ -213,7 +212,7 @@ const terms = computed(() => [
                   <span translate="no" class="min-w-0 flex-1 text-sm font-bold text-ink">
                     {{ item.title }}
                   </span>
-                  <span class="text-xs text-muted">{{ item.duration }}</span>
+                  <span class="text-xs text-muted">{{ t(item.duration) }}</span>
                   <span class="font-display text-sm font-extrabold text-ink">
                     {{ formatPrice(item.priceXof) }}
                   </span>
@@ -228,12 +227,12 @@ const terms = computed(() => [
         <aside class="space-y-4">
           <div class="card p-6 sm:p-8 space-y-6 sticky top-24 shadow-pop">
             <div>
-              <p class="text-xs font-bold text-muted uppercase tracking-wider">Prix de l'offre</p>
+              <p class="text-xs font-bold text-muted uppercase tracking-wider">{{ t("Prix de l'offre") }}</p>
               <p class="font-display text-3xl font-extrabold text-ink mt-1">
                 {{ formatPrice(product.priceXof) }}
               </p>
               <p class="text-xs text-muted mt-1">
-                Paiement direct en FCFA par Mobile Money (Orange, Moov, MTN, Wave).
+                {{ t("Paiement direct en FCFA par Mobile Money (Orange, Moov, MTN, Wave).") }}
               </p>
             </div>
 
@@ -244,17 +243,17 @@ const terms = computed(() => [
                 class="btn btn-primary btn-block min-h-12 text-base font-bold shadow-md"
               >
                 <ShoppingCart class="size-5" />
-                <span>Acheter maintenant</span>
+                <span>{{ t('Acheter maintenant') }}</span>
               </Link>
               <div v-else class="space-y-3">
                 <div class="card p-3 bg-amber-50/60 border-amber-200 text-amber-800 text-xs text-center font-medium">
-                  Cette offre est momentanément en rupture.
+                  {{ t('Cette offre est momentanément en rupture.') }}
                 </div>
                 <Link
                   href="/compte/alertes"
                   class="btn btn-soft btn-block min-h-11 text-xs"
                 >
-                  M'alerter par e-mail au retour
+                  {{ t("M'alerter par e-mail au retour") }}
                 </Link>
               </div>
             </div>

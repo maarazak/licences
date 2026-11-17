@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
+import { useI18n } from '@/Utils/useI18n';
 import {
   UserRound,
   LayoutDashboard,
@@ -56,13 +57,15 @@ const logout = () => {
   router.post('/deconnexion');
 };
 
-const links = [
-  { href: '/compte', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/compte/achats', label: 'Mes achats', icon: Package },
-  { href: '/compte/solde', label: 'Mon solde', icon: Wallet },
-  { href: '/compte/assistance', label: 'Assistance', icon: LifeBuoy },
-  { href: '/compte/profil', label: 'Profil', icon: UserRound },
-];
+const { t } = useI18n();
+
+const links = computed(() => [
+  { href: '/compte', label: t('Tableau de bord'), icon: LayoutDashboard },
+  { href: '/compte/achats', label: t('Mes achats'), icon: Package },
+  { href: '/compte/solde', label: t('Mon solde'), icon: Wallet },
+  { href: '/compte/assistance', label: t('Assistance'), icon: LifeBuoy },
+  { href: '/compte/profil', label: t('Profil'), icon: UserRound },
+]);
 
 const row =
   'flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-ink transition hover:bg-ink/5 active:bg-ink/5 cursor-pointer';
@@ -111,13 +114,13 @@ const row =
       <template v-else>
         <Link href="/connexion" :class="['btn btn-primary btn-block min-h-11']" @click="close">
           <UserRound class="size-4" aria-hidden="true" />
-          <span>Se connecter</span>
+          <span>{{ t('Se connecter') }}</span>
         </Link>
       </template>
 
       <!-- SLOT PRÉFÉRENCES MOBILE -->
       <div v-if="$slots.default" class="mt-2 space-y-2 border-t border-line px-1 pt-3 pb-1 lg:hidden">
-        <p class="px-2 text-[11px] font-bold tracking-[0.14em] text-muted uppercase">Préférences</p>
+        <p class="px-2 text-[11px] font-bold tracking-[0.14em] text-muted uppercase">{{ t('Préférences') }}</p>
         <div class="flex flex-wrap items-center gap-2 px-2">
           <slot />
         </div>
@@ -127,7 +130,7 @@ const row =
       <div v-if="signedIn" class="mt-2 border-t border-line pt-2">
         <button type="button" :class="[row, 'text-danger hover:bg-danger-soft']" @click="logout">
           <LogOut class="size-4" aria-hidden="true" />
-          <span>Se déconnecter</span>
+          <span>{{ t('Se déconnecter') }}</span>
         </button>
       </div>
     </div>

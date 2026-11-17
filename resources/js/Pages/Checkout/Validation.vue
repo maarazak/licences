@@ -6,6 +6,7 @@ import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import { COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
 import { formatXof, formatCurrency } from '@/Utils/format';
+import { useI18n } from '@/Utils/useI18n';
 
 interface ProductItem {
   id: string;
@@ -35,6 +36,8 @@ const props = defineProps<{
   };
   balanceXof: number;
 }>();
+
+const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
 const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
@@ -286,10 +289,15 @@ const submitCheckout = () => {
           </div>
 
           <div class="flex items-baseline justify-between border-t border-line pt-4">
-            <span class="text-sm font-semibold text-ink">Total</span>
-            <span class="font-display text-3xl font-extrabold tracking-tight text-ink">
-              {{ formatCurrency(totalXof, 'XOF') }}
-            </span>
+            <span class="text-sm font-semibold text-ink">{{ t('Total') }}</span>
+            <div class="text-right">
+              <span class="font-display text-3xl font-extrabold tracking-tight text-ink">
+                {{ formatPrice(totalXof) }}
+              </span>
+              <p v-if="currency === 'USD'" class="text-xs text-muted mt-0.5">
+                (Paiement en FCFA : {{ (totalXof || 0).toLocaleString('fr-FR') }} FCFA)
+              </p>
+            </div>
           </div>
 
           <div v-if="form.errors.error || form.errors.expectedTotalXof" class="alert alert-error text-xs">

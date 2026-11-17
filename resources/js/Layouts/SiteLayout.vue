@@ -15,6 +15,9 @@ import LanguageSwitch from '@/Components/Navigation/LanguageSwitch.vue';
 import AccountMenu from '@/Components/Navigation/AccountMenu.vue';
 import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
 import { NAV_LINKS, SITE_NAME } from '@/Utils/site';
+import { useI18n } from '@/Utils/useI18n';
+
+const { t } = useI18n();
 
 const page = usePage();
 const authUser = computed(() => page.props.auth?.user);
@@ -99,7 +102,7 @@ const bottomLinks = [
               $page.url.startsWith(link.href) ? 'bg-ink/5 text-ink' : 'text-ink/75',
             ]"
           >
-            {{ link.label }}
+            {{ t(link.label) }}
           </Link>
         </nav>
 
@@ -125,7 +128,7 @@ const bottomLinks = [
             class="btn btn-primary btn-sm hidden lg:inline-flex"
           >
             <UserRound class="size-4" aria-hidden="true" />
-            Se connecter
+            {{ t('Se connecter') }}
           </Link>
 
           <AccountMenu
@@ -173,14 +176,14 @@ const bottomLinks = [
           </p>
         </div>
 
-        <nav v-for="column in columns" :key="column.title" :aria-label="column.title">
+        <nav v-for="column in columns" :key="column.title" :aria-label="t(column.title)">
           <p class="text-xs font-bold tracking-[0.14em] text-ink uppercase">
-            {{ column.title }}
+            {{ t(column.title) }}
           </p>
           <ul class="mt-4 space-y-2.5">
             <li v-for="link in column.links" :key="link.href">
               <Link :href="link.href" class="text-sm text-muted transition hover:text-ink">
-                {{ link.label }}
+                {{ t(link.label) }}
               </Link>
             </li>
           </ul>
@@ -194,7 +197,7 @@ const bottomLinks = [
           </p>
           <div class="flex flex-col gap-2.5 sm:items-end">
             <p class="text-[11px] font-bold tracking-[0.14em] text-ink uppercase">
-              Moyens de paiement
+              {{ t('Moyens de paiement') }}
             </p>
             <PaymentLogos layout="row" />
           </div>

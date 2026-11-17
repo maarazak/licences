@@ -7,6 +7,7 @@ import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import BrandTint from '@/Components/Shared/BrandTint.vue';
 import { logoFor } from '@/Utils/brands';
 import { deliveryKindLabel } from '@/Types/enums';
+import { useI18n } from '@/Utils/useI18n';
 
 export interface ProductItem {
   id: string;
@@ -66,9 +67,7 @@ const durationText = computed(() => {
   return props.product.warranty || 'Selon offre';
 });
 
-const formatPrice = (amount: number) => {
-  return `${amount.toLocaleString('fr-FR')} FCFA`;
-};
+const { t, format } = useI18n();
 </script>
 
 <template>
@@ -91,22 +90,22 @@ const formatPrice = (amount: number) => {
         v-if="displayShelf"
         class="absolute top-3.5 left-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink/70 shadow-sm"
       >
-        {{ displayShelf }}
+        {{ t(displayShelf) }}
       </span>
 
       <!-- Pastille de disponibilité (StockBadge) -->
       <div class="absolute top-3 right-3.5">
         <span v-if="!isAvail" class="badge badge-danger">
-          {{ product.preorder ? 'Sur commande' : 'Rupture' }}
+          {{ product.preorder ? t('Sur commande') : t('Rupture') }}
         </span>
         <span v-else-if="product.stock === null || product.stock === undefined" class="badge badge-success">
-          Disponible
+          {{ t('Disponible') }}
         </span>
         <span v-else-if="product.stock <= 3" class="badge badge-warning">
-          Plus que {{ product.stock }}
+          {{ t('Plus que {n}', { n: product.stock }) }}
         </span>
         <span v-else class="badge badge-success">
-          {{ product.stock }} en stock
+          {{ t('{n} en stock', { n: product.stock }) }}
         </span>
       </div>
 
@@ -130,24 +129,24 @@ const formatPrice = (amount: number) => {
           </Link>
         </h3>
         <div class="mt-2 flex flex-wrap gap-1.5">
-          <span class="badge badge-neutral">{{ durationText }}</span>
-          <span class="badge badge-neutral">{{ accessKindText }}</span>
+          <span class="badge badge-neutral">{{ t(durationText) }}</span>
+          <span class="badge badge-neutral">{{ t(accessKindText) }}</span>
         </div>
       </div>
 
       <!-- Prix & Action Acheter -->
       <div class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2 border-t border-line/40">
         <p class="font-display text-xl font-extrabold tracking-tight whitespace-nowrap text-ink">
-          {{ formatPrice(displayPriceXof) }}
+          {{ format(displayPriceXof) }}
         </p>
         <Link
           v-if="isAvail"
           :href="`/commande/validation?produit=${encodeURIComponent(product.slug)}`"
-          :aria-label="`Acheter : ${displayTitle}`"
+          :aria-label="`${t('Acheter')} : ${displayTitle}`"
           class="btn btn-primary btn-sm relative z-10 shrink-0"
         >
           <ShoppingCart class="size-4" aria-hidden="true" />
-          <span>Acheter</span>
+          <span>{{ t('Acheter') }}</span>
         </Link>
         <span
           v-else

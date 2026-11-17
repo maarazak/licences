@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Search, ChevronDown, X } from 'lucide-vue-next';
+import { useI18n } from '@/Utils/useI18n';
 
 export interface SearchItem {
   slug: string;
@@ -21,6 +22,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits(['close']);
+const { t } = useI18n();
 
 const query = ref('');
 const open = ref(false);
@@ -95,11 +97,11 @@ const openMobile = () => {
     <input
       type="search"
       role="combobox"
-      aria-label="Rechercher un produit"
+      :aria-label="t('Rechercher un produit')"
       :aria-expanded="open"
       autocomplete="off"
       maxlength="80"
-      placeholder="Rechercher un produit…"
+      :placeholder="t('Rechercher un produit…')"
       v-model="query"
       class="input min-h-10 rounded-full border-line bg-canvas pr-11 pl-10 text-sm shadow-none"
       @focus="open = true"
@@ -109,7 +111,7 @@ const openMobile = () => {
     />
     <button
       type="button"
-      aria-label="Afficher la liste des produits"
+      :aria-label="t('Afficher la liste des produits')"
       :aria-expanded="open"
       class="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-full text-muted transition hover:text-ink cursor-pointer"
       @click="open = !open"
@@ -122,7 +124,7 @@ const openMobile = () => {
       v-if="open"
       class="absolute top-[calc(100%+0.5rem)] left-0 z-50 w-[28rem] max-w-[calc(100vw-2rem)] min-w-full overflow-hidden rounded-2xl border border-line bg-white shadow-pop"
     >
-      <ul role="listbox" aria-label="Tous les produits" class="max-h-80 overflow-y-auto overscroll-contain py-1.5">
+      <ul role="listbox" :aria-label="t('Tous les produits')" class="max-h-80 overflow-y-auto overscroll-contain py-1.5">
         <li
           v-for="(item, i) in matches"
           :key="item.slug"
@@ -139,11 +141,11 @@ const openMobile = () => {
             {{ item.title }}
           </span>
           <span v-if="item.shelf" class="shrink-0 text-xs text-muted">
-            {{ item.shelf }}
+            {{ t(item.shelf) }}
           </span>
         </li>
         <li v-if="!matches.length" role="presentation" class="px-4 py-3 text-sm text-muted">
-          Aucun produit ne correspond
+          {{ t('Aucun produit ne correspond') }}
         </li>
       </ul>
     </div>
@@ -173,7 +175,7 @@ const openMobile = () => {
               ref="inputRef"
               type="search"
               v-model="query"
-              placeholder="Rechercher un produit…"
+              :placeholder="t('Rechercher un produit…')"
               class="input min-h-11 rounded-xl bg-canvas pr-4 pl-9 text-base"
               @keydown.enter="submitSearch"
             />
@@ -195,10 +197,10 @@ const openMobile = () => {
             @click="pick(item.slug)"
           >
             <span>{{ item.title }}</span>
-            <span v-if="item.shelf" class="text-xs text-muted font-normal">{{ item.shelf }}</span>
+            <span v-if="item.shelf" class="text-xs text-muted font-normal">{{ t(item.shelf) }}</span>
           </li>
           <li v-if="!matches.length" class="py-6 text-center text-sm text-muted">
-            Aucun produit ne correspond
+            {{ t('Aucun produit ne correspond') }}
           </li>
         </ul>
       </div>
