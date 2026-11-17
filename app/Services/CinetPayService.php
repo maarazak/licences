@@ -78,6 +78,38 @@ class CinetPayService
     }
 
     /**
+     * Formate et valide strictement un numéro de téléphone au format E.164 compatible avec le pays CinetPay.
+     * En cas d'incohérence, renvoie null pour laisser le client renseigner son numéro sur la page sécurisée.
+     */
+    public static function formatE164Phone(?string $phone, Country $country): ?string
+    {
+        if (empty($phone)) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9]/', '', preg_replace('/^00/', '', trim($phone)));
+        if (empty($clean)) {
+            return null;
+        }
+
+        $callingDigits = ltrim($country->callingCode(), '+');
+
+        // Si le numéro ne contient pas encore l'indicatif mais a la bonne longueur locale (ex: 8 chiffres pour BF)
+        if (!str_starts_with($clean, $callingDigits) && strlen($clean) <= 10) {
+            $clean = $callingDigits . $clean;
+        }
+
+        $formatted = '+' . $clean;
+
+        // Validation stricte E.164 et concordance obligatoire avec l'indicatif du compte pays
+        if (preg_match('/^\+[1-9][0-9]{7,14}$/', $formatted) === 1 && str_starts_with($formatted, $country->callingCode())) {
+            return $formatted;
+        }
+
+        return null;
+    }
+
+    /**
      * Découpe un nom complet en prénom et nom pour respecter la validation CinetPay (min 2 car).
      */
     public static function splitName(?string $fullName, ?string $first = null, ?string $last = null): array
@@ -154,7 +186,7 @@ class CinetPayService
         $lang = ($input['lang'] ?? 'fr') === 'en' ? Language::English : Language::French;
         $designation = substr(trim($input['description'] ?? "Commande {$merchantTransactionId}"), 0, 100);
 
-        $phone = !empty($input['phone']) ? preg_replace('/[^0-9+]/', '', $input['phone']) : null;
+        $phone = self::formatE164Phone($input['phone'] ?? null, $countryEnum);
 
         $request = new CreatePaymentRequest(
             currency: $countryEnum->currency(),
