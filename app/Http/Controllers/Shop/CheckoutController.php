@@ -392,13 +392,27 @@ class CheckoutController extends Controller
                                     ]);
                                 }
                             });
+                        } elseif (!empty($state['is_final']) && !$state['is_successful']) {
+                            $walletDeposit->update([
+                                'status' => 'failed',
+                                'failure_message' => "Paiement non complété chez CinetPay ({$state['status']})",
+                            ]);
                         }
                     } catch (\Throwable $e) {
                         \Log::warning("Erreur sync deposit retour: " . $e->getMessage());
                     }
                 }
 
-                return redirect()->route('account.wallet.index')->with('success', 'Votre solde a été mis à jour.');
+                $refreshed = $walletDeposit->fresh();
+                if ($refreshed && $refreshed->status === 'completed') {
+                    return redirect()->route('account.wallet.index')->with('success', "Votre recharge de " . number_format($refreshed->amount_xof, 0, ',', ' ') . " FCFA a été validée avec succès !");
+                }
+
+                if ($refreshed && $refreshed->status === 'failed') {
+                    return redirect()->route('account.wallet.index')->with('error', 'Le paiement de la recharge a échoué ou a été annulé auprès de la passerelle.');
+                }
+
+                return redirect()->route('account.wallet.index')->with('info', 'Paiement de la recharge en cours de confirmation par CinetPay.');
             }
         }
 

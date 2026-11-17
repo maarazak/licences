@@ -41,11 +41,13 @@ class CinetPayService
 
         $targetCountry = $country ?? $this->resolveCountry($this->defaultCountry);
 
+        $tokenStore = new CinetPayTokenStore();
+
         if ($this->environment === 'production') {
-            return CinetPay::production($this->apiKey, $this->apiPassword, $targetCountry);
+            return CinetPay::production($this->apiKey, $this->apiPassword, $targetCountry, null, $tokenStore);
         }
 
-        return CinetPay::sandbox($this->apiKey, $this->apiPassword, $targetCountry);
+        return CinetPay::sandbox($this->apiKey, $this->apiPassword, $targetCountry, null, $tokenStore);
     }
 
     /**
@@ -199,23 +201,37 @@ class CinetPayService
         $countryEnum = $this->resolveCountry($countryCode);
         $client = $this->getClient($countryEnum);
 
-        $status = $client->payments()->find($transactionId);
+        try {
+            $status = $client->payments()->find($transactionId);
 
-        $paymentStatus = match (true) {
-            $status->isSuccessful() => 'completed',
-            $status->isFinal() => 'failed',
-            default => 'pending',
-        };
+            $paymentStatus = match (true) {
+                $status->isSuccessful() => 'completed',
+                $status->isFinal() => 'failed',
+                default => 'pending',
+            };
 
-        return [
-            'transaction_id' => $status->transactionId,
-            'merchant_transaction_id' => $status->merchantTransactionId,
-            'status' => $status->status,
-            'payment_status' => $paymentStatus,
-            'is_successful' => $status->isSuccessful(),
-            'is_final' => $status->isFinal(),
-            'raw' => $status->raw,
-        ];
+            return [
+                'transaction_id' => $status->transactionId,
+                'merchant_transaction_id' => $status->merchantTransactionId,
+                'status' => $status->status,
+                'payment_status' => $paymentStatus,
+                'is_successful' => $status->isSuccessful(),
+                'is_final' => $status->isFinal(),
+                'raw' => $status->raw,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning("[CinetPay] Échec consultation paiement {$transactionId}: " . $e->getMessage());
+            return [
+                'transaction_id' => $transactionId,
+                'merchant_transaction_id' => $transactionId,
+                'status' => 'PENDING',
+                'payment_status' => 'pending',
+                'is_successful' => false,
+                'is_final' => false,
+                'error' => $e->getMessage(),
+                'raw' => [],
+            ];
+        }
     }
 
     /**
