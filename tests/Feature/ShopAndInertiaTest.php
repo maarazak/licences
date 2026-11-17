@@ -31,13 +31,13 @@ class ShopAndInertiaTest extends TestCase
             ->component('Shop/Index')
             ->has('products')
             ->has('categories')
-            ->where('activeCategory', 'toutes')
+            ->where('activeCategory', '')
         );
     }
 
     public function test_product_detail_renders_with_inertia(): void
     {
-        $product = Product::where('is_published', true)->first();
+        $product = Product::where('is_published', true)->where('supplier_active', true)->first();
         if (!$product) {
             $this->markTestSkipped('No published product found.');
         }

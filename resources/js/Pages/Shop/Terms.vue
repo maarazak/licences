@@ -1,66 +1,69 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import SiteLayout from '@/Layouts/SiteLayout.vue';
+import LegalPage from '@/Components/Shared/LegalPage.vue';
 import { SITE_NAME } from '@/Utils/site';
 
 const sections = [
   {
     title: '1. Objet',
-    paragraphs: [
-      `${SITE_NAME} vend des accès à des services numériques édités par des tiers : abonnements, licences, codes d’activation ou comptes préconfigurés. ${SITE_NAME} est un distributeur indépendant, sans affiliation directe avec les éditeurs desdits services.`,
-    ],
+    paragraphs: [`${SITE_NAME} vend des accès à des services numériques édités par des tiers : abonnements, licences, codes ou comptes. ${SITE_NAME} est un revendeur indépendant, sans affiliation ni partenariat avec les éditeurs de ces services.`]
   },
   {
     title: '2. Compte client',
-    paragraphs: [
-      'L’achat nécessite un compte client, généré automatiquement lors de votre première authentification par code e-mail. Vous êtes responsable du maintien de la sécurité de votre boîte de messagerie.',
-    ],
+    paragraphs: ["L'achat nécessite un compte, créé automatiquement à la première connexion par code reçu par e-mail. Vous êtes responsable de l'accès à votre boîte e-mail. Un compte utilisé de manière frauduleuse peut être suspendu."]
   },
   {
     title: '3. Prix et paiement',
     paragraphs: [
-      'Tous les prix sont affichés en Francs CFA (XOF / XAF à parité 1:1) et sont fermes et définitifs. Le paiement s’opère sur la page sécurisée de notre prestataire pawaPay ou directement par prélèvement sur votre solde client.',
-      'La commande n’est considérée comme conclue qu’après notification de succès émise par la passerelle de paiement.',
-    ],
+      "Les prix sont indiqués en francs CFA et sont définitifs au moment de la validation de la commande. Le paiement s'effectue sur la page sécurisée de notre prestataire de paiement, ou avec le solde de votre compte s'il couvre la commande entière.",
+      "La commande n'est considérée comme payée qu'après confirmation du paiement par le prestataire à notre serveur."
+    ]
   },
   {
-    title: '4. Modalités de livraison',
+    title: '4. Livraison',
     paragraphs: [
-      'Les accès numériques sont mis à disposition directement dans votre espace client (rubrique Mes achats) dès réception de la confirmation de paiement, en général en quelques minutes.',
-      'Les accès fournis sont strictement personnels et doivent être utilisés dans le respect des règles d’usage de chaque service.',
-    ],
+      "Les accès sont mis à disposition dans votre espace client après confirmation du paiement, en général en quelques minutes. Certaines offres demandent une activation manuelle, signalée sur la fiche, dont le délai peut être plus long.",
+      "Les accès sont personnels. Les conditions d'utilisation de l'éditeur du service s'appliquent à leur usage."
+    ]
   },
   {
-    title: '5. Garantie et remplacement',
+    title: '5. Garantie',
     paragraphs: [
-      'La durée de garantie est spécifiée sur chaque fiche produit. Tout accès défaillant signalé via notre système d’assistance durant cette période fait l’objet d’un remplacement immédiat ou d’un remboursement sur votre solde.',
-    ],
+      "La durée de garantie est indiquée sur chaque fiche et rappelée avant le paiement. Un accès qui ne fonctionne pas doit être signalé depuis la commande pendant cette durée. Il est alors remplacé ou, si le remplacement est impossible, son montant est crédité sur votre solde.",
+      "La garantie ne couvre pas un accès modifié, partagé ou utilisé en violation des consignes fournies."
+    ]
   },
+  {
+    title: '6. Commande non livrée',
+    paragraphs: [
+      "Si une commande payée ne peut pas être livrée, vous choisissez depuis la commande entre un avoir crédité immédiatement sur votre solde et un remboursement sur votre moyen de paiement. Le délai d'un remboursement dépend du prestataire et de votre opérateur."
+    ]
+  },
+  {
+    title: '7. Rétractation',
+    paragraphs: [
+      "Les accès numériques sont livrés immédiatement après le paiement. Une fois l'accès livré, la commande ne peut plus être annulée, sous réserve de la garantie décrite ci-dessus."
+    ]
+  },
+  {
+    title: '8. Solde',
+    paragraphs: [
+      "Le solde est un avoir utilisable uniquement sur le site, pour payer une commande entière. Il n'est ni transférable ni convertible en espèces, sauf disposition légale contraire."
+    ]
+  },
+  {
+    title: '9. Assistance',
+    paragraphs: [
+      "Toute réclamation se fait depuis la rubrique Assistance de votre espace client, en la rattachant à la commande concernée."
+    ]
+  }
 ];
 </script>
 
 <template>
-  <SiteLayout>
-    <Head title="Conditions Générales de Vente" />
-
-    <div class="container-page max-w-3xl py-12 space-y-8">
-      <div>
-        <h1 class="h1">Conditions Générales de Vente</h1>
-        <p class="text-xs text-slate-400 mt-2">Dernière mise à jour : 12 novembre 2026</p>
-      </div>
-
-      <div class="card p-6 sm:p-8 space-y-6 shadow-card">
-        <section v-for="sec in sections" :key="sec.title" class="space-y-2">
-          <h2 class="h3 text-base text-slate-900">{{ sec.title }}</h2>
-          <p
-            v-for="(p, i) in sec.paragraphs"
-            :key="i"
-            class="text-xs sm:text-sm text-slate-600 leading-relaxed"
-          >
-            {{ p }}
-          </p>
-        </section>
-      </div>
-    </div>
-  </SiteLayout>
+  <LegalPage
+    title="Conditions générales de vente"
+    updated="12 novembre 2026"
+    updated-label="Dernière mise à jour"
+    :sections="sections"
+  />
 </template>

@@ -1,59 +1,98 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Search, X, ShoppingBag } from 'lucide-vue-next';
+import { Search } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
+import CategoryBubble from '@/Components/Shop/CategoryBubble.vue';
+import LoadMoreLink from '@/Components/Shop/LoadMoreLink.vue';
 import ProductCard from '@/Components/Shop/ProductCard.vue';
 
-interface ProductItem {
+interface CatalogProduct {
   id: string;
   slug: string;
   name: string;
+  title: string;
   display_name?: string;
-  category?: string;
+  shelf: string;
+  category: string;
   shop_category?: string;
   image_url?: string;
   price_xof: number;
-  in_stock?: boolean;
-  stock?: number;
-  preorder?: boolean;
-  expire_days?: number;
+  priceXof: number;
+  in_stock: boolean;
+  stock?: number | null;
+  preorder: boolean;
+  available: boolean;
+  delivery_kind: string;
+  accessKind: string;
+  duration: string;
   warranty?: string;
-  delivery_kind?: string;
+  is_featured: boolean;
+  isFeatured?: boolean;
 }
 
 const props = defineProps<{
-  products: ProductItem[];
-  categories: Record<string, number>;
+  products: CatalogProduct[];
+  categories: string[];
   activeCategory: string;
   searchQuery: string;
+  availability: string;
+  sort: string;
+  shown: number;
 }>();
 
-const search = ref(props.searchQuery || '');
-let searchTimeout: any = null;
+const PAGE_SIZE = 12;
+const currentShown = ref(props.shown || PAGE_SIZE);
 
-const applyFilter = (category: string) => {
-  router.get('/boutique', {
-    categorie: category,
-    q: search.value || undefined,
-  }, { preserveState: true, replace: true });
+const qInput = ref(props.searchQuery || '');
+const dispoInput = ref(props.availability === 'available' ? 'disponible' : '');
+const sortInput = ref(props.sort || 'featured');
+
+const SORTS = [
+  { value: 'featured', label: "Produits phares d'abord" },
+  { value: 'price_asc', label: 'Prix croissant' },
+  { value: 'price_desc', label: 'Prix décroissant' },
+  { value: 'name', label: 'Nom (A à Z)' },
+];
+
+const filtered = computed(() => {
+  return !!(props.searchQuery || props.activeCategory || props.availability === 'available');
+});
+
+const visibleProducts = computed(() => {
+  return props.products.slice(0, currentShown.value);
+});
+
+const submitFilter = () => {
+  router.get(
+    '/boutique',
+    {
+      q: qInput.value.trim() || undefined,
+      categorie: props.activeCategory || undefined,
+      dispo: dispoInput.value || undefined,
+      tri: sortInput.value === 'featured' ? undefined : sortInput.value,
+    },
+    { preserveState: true }
+  );
 };
 
-const handleSearchInput = () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    router.get('/boutique', {
-      categorie: props.activeCategory !== 'toutes' ? props.activeCategory : undefined,
-      q: search.value.trim() || undefined,
-    }, { preserveState: true, replace: true });
-  }, 350);
+const handleLoadMore = () => {
+  currentShown.value += PAGE_SIZE;
 };
 
-const clearSearch = () => {
-  search.value = '';
-  router.get('/boutique', {
-    categorie: props.activeCategory !== 'toutes' ? props.activeCategory : undefined,
-  }, { preserveState: true, replace: true });
+const linkForCategory = (cat: string) => {
+  const current: Record<string, string | undefined> = {
+    q: props.searchQuery || undefined,
+    categorie: cat || undefined,
+    dispo: props.availability === 'available' ? 'disponible' : undefined,
+    tri: props.sort === 'featured' ? undefined : props.sort,
+  };
+  const searchParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(current)) {
+    if (v) searchParams.set(k, v);
+  }
+  const str = searchParams.toString();
+  return `/boutique${str ? `?${str}` : ''}`;
 };
 </script>
 
@@ -61,106 +100,123 @@ const clearSearch = () => {
   <SiteLayout>
     <Head title="Boutique — Abonnements et licences numériques" />
 
-    <div class="container-page py-10 space-y-8">
-      <!-- Title & Search bar -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 class="h1">Boutique de licences</h1>
-          <p class="lead mt-1">
-            Tous nos abonnements officiels, payables directement en Francs CFA par Mobile Money.
-          </p>
-        </div>
-
-        <div class="w-full md:w-80 relative">
-          <Search class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="search"
-            @input="handleSearchInput"
-            type="search"
-            placeholder="Filtrer par nom ou marque..."
-            class="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-9 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#0d5c4a] focus:outline-none focus:ring-4 focus:ring-[#0d5c4a]/15 shadow-sm transition"
-          />
-          <button
-            v-if="search"
-            type="button"
-            @click="clearSearch"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          >
-            <X class="size-4" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Categories Filter Chips -->
-      <div class="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
-        <button
-          type="button"
-          @click="applyFilter('toutes')"
-          :class="[
-            'chip text-xs py-2',
-            activeCategory === 'toutes' ? 'chip-active' : '',
-          ]"
-        >
-          Tous les produits ({{ Object.values(categories).reduce((a, b) => a + b, 0) || products.length }})
-        </button>
-
-        <button
-          v-for="(count, cat) in categories"
-          :key="cat"
-          type="button"
-          @click="applyFilter(cat)"
-          :class="[
-            'chip text-xs py-2',
-            activeCategory === cat ? 'chip-active' : '',
-          ]"
-        >
-          {{ cat.toUpperCase() }} ({{ count }})
-        </button>
-      </div>
-
-      <!-- Active filter indicator -->
-      <div v-if="search || activeCategory !== 'toutes'" class="flex items-center gap-2 text-xs text-slate-500">
-        <span>Filtres actifs :</span>
-        <span v-if="activeCategory !== 'toutes'" class="badge badge-neutral">
-          Catégorie : {{ activeCategory }}
-        </span>
-        <span v-if="search" class="badge badge-neutral">
-          Recherche : « {{ search }} »
-        </span>
-        <button
-          type="button"
-          @click="() => { search = ''; applyFilter('toutes'); }"
-          class="text-[#0d5c4a] font-bold hover:underline ml-2"
-        >
-          Réinitialiser
-        </button>
-      </div>
-
-      <!-- Products Grid -->
-      <div v-if="products.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <ProductCard
-          v-for="product in products"
-          :key="product.id"
-          :product="product"
-        />
-      </div>
-
-      <!-- Empty State -->
-      <div v-else class="card p-12 text-center max-w-md mx-auto space-y-4">
-        <div class="size-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-          <ShoppingBag class="size-8" />
-        </div>
-        <h3 class="h3 text-lg">Aucun produit trouvé</h3>
-        <p class="text-sm text-slate-500">
-          Aucun abonnement ne correspond à vos critères de recherche. Essayez d'autres mots-clés ou consultez tous nos rayons.
+    <!-- ── En-tête Héros de la Boutique ── -->
+    <section class="bg-hero relative overflow-hidden">
+      <div aria-hidden="true" class="grid-lines absolute inset-0" />
+      <div class="container-page relative py-10 sm:py-12">
+        <h1 class="font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
+          Boutique
+        </h1>
+        <p class="mt-2 max-w-xl text-muted">
+          Abonnements premium payés en FCFA, livrés dans votre espace.
         </p>
-        <button
-          type="button"
-          @click="() => { search = ''; applyFilter('toutes'); }"
-          class="btn btn-primary btn-sm"
+
+        <!-- Formulaire de recherche et filtres direct -->
+        <form
+          @submit.prevent="submitFilter"
+          class="mt-7 flex flex-col gap-3 rounded-2xl border border-line bg-white p-2.5 shadow-card sm:flex-row sm:items-center"
         >
-          Voir tout le catalogue
-        </button>
+          <div class="relative min-w-0 flex-1">
+            <Search class="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted" aria-hidden="true" />
+            <label for="q" class="sr-only">Rechercher un outil</label>
+            <input
+              id="q"
+              v-model="qInput"
+              type="search"
+              maxlength="80"
+              placeholder="Rechercher : Netflix, ChatGPT, Canva…"
+              class="input border-transparent bg-canvas pl-12 shadow-none"
+            />
+          </div>
+
+          <label for="dispo" class="sr-only">Disponibilité</label>
+          <select id="dispo" v-model="dispoInput" class="input sm:w-44">
+            <option value="">Toutes les offres</option>
+            <option value="disponible">En stock uniquement</option>
+          </select>
+
+          <label for="tri" class="sr-only">Trier par</label>
+          <select id="tri" v-model="sortInput" class="input sm:w-52">
+            <option v-for="s in SORTS" :key="s.value" :value="s.value">
+              {{ s.label }}
+            </option>
+          </select>
+
+          <button type="submit" class="btn btn-primary min-h-11 px-7 cursor-pointer">
+            Rechercher
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Contenu du Catalogue ── -->
+    <div class="container-page py-8">
+      <!-- Puces de rayons / catégories -->
+      <div v-if="categories && categories.length" class="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Catégories">
+        <Link
+          :href="linkForCategory('')"
+          :class="[
+            'chip shrink-0',
+            !activeCategory ? 'chip-active' : '',
+          ]"
+        >
+          Tout
+        </Link>
+        <Link
+          v-for="name in categories"
+          :key="name"
+          :href="linkForCategory(name)"
+          :class="[
+            'chip shrink-0',
+            activeCategory === name ? 'chip-active' : '',
+          ]"
+        >
+          <CategoryBubble :name="name" size="sm" />
+          <span>{{ name }}</span>
+        </Link>
+      </div>
+
+      <!-- Compteur et réinitialisation des filtres -->
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-muted">
+          {{ products.length === 1 ? '1 offre' : `${products.length} offres` }}
+          {{ activeCategory ? ` · ${activeCategory}` : '' }}
+        </p>
+        <Link v-if="filtered" href="/boutique" class="link text-sm">
+          Effacer les filtres
+        </Link>
+      </div>
+
+      <!-- Grille des fiches produits -->
+      <template v-if="products.length">
+        <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ProductCard
+            v-for="product in visibleProducts"
+            :key="product.id"
+            :product="product"
+            :priority="Boolean(product.is_featured && sort === 'featured' && !filtered)"
+          />
+        </div>
+
+        <LoadMoreLink
+          v-if="products.length > currentShown"
+          href="#"
+          label="Charger plus"
+          :hint="`${currentShown} sur ${products.length} offres affichées`"
+          @click.prevent="handleLoadMore"
+        />
+      </template>
+
+      <!-- État vide si aucune offre trouvée -->
+      <div v-else class="card mt-5 px-6 py-14 text-center">
+        <p class="h3 text-lg">
+          {{ filtered ? 'Aucune offre ne correspond à votre recherche' : 'Les offres arrivent bientôt. Revenez dans un instant.' }}
+        </p>
+        <div v-if="filtered" class="mt-5">
+          <Link href="/boutique" class="btn btn-brand">
+            Voir toutes les offres
+          </Link>
+        </div>
       </div>
     </div>
   </SiteLayout>

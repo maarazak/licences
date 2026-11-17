@@ -1,70 +1,63 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ShoppingBag, Smartphone, Package, ArrowRight, ShieldCheck } from 'lucide-vue-next';
+import { ArrowRight, Package, ShoppingBag, Smartphone } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 
 const steps = [
   {
     icon: ShoppingBag,
     title: 'Choisissez votre offre',
-    text: 'Type d’accès (compte fourni, lien d’invitation ou code d’activation), durée, garantie et disponibilité sont indiqués en toute transparence.',
+    text: "Type d'accès (lien, code ou compte), durée, garantie et disponibilité sont affichés avant de payer."
   },
   {
     icon: Smartphone,
-    title: 'Payez en Francs CFA',
-    text: 'Payez en toute sécurité par Mobile Money (Orange Money, Moov, MTN, Wave) ou directement par votre solde. La commande est validée dès confirmation.',
+    title: 'Payez en FCFA',
+    text: "Connectez-vous avec un code reçu par e-mail, puis payez par Mobile Money sur la page sécurisée du prestataire. La commande démarre quand le paiement est confirmé."
   },
   {
     icon: Package,
     title: 'Recevez votre accès',
-    text: 'Vos accès apparaissent immédiatement dans votre espace client (Mes achats) et un e-mail de confirmation vous est envoyé.',
+    text: "Vos accès apparaissent dans Mes achats et un e-mail vous prévient. Si l'activation prend du temps, la commande affiche son état."
   },
 ];
 </script>
 
 <template>
   <SiteLayout>
-    <Head title="Comment ça marche — Fonctionnement" />
+    <Head title="Comment ça marche" />
 
-    <div class="container-page max-w-3xl py-12 space-y-8">
-      <div>
-        <h1 class="h1">Comment ça marche</h1>
-        <p class="lead mt-2">Trois étapes simples, quelques minutes pour être opérationnel.</p>
-      </div>
+    <div class="container-page max-w-3xl py-10">
+      <h1 class="h1">Comment ça marche</h1>
+      <p class="lead mt-3">Trois étapes, quelques minutes.</p>
 
-      <ol class="space-y-4">
+      <ol class="mt-8 space-y-3">
         <li
-          v-for="(s, index) in steps"
-          :key="s.title"
-          class="card flex gap-5 p-6 hover:shadow-pop transition duration-200"
+          v-for="({ icon, title, text }, index) in steps"
+          :key="title"
+          class="card flex gap-4 p-5"
         >
-          <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#19c39a] to-[#0d5c4a] text-white shadow-md">
-            <component :is="s.icon" class="size-7" />
+          <span class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-bright to-brand text-white shadow-[0_14px_28px_-10px_rgb(13_92_74/0.7)]">
+            <component :is="icon" class="size-6" aria-hidden="true" />
           </span>
-          <div class="space-y-1">
-            <p class="text-xs font-bold text-[#e85a07] uppercase tracking-wider">Étape {{ index + 1 }}</p>
-            <h2 class="h3 text-lg font-bold text-slate-900">{{ s.title }}</h2>
-            <p class="text-sm leading-relaxed text-slate-600">{{ s.text }}</p>
+          <div>
+            <p class="text-xs font-bold text-accent-ink">Étape {{ index + 1 }}</p>
+            <h2 class="h3 mt-0.5 text-lg">{{ title }}</h2>
+            <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ text }}</p>
           </div>
         </li>
       </ol>
 
-      <div class="card p-6 bg-gradient-to-br from-white to-teal-50/50 border-teal-200/80 space-y-2">
-        <h2 class="h3 text-base text-[#0d5c4a] flex items-center gap-2">
-          <ShieldCheck class="size-5" />
-          Et si la livraison échoue ou tarde ?
-        </h2>
-        <p class="text-sm leading-relaxed text-slate-600">
-          Vous êtes protégé par notre garantie : notre équipe intervient immédiatement pour vous attribuer un nouvel accès valide ou créditer l'intégralité du montant sur votre solde client.
+      <div class="card mt-6 p-5">
+        <h2 class="h3">Et si la livraison échoue ?</h2>
+        <p class="mt-1.5 text-sm leading-relaxed text-muted">
+          Vous êtes prévenu par e-mail et vous choisissez, depuis votre commande, entre un remboursement et un avoir sur votre solde, utilisable pour une prochaine commande.
         </p>
       </div>
 
-      <div class="pt-4">
-        <Link href="/boutique" class="btn btn-primary min-h-12 px-7 text-base shadow-glow">
-          Découvrir les offres
-          <ArrowRight class="size-4 ml-1" />
-        </Link>
-      </div>
+      <Link href="/boutique" class="btn btn-primary mt-8">
+        Voir les offres
+        <ArrowRight class="size-4" aria-hidden="true" />
+      </Link>
     </div>
   </SiteLayout>
 </template>

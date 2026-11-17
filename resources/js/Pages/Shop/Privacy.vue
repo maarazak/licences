@@ -1,41 +1,53 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import SiteLayout from '@/Layouts/SiteLayout.vue';
+import LegalPage from '@/Components/Shared/LegalPage.vue';
 import { SITE_NAME } from '@/Utils/site';
+
+const sections = [
+  {
+    title: 'Données collectées',
+    paragraphs: [
+      "Votre adresse e-mail (connexion, reçus, suivi), vos prénom, nom, téléphone et pays (transmis au prestataire de paiement pour l'achat), vos commandes et vos échanges avec l'assistance.",
+      "Pour les offres activées sur une adresse e-mail, l'adresse à activer est transmise à notre fournisseur dans le seul but d'effectuer l'activation."
+    ]
+  },
+  {
+    title: 'Ce que nous ne conservons pas',
+    paragraphs: [
+      `${SITE_NAME} ne voit ni ne conserve vos numéros de carte ou codes mobile money : le paiement se déroule entièrement chez le prestataire de paiement. Le site n'utilise pas de mot de passe.`
+    ]
+  },
+  {
+    title: 'Sécurité',
+    paragraphs: [
+      "Les accès livrés sont chiffrés dans notre base de données et ne sont affichés qu'au propriétaire connecté de la commande. Les codes de connexion et les sessions sont stockés sous forme d'empreintes."
+    ]
+  },
+  {
+    title: 'Cookies',
+    paragraphs: [
+      "Le site utilise uniquement des cookies nécessaires à son fonctionnement : un cookie de session pour rester connecté et un cookie de préférence pour la langue. Aucun cookie publicitaire ni de suivi."
+    ]
+  },
+  {
+    title: 'Durée de conservation',
+    paragraphs: [
+      "Les commandes et leurs justificatifs sont conservés pendant la durée exigée par les obligations comptables. Les codes de connexion sont supprimés au plus tard 24 heures après leur expiration."
+    ]
+  },
+  {
+    title: 'Vos droits',
+    paragraphs: [
+      "Vous pouvez demander l'accès à vos données, leur rectification ou la suppression de votre compte en ouvrant une demande depuis la rubrique Assistance."
+    ]
+  }
+];
 </script>
 
 <template>
-  <SiteLayout>
-    <Head title="Politique de Confidentialité" />
-
-    <div class="container-page max-w-3xl py-12 space-y-8">
-      <div>
-        <h1 class="h1">Politique de Confidentialité</h1>
-        <p class="text-xs text-slate-400 mt-2">Dernière mise à jour : 12 novembre 2026</p>
-      </div>
-
-      <div class="card p-6 sm:p-8 space-y-6 shadow-card text-xs sm:text-sm text-slate-600 leading-relaxed">
-        <section class="space-y-2">
-          <h2 class="h3 text-base text-slate-900">1. Données collectées</h2>
-          <p>
-            Dans le cadre de l'utilisation de {{ SITE_NAME }}, nous collectons uniquement les informations indispensables au traitement de vos commandes : votre adresse e-mail (authentification et livraison), votre numéro de téléphone Mobile Money (transmission à la passerelle de paiement) et vos historiques de commandes.
-          </p>
-        </section>
-
-        <section class="space-y-2">
-          <h2 class="h3 text-base text-slate-900">2. Sécurité des accès et chiffrement</h2>
-          <p>
-            Vos identifiants et licences livrés sont chiffrés avec l'algorithme AES-256-GCM. Aucun membre de notre personnel ne peut consulter vos clés en clair sans une procédure d'assistance sollicitée par vous-même.
-          </p>
-        </section>
-
-        <section class="space-y-2">
-          <h2 class="h3 text-base text-slate-900">3. Non-partage des données</h2>
-          <p>
-            Vos informations personnelles ne sont en aucun cas revendues ni cédées à des tiers à des fins publicitaires. Elles ne sont partagées qu'avec notre prestataire technique de paiement (pawaPay) pour la finalisation de vos transactions.
-          </p>
-        </section>
-      </div>
-    </div>
-  </SiteLayout>
+  <LegalPage
+    title="Politique de confidentialité"
+    updated="12 novembre 2026"
+    updated-label="Dernière mise à jour"
+    :sections="sections"
+  />
 </template>
