@@ -138,9 +138,6 @@ const submitCheckout = () => {
                     {{ c.flag }} {{ c.name }} ({{ c.dial }})
                   </option>
                 </select>
-                <p class="mt-1.5 text-xs text-muted">
-                  Le choix de votre moyen de paiement (Carte bancaire Visa/Mastercard ou Mobile Money : Orange Money, Moov, MTN, Wave...) s'effectue directement sur la page sécurisée CinetPay.
-                </p>
               </div>
             </div>
           </section>

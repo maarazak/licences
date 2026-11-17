@@ -137,9 +137,6 @@ const submitDeposit = () => {
                 {{ c.flag }} {{ c.name }} ({{ c.dial }})
               </option>
             </select>
-            <p class="mt-1.5 text-xs text-slate-500">
-              Le choix du moyen de paiement (Carte Bancaire Visa/Mastercard ou Mobile Money : Orange Money, Moov, MTN, Wave...) s'effectue directement sur la page sécurisée CinetPay.
-            </p>
           </div>
 
           <div class="flex items-center justify-between pt-2">
