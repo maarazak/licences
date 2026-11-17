@@ -1,67 +1,187 @@
-export interface BrandInfo {
-  label: string;
-  image?: string;
-  hex: string;
-  tint: string;
-  mark?: string;
-}
+import {
+  siApplemusic,
+  siAppletv,
+  siAvira,
+  siClaude,
+  siCoursera,
+  siCrunchyroll,
+  siCursor,
+  siDeepseek,
+  siDuolingo,
+  siElevenlabs,
+  siExpressvpn,
+  siFigma,
+  siFramer,
+  siGmail,
+  siGooglegemini,
+  siGrammarly,
+  siHeadspace,
+  siInstagram,
+  siJetbrains,
+  siLinear,
+  siMiro,
+  siNetflix,
+  siNordvpn,
+  siNotion,
+  siPerplexity,
+  siPicsart,
+  siPosthog,
+  siProtonvpn,
+  siRailway,
+  siReplit,
+  siSpotify,
+  siYoutube,
+  siX,
+} from 'simple-icons';
+import type { LogoSpec } from '@/Types/logo';
 
-const KNOWN_BRANDS: Array<{
-  test: RegExp;
-  label: string;
-  image?: string;
-  hex: string;
-  tint: string;
-  mark?: string;
-}> = [
-  { test: /chatgpt|openai|codex/i, label: 'ChatGPT', image: '/brands/chatgpt.png', hex: '#10a37f', tint: '#10a37f' },
-  { test: /canva/i, label: 'Canva', image: '/brands/canva.jpg', hex: '#00c4cc', tint: '#00c4cc' },
-  { test: /capcut/i, label: 'CapCut', image: '/brands/capcut.png', hex: '#15181f', tint: '#15181f' },
-  { test: /claude/i, label: 'Claude', hex: '#d97706', tint: '#d97706', mark: 'C' },
-  { test: /adobe/i, label: 'Adobe', image: '/brands/adobe.png', hex: '#e8281e', tint: '#e8281e' },
-  { test: /prime video|amazon/i, label: 'Prime Video', image: '/brands/primevideo.png', hex: '#00a8e1', tint: '#00a8e1' },
-  { test: /netflix/i, label: 'Netflix', hex: '#e50914', tint: '#e50914', mark: 'N' },
-  { test: /linkedin/i, label: 'LinkedIn', image: '/brands/linkedin.png', hex: '#0a66c2', tint: '#0a66c2' },
-  { test: /office|microsoft/i, label: 'Office 365', image: '/brands/office.png', hex: '#d83b01', tint: '#d83b01' },
-  { test: /gamma/i, label: 'Gamma', image: '/brands/gamma.jpg', hex: '#6d5bff', tint: '#6d5bff' },
-  { test: /lovable/i, label: 'Lovable', image: '/brands/lovable.jpg', hex: '#f0457e', tint: '#f0457e' },
-  { test: /granola/i, label: 'Granola', image: '/brands/granola.png', hex: '#3f9d4b', tint: '#3f9d4b' },
-  { test: /shahid/i, label: 'Shahid', image: '/brands/shahid.png', hex: '#0b9b6b', tint: '#0b9b6b' },
-  { test: /scribd/i, label: 'Scribd', image: '/brands/scribd.png', hex: '#1b7c86', tint: '#1b7c86' },
-  { test: /pangram/i, label: 'Pangram', image: '/brands/pangram.png', hex: '#1f2937', tint: '#1f2937' },
-  { test: /arize/i, label: 'Arize', image: '/brands/arize.png', hex: '#7b5cf0', tint: '#7b5cf0' },
-  { test: /gemini|google/i, label: 'Google Gemini', hex: '#4285f4', tint: '#4285f4', mark: 'G' },
-  { test: /cursor/i, label: 'Cursor', hex: '#1e293b', tint: '#1e293b', mark: 'C' },
-  { test: /deepseek/i, label: 'DeepSeek', hex: '#1e40af', tint: '#1e40af', mark: 'D' },
-  { test: /nordvpn/i, label: 'NordVPN', hex: '#4687ff', tint: '#4687ff', mark: 'N' },
-  { test: /expressvpn/i, label: 'ExpressVPN', hex: '#da3940', tint: '#da3940', mark: 'E' },
-  { test: /proton/i, label: 'Proton', hex: '#6d4aff', tint: '#6d4aff', mark: 'P' },
-  { test: /spotify/i, label: 'Spotify', hex: '#1ed760', tint: '#1ed760', mark: 'S' },
-  { test: /youtube/i, label: 'YouTube', hex: '#ff0000', tint: '#ff0000', mark: 'Y' },
-  { test: /figma/i, label: 'Figma', hex: '#f24e1e', tint: '#f24e1e', mark: 'F' },
-  { test: /notion/i, label: 'Notion', hex: '#000000', tint: '#000000', mark: 'N' },
+type Icon = { path: string; hex: string };
+type Brand = { key: string; label: string; test: RegExp; icon?: Icon; hex?: string; mark?: string };
+
+const BRANDS: Brand[] = [
+  { key: 'claude', label: 'Claude', test: /claude/i, icon: siClaude },
+  { key: 'chatgpt', label: 'ChatGPT', test: /chatgpt|openai|codex/i, hex: '10A37F', mark: 'G' },
+  { key: 'gemini', label: 'Gemini', test: /gemini|google ai|pixel/i, icon: siGooglegemini },
+  { key: 'deepseek', label: 'DeepSeek', test: /deepseek|kimi/i, icon: siDeepseek },
+  { key: 'grok', label: 'Grok', test: /grok/i, icon: siX },
+  { key: 'elevenlabs', label: 'ElevenLabs', test: /eleven/i, icon: siElevenlabs },
+  { key: 'perplexity', label: 'Perplexity', test: /perplexity/i, icon: siPerplexity },
+  { key: 'cursor', label: 'Cursor', test: /cursor/i, icon: siCursor },
+  { key: 'canva', label: 'Canva', test: /canva/i, hex: '00B4C8', mark: 'C' },
+  { key: 'capcut', label: 'CapCut', test: /capcut/i, hex: '15181F', mark: 'C' },
+  { key: 'adobe', label: 'Adobe', test: /adobe/i, hex: 'E8281E', mark: 'A' },
+  { key: 'figma', label: 'Figma', test: /figma/i, icon: siFigma },
+  { key: 'framer', label: 'Framer', test: /framer/i, icon: siFramer },
+  { key: 'picsart', label: 'Picsart', test: /picsart/i, icon: siPicsart },
+  { key: 'miro', label: 'Miro', test: /miro/i, icon: siMiro },
+  { key: 'lovable', label: 'Lovable', test: /lovable/i, hex: 'F0457E', mark: 'L' },
+  { key: 'replit', label: 'Replit', test: /replit/i, icon: siReplit },
+  { key: 'railway', label: 'Railway', test: /railway/i, icon: siRailway },
+  { key: 'jetbrains', label: 'JetBrains', test: /jetbrains/i, icon: siJetbrains },
+  { key: 'linear', label: 'Linear', test: /linear/i, icon: siLinear },
+  { key: 'posthog', label: 'PostHog', test: /posthog/i, icon: siPosthog },
+  { key: 'arize', label: 'Arize', test: /arize/i, hex: '7B5CF0', mark: 'A' },
+  { key: 'netflix', label: 'Netflix', test: /netflix/i, icon: siNetflix },
+  { key: 'primevideo', label: 'Prime Video', test: /prime video/i, hex: '0F79AF', mark: 'P' },
+  { key: 'applemusic', label: 'Apple Music', test: /apple music/i, icon: siApplemusic },
+  { key: 'appletv', label: 'Apple TV', test: /apple tv/i, icon: siAppletv },
+  { key: 'crunchyroll', label: 'Crunchyroll', test: /crunchyroll/i, icon: siCrunchyroll },
+  { key: 'shahid', label: 'Shahid', test: /shahid/i, hex: '0B9B6B', mark: 'S' },
+  { key: 'nordvpn', label: 'NordVPN', test: /nord ?vpn/i, icon: siNordvpn },
+  { key: 'expressvpn', label: 'ExpressVPN', test: /express ?vpn/i, icon: siExpressvpn },
+  { key: 'protonvpn', label: 'Proton VPN', test: /proton/i, icon: siProtonvpn },
+  { key: 'avira', label: 'Avira', test: /avira/i, icon: siAvira },
+  { key: 'hma', label: 'HMA', test: /\bhma\b/i, hex: 'E5A500', mark: 'H' },
+  { key: 'notion', label: 'Notion', test: /notion/i, icon: siNotion },
+  { key: 'grammarly', label: 'Grammarly', test: /grammarly/i, icon: siGrammarly },
+  { key: 'office', label: 'Microsoft', test: /office|outlook|hotmail|windows/i, hex: 'D83B01', mark: 'O' },
+  { key: 'granola', label: 'Granola', test: /granola/i, hex: '3F9D4B', mark: 'G' },
+  { key: 'coursera', label: 'Coursera', test: /coursera/i, icon: siCoursera },
+  { key: 'duolingo', label: 'Duolingo', test: /duolingo/i, icon: siDuolingo },
+  { key: 'headspace', label: 'Headspace', test: /headspace/i, icon: siHeadspace },
+  { key: 'scribd', label: 'Scribd', test: /scribd/i, hex: '1B7C86', mark: 'S' },
+  { key: 'linkedin', label: 'LinkedIn', test: /linkedin/i, hex: '0A66C2', mark: 'in' },
+  { key: 'gmail', label: 'Gmail', test: /gmail/i, icon: siGmail },
+  { key: 'instagram', label: 'Instagram', test: /instagram/i, icon: siInstagram },
+  { key: 'gamma', label: 'Gamma', test: /gamma/i, hex: '6D5BFF', mark: 'G' },
+  { key: 'pangram', label: 'Pangram', test: /pangram/i, hex: '1F2937', mark: 'P' },
+  { key: 'spotify', label: 'Spotify', test: /spotify/i, icon: siSpotify },
+  { key: 'youtube', label: 'YouTube', test: /youtube/i, icon: siYoutube },
 ];
 
-export function resolveBrand(productName: string): BrandInfo {
-  for (const b of KNOWN_BRANDS) {
-    if (b.test.test(productName)) {
-      return {
-        label: b.label,
-        image: b.image,
-        hex: b.hex,
-        tint: b.tint,
-        mark: b.mark || b.label.charAt(0),
-      };
-    }
+const LOCAL_BRAND_FILES = new Set([
+  'adobe.png',
+  'arize.png',
+  'canva.jpg',
+  'capcut.png',
+  'chatgpt.png',
+  'gamma.jpg',
+  'granola.png',
+  'linkedin.png',
+  'lovable.jpg',
+  'office.png',
+  'pangram.png',
+  'primevideo.png',
+  'scribd.png',
+  'shahid.png',
+]);
+
+const FALLBACK_HEX = ['0D5C4A', '2563EB', '7C3AED', 'DB2777', 'EA580C', '0891B2', '4F46E5', '65A30D'];
+
+function hash(value: string): number {
+  let h = 0;
+  for (let i = 0; i < value.length; i++) h = (h * 31 + value.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function initials(name: string): string {
+  const words = name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/);
+  return ((words[0]?.[0] ?? '?') + (words.length > 1 ? (words[1]?.[0] ?? '') : '')).slice(0, 2).toUpperCase();
+}
+
+export function logoFor(...names: Array<string | null | undefined>): LogoSpec {
+  const name = names.filter(Boolean).join(' ');
+  const brand = BRANDS.find((b) => b.test.test(name));
+  if (!brand) {
+    const hex = FALLBACK_HEX[hash(name) % FALLBACK_HEX.length];
+    return {
+      kind: 'mono',
+      letters: initials(names.find(Boolean) ?? '?'),
+      hex: `#${hex}`,
+      label: name,
+      tint: `#${hex}`,
+      known: false,
+    };
   }
 
-  // Fallback monogram
-  const clean = productName.replace(/[^a-zA-Z0-9 ]/g, '').trim();
-  const letters = clean.slice(0, 2).toUpperCase() || 'LC';
+  const file = ['svg', 'png', 'webp', 'jpg']
+    .map((ext) => `${brand.key}.${ext}`)
+    .find((f) => LOCAL_BRAND_FILES.has(f));
+
+  const hex = `#${brand.icon?.hex ?? brand.hex ?? '0D5C4A'}`;
+
+  if (file) {
+    return { kind: 'image', src: `/brands/${file}`, label: brand.label, tint: hex, known: true };
+  }
+  if (brand.icon) {
+    return { kind: 'icon', path: brand.icon.path, hex, label: brand.label, tint: hex, known: true };
+  }
   return {
-    label: productName,
-    hex: '#0d5c4a',
-    tint: '#0d5c4a',
-    mark: letters,
+    kind: 'mono',
+    letters: brand.mark ?? brand.label.charAt(0).toUpperCase(),
+    hex,
+    label: brand.label,
+    tint: hex,
+    known: true,
   };
+}
+
+export function distinctBrands(logos: LogoSpec[], limit = 16): LogoSpec[] {
+  const counts = new Map<string, { logo: LogoSpec; n: number }>();
+  for (const logo of logos) {
+    if (!logo || !logo.known) continue;
+    const entry = counts.get(logo.label);
+    if (entry) entry.n++;
+    else counts.set(logo.label, { logo, n: 1 });
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.n - a.n)
+    .slice(0, limit)
+    .map((e) => e.logo);
+}
+
+export function diversify<T extends { logo: LogoSpec }>(items: T[], limit: number): T[] {
+  const seen = new Set<string>();
+  const picked: T[] = [];
+  for (const item of items) {
+    if (picked.length >= limit) break;
+    if (seen.has(item.logo.label)) continue;
+    seen.add(item.logo.label);
+    picked.push(item);
+  }
+  for (const item of items) {
+    if (picked.length >= limit) break;
+    if (!picked.includes(item)) picked.push(item);
+  }
+  return picked;
 }

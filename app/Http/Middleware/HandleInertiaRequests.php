@@ -47,6 +47,24 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'searchItems' => fn () => \Illuminate\Support\Facades\Cache::remember('catalog_search_items', 60, function () {
+                return \App\Models\Product::where('is_published', true)
+                    ->where('supplier_active', true)
+                    ->where('supplier_purchasable', true)
+                    ->where('in_stock', true)
+                    ->where('preorder', false)
+                    ->where(function ($q) {
+                        $q->whereNull('stock')->orWhere('stock', '>', 0);
+                    })
+                    ->orderBy('name')
+                    ->get(['slug', 'name', 'display_name', 'shop_category', 'category'])
+                    ->map(fn ($p) => [
+                        'slug' => $p->slug,
+                        'title' => trim($p->display_name ?: $p->name),
+                        'shelf' => trim($p->shop_category ?: $p->category ?: ''),
+                    ]);
+            }),
+            'notice' => fn () => \App\Models\Setting::get('site_notice', ''),
             'appName' => config('app.name', 'Licences'),
         ];
     }

@@ -13,10 +13,21 @@ class SettingSeeder extends Seeder
     public function run(): void
     {
         $settings = [
-            'usd_rate' => '620',
-            'default_margin_percent' => '25',
-            'support_email' => 'support@licences.local',
-            'site_name' => 'Licences & Logiciels',
+            'usd_rate' => '669',
+            'usdRate' => '669',
+            'marginPercent' => '100',
+            'default_margin_percent' => '100',
+            'minMarginXof' => '1000',
+            'roundingStep' => '250',
+            'autoPublish' => 'false',
+            'support_email' => 'abdoulrazakmaali@gmail.com',
+            'site_name' => 'Licences',
+            'notice' => '',
+            'lastCatalogSyncAt' => '',
+            'catalogSyncError' => '',
+            'supplierBalanceCents' => '0',
+            'supplierBalanceAt' => '',
+            'supplierBalanceError' => '',
         ];
 
         foreach ($settings as $key => $value) {

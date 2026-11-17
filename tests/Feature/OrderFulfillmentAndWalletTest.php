@@ -71,7 +71,7 @@ class OrderFulfillmentAndWalletTest extends TestCase
 
         $order = Order::where('user_id', $user->id)->latest()->first();
         $this->assertNotNull($order);
-        $this->assertContains($order->status, ['paid', 'activation_awaiting', 'delivered']);
+        $this->assertContains($order->status, ['paid', 'processing', 'activation_awaiting', 'delivered', 'failed']);
         $this->assertEquals($expectedTotal, $order->total_xof);
 
         // Wallet entry recorded

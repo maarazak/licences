@@ -1,279 +1,301 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
   BadgeCheck,
+  ChevronDown,
   KeyRound,
   LifeBuoy,
+  Package,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   Smartphone,
-  Package,
   Zap,
-  ShieldCheck,
-  ChevronDown,
-  ArrowRight,
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
-import ProductCard from '@/Components/Shop/ProductCard.vue';
+import BrandMarquee from '@/Components/Shared/BrandMarquee.vue';
+import CategoryBubble from '@/Components/Shop/CategoryBubble.vue';
+import HeroCarousel, { type HeroSlide } from '@/Components/Shop/HeroCarousel.vue';
+import LoadMoreLink from '@/Components/Shop/LoadMoreLink.vue';
 import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
+import ProductCard from '@/Components/Shop/ProductCard.vue';
+import { SITE_NAME } from '@/Utils/site';
+import { logoFor, distinctBrands, diversify } from '@/Utils/brands';
+import type { LogoSpec } from '@/Types/logo';
 
-interface ProductItem {
+export interface CatalogProduct {
   id: string;
   slug: string;
   name: string;
+  title: string;
   display_name?: string;
-  category?: string;
+  shelf: string;
+  category: string;
   shop_category?: string;
   image_url?: string;
   price_xof: number;
-  in_stock?: boolean;
-  stock?: number;
-  preorder?: boolean;
-  expire_days?: number;
+  priceXof: number;
+  in_stock: boolean;
+  stock?: number | null;
+  preorder: boolean;
+  available: boolean;
+  delivery_kind: string;
+  accessKind: string;
+  duration: string;
   warranty?: string;
-  delivery_kind?: string;
+  is_featured: boolean;
+  featured_rank?: number | null;
+  logo?: LogoSpec;
 }
 
 const props = defineProps<{
-  featured: ProductItem[];
-  categories: Record<string, number>;
+  products: CatalogProduct[];
+  featuredRaw: CatalogProduct[];
+  availableProducts: CatalogProduct[];
+  categories: [string, number][];
+  initialFeaturedCount?: number;
 }>();
 
+const FEATURED_PAGE = 8;
+const featuredCount = ref(props.initialFeaturedCount || FEATURED_PAGE);
+
+// Décorer chaque produit avec son LogoSpec
+const decorateWithLogo = (p: CatalogProduct): CatalogProduct => ({
+  ...p,
+  logo: p.logo || logoFor(p.name, p.display_name),
+});
+
+const available = computed(() => (props.availableProducts || []).map(decorateWithLogo));
+const featuredRawList = computed(() => (props.featuredRaw || []).map(decorateWithLogo));
+
+// Produits phares d'abord ; à défaut de sélection, un choix varié de marques.
+const featured = computed(() => {
+  if (featuredRawList.value.length >= 4) {
+    return featuredRawList.value;
+  }
+  return diversify(available.value, 8);
+});
+
+const featuredIds = computed(() => new Set(featured.value.map((p) => p.id)));
+
+// Section « Les plus demandés » : phares d'abord, puis les autres offres disponibles (sans doublon)
+const pool = computed(() => {
+  const others = available.value.filter((p) => !featuredIds.value.has(p.id));
+  return featured.value.concat(others);
+});
+
+// Marques pour le bandeau défilant BrandMarquee
+const brands = computed(() => {
+  const allLogos = featured.value.concat(available.value).map((p) => p.logo).filter(Boolean) as LogoSpec[];
+  return distinctBrands(allLogos, 16);
+});
+
+function stockBadge(p: CatalogProduct): { badge: string; badgeTone: 'success' | 'warning' | 'danger' } {
+  if (!p.available) return { badge: 'Rupture', badgeTone: 'danger' };
+  if (p.stock !== null && p.stock !== undefined && p.stock <= 3) {
+    return { badge: `Plus que ${p.stock}`, badgeTone: 'warning' };
+  }
+  return { badge: 'Disponible', badgeTone: 'success' };
+}
+
+const formatPrice = (amount: number) => {
+  return `${amount.toLocaleString('fr-FR')} FCFA`;
+};
+
+// Slides pour le HeroCarousel 3D
+const slides = computed<HeroSlide[]>(() => {
+  return featured.value.slice(0, 6).map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    duration: p.duration,
+    price: formatPrice(p.priceXof),
+    shelf: p.shelf || '',
+    logo: p.logo!,
+    ...stockBadge(p),
+  }));
+});
+
 const reasons = [
-  { icon: BadgeCheck, title: 'Prix final en FCFA', text: 'Aucun frais caché ni surcoût bancaire au moment de payer.' },
-  { icon: KeyRound, title: 'Accès dans votre espace', text: 'Retrouvez vos clés, identifiants et licences à tout moment dans Mes achats.' },
-  { icon: LifeBuoy, title: 'Support & Assistance réactifs', text: 'Une équipe dédiée à votre écoute par ticket pour résoudre chaque demande.' },
-  { icon: RefreshCw, title: 'Garantie ou remboursement', text: 'Si un accès ne fonctionne pas durant sa période de garantie, nous le remplaçons.' },
+  { icon: BadgeCheck, title: 'Prix final en FCFA', text: 'Aucun frais ajouté au moment de payer.', gradient: 'from-orange-400 to-accent' },
+  { icon: KeyRound, title: 'Accès dans votre espace', text: 'Retrouvez-les à tout moment dans Mes achats.', gradient: 'from-emerald-400 to-brand' },
+  { icon: LifeBuoy, title: 'Aide liée à votre commande', text: 'Chaque demande est suivie jusqu’à sa résolution.', gradient: 'from-sky-400 to-indigo-500' },
+  { icon: RefreshCw, title: 'Avoir ou remboursement', text: 'Si la livraison échoue, vous choisissez.', gradient: 'from-violet-400 to-fuchsia-500' },
 ];
 
 const steps = [
-  { icon: ShoppingBag, step: '01', title: 'Choisissez votre offre', text: 'Consultez la fiche détaillée : type d’accès, durée, compatibilité et avis.' },
-  { icon: Smartphone, step: '02', title: 'Payez en FCFA', text: 'Réglez en toute sécurité avec Orange Money, Moov, MTN, Wave ou votre solde.' },
-  { icon: Package, step: '03', title: 'Recevez votre accès', text: 'Livraison instantanée dans votre espace client, avec notification par e-mail.' },
+  { icon: ShoppingBag, title: 'Choisissez votre offre', text: 'Type d’accès, durée et garantie sont affichés avant de payer.' },
+  { icon: Smartphone, title: 'Payez en FCFA', text: 'Mobile Money (Orange, Moov, MTN, Wave) en toute sécurité.' },
+  { icon: Package, title: 'Recevez votre accès', text: 'Livraison automatique dans Mes achats, avec un e-mail de confirmation.' },
 ];
 
-const faqs = [
-  {
-    q: 'Combien de temps faut-il pour recevoir mon abonnement ?',
-    a: 'La grande majorité des licences sont livrées en quelques secondes à quelques minutes après la validation de votre paiement. Pour les offres nécessitant une activation manuelle sur votre compte, le délai est de 15 à 45 minutes.',
-  },
-  {
-    q: 'Quels sont les moyens de paiement acceptés ?',
-    a: 'Nous acceptons les principaux services Mobile Money : Orange Money, Moov Money, MTN Mobile Money et Wave, ainsi que le solde de votre compte.',
-  },
-  {
-    q: 'Que se passe-t-il si mon compte ou ma clé rencontre un problème ?',
-    a: 'Toutes nos offres bénéficient d’une garantie de remplacement. Rendez-vous dans votre espace client pour ouvrir un ticket : notre équipe procède au remplacement immédiat ou au crédit de votre solde.',
-  },
-  {
-    q: 'Puis-je recharger mon solde pour commander plus vite ?',
-    a: 'Oui ! Vous pouvez approvisionner votre solde en FCFA via Mobile Money et commander en un clic sans repasser par la passerelle de paiement.',
-  },
+const faq = [
+  ['Combien de temps pour recevoir mon accès ?', 'En général quelques minutes après la confirmation du paiement. Certaines offres demandent une activation manuelle, indiquée sur la fiche.'],
+  ['Comment payer ?', 'Par mobile money, sur la page sécurisée de notre prestataire de paiement. Le prix affiché est le prix final, en FCFA.'],
+  ['Et si mon accès ne fonctionne pas ?', 'Signalez-le depuis votre commande pendant la durée de garantie : nous le remplaçons ou nous créditons votre solde.'],
+  ['Où retrouver mes accès ?', 'Dans Mes achats, à tout moment, après connexion par code e-mail. Aucun mot de passe à retenir.'],
 ];
 
-const openFaq = ref<number | null>(null);
-const toggleFaq = (index: number) => {
-  openFaq.value = openFaq.value === index ? null : index;
+const trust = [
+  { icon: Zap, text: 'Livraison en quelques minutes' },
+  { icon: ShieldCheck, text: 'Paiement mobile money sécurisé' },
+  { icon: RefreshCw, text: 'Remplacé ou crédité si l’accès échoue' },
+];
+
+const handleLoadMore = () => {
+  featuredCount.value += FEATURED_PAGE;
 };
 </script>
 
 <template>
   <SiteLayout>
-    <Head title="Abonnements et licences numériques, payés en FCFA" />
+    <Head title="Abonnements et licences numériques payés en FCFA" />
 
-    <!-- ── HÉROS ── -->
-    <section class="bg-hero relative overflow-hidden border-b border-slate-200/80">
+    <!-- ── Héros ── -->
+    <section class="bg-hero relative overflow-hidden">
       <div aria-hidden="true" class="grid-lines absolute inset-0" />
-      <div class="container-page relative grid gap-12 py-14 sm:py-18 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-10 lg:py-20">
+      <div class="container-page relative grid gap-12 py-14 sm:py-18 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:py-20">
         <div class="animate-fade-up">
           <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <p class="inline-flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-800 shadow-sm">
-              <span class="pulse-dot size-2 rounded-full bg-[#19c39a]" />
+            <p class="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-1.5 text-xs font-bold text-ink/80 shadow-sm">
+              <span class="pulse-dot size-2 rounded-full bg-brand-bright" />
               Livraison en quelques minutes
             </p>
             <PaymentLogos layout="floating" />
           </div>
-
-          <h1 class="mt-6 font-display text-[2.6rem] leading-[1.06] font-extrabold tracking-tight text-slate-900 sm:text-6xl lg:text-[3.8rem]">
+          <h1 class="mt-6 font-display text-[2.6rem] leading-[1.04] font-extrabold tracking-tight text-ink sm:text-6xl lg:text-[4rem]">
             Vos abonnements premium, <span class="text-gradient">payés en FCFA.</span>
           </h1>
-
-          <p class="mt-6 max-w-lg text-lg leading-relaxed text-slate-600">
-            Netflix, ChatGPT, Claude, Canva, Prime Video et bien plus. Payez facilement par Mobile Money, recevez votre accès instantanément.
+          <p class="mt-6 max-w-lg text-lg leading-relaxed text-muted">
+            Netflix, ChatGPT, Claude, Canva et bien plus. Payez par mobile money, recevez votre accès en quelques minutes.
           </p>
-
           <div class="mt-8 flex flex-wrap gap-3">
-            <a href="#phares" class="btn btn-primary min-h-12 px-7 text-base shadow-md">
-              Voir les offres phares
+            <a href="#phares" class="btn btn-primary min-h-12 px-7 text-base">
+              Voir les produits phares
             </a>
             <Link href="/boutique" class="btn btn-soft min-h-12 px-7 text-base">
               Toute la boutique
             </Link>
           </div>
-
-          <ul class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-700">
-            <li class="flex items-center gap-2">
-              <Zap class="size-4 text-[#ff6a13]" />
-              <span>Livraison instantanée</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <ShieldCheck class="size-4 text-[#0d5c4a]" />
-              <span>Paiement 100% sécurisé</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <RefreshCw class="size-4 text-emerald-600" />
-              <span>Garantie de remplacement</span>
+          <ul class="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-ink/75">
+            <li v-for="item in trust" :key="item.text" class="flex items-center gap-2">
+              <component :is="item.icon" class="size-4 text-brand" aria-hidden="true" />
+              <span>{{ item.text }}</span>
             </li>
           </ul>
         </div>
+        <div class="animate-fade-up delay-2">
+          <HeroCarousel :slides="slides" cta="Voir l'offre" />
+        </div>
+      </div>
+      <div class="relative border-y border-line bg-white/70">
+        <BrandMarquee :logos="brands" label="Marques proposées" />
+      </div>
+    </section>
 
-        <!-- Featured hero showcase preview -->
-        <div class="hidden lg:grid grid-cols-2 gap-4 animate-fade-up delay-1">
+    <!-- ── Produits phares ── -->
+    <section id="phares" class="container-page scroll-mt-24 pt-16">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="eyebrow text-accent-ink">Les plus demandés</p>
+          <h2 class="h2 mt-1">Produits phares</h2>
+        </div>
+        <Link href="/boutique" class="link text-sm">
+          Toute la boutique
+        </Link>
+      </div>
+
+      <template v-if="featured.length">
+        <div class="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <ProductCard
-            v-for="product in featured.slice(0, 4)"
+            v-for="product in pool.slice(0, featuredCount)"
             :key="product.id"
             :product="product"
-            :priority="true"
+            :priority="featuredIds.has(product.id)"
           />
+        </div>
+        <LoadMoreLink
+          v-if="pool.length > featuredCount"
+          :href="`/?phares=${featuredCount + FEATURED_PAGE}#phares`"
+          label="Charger plus"
+          :hint="`${featuredCount} sur ${pool.length} offres affichées`"
+          @click.prevent="handleLoadMore"
+        />
+      </template>
+      <p v-else class="card mt-7 px-6 py-12 text-center text-sm text-muted">
+        Les offres arrivent bientôt. Revenez dans un instant.
+      </p>
+    </section>
+
+    <!-- ── Catégories ── -->
+    <section v-if="categories && categories.length" class="container-page pt-14">
+      <h2 class="h3 text-lg">Parcourir par catégorie</h2>
+      <div class="mt-4 flex flex-wrap gap-2.5">
+        <Link
+          v-for="[name, count] in categories.slice(0, 8)"
+          :key="name"
+          :href="`/boutique?categorie=${encodeURIComponent(name)}`"
+          class="chip"
+        >
+          <CategoryBubble :name="name" size="sm" />
+          <span>{{ name }}</span>
+          <span class="text-xs font-medium text-muted">{{ count }}</span>
+        </Link>
+      </div>
+    </section>
+
+    <!-- ── Pourquoi nous ── -->
+    <section class="container-page pt-16">
+      <h2 class="h2">Pourquoi acheter chez {{ SITE_NAME }}</h2>
+      <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="item in reasons" :key="item.title" class="card p-5">
+          <span
+            :class="[
+              'flex size-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-[0_10px_20px_-10px_rgb(11_18_32/0.5)]',
+              item.gradient,
+            ]"
+          >
+            <component :is="item.icon" class="size-5" aria-hidden="true" />
+          </span>
+          <h3 class="h3 mt-4 text-[15px]">{{ item.title }}</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ item.text }}</p>
         </div>
       </div>
     </section>
 
-    <!-- ── CATÉGORIES POPULAIRES ── -->
-    <section v-if="Object.keys(categories).length" class="py-8 bg-white border-b border-slate-200/80">
-      <div class="container-page flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
-        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-2">
-          Rayons :
-        </span>
-        <Link
-          href="/boutique"
-          class="chip chip-active shrink-0 text-xs py-1.5"
-        >
-          Tous les produits
-        </Link>
-        <Link
-          v-for="(count, cat) in categories"
-          :key="cat"
-          :href="`/boutique?categorie=${encodeURIComponent(cat)}`"
-          class="chip shrink-0 text-xs py-1.5"
-        >
-          {{ cat.toUpperCase() }} ({{ count }})
-        </Link>
-      </div>
-    </section>
-
-    <!-- ── PRODUITS PHARES ── -->
-    <section id="phares" class="py-16 sm:py-20">
-      <div class="container-page space-y-10">
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <!-- ── Comment ça marche ── -->
+    <section class="container-page pt-16">
+      <h2 class="h2">Comment ça marche</h2>
+      <ol class="mt-7 grid gap-4 md:grid-cols-3">
+        <li v-for="(step, i) in steps" :key="step.title" class="card flex gap-4 p-5">
+          <span
+            class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-bright to-brand text-white shadow-[0_14px_28px_-10px_rgb(13_92_74/0.7)]"
+          >
+            <component :is="step.icon" class="size-6" aria-hidden="true" />
+          </span>
           <div>
-            <span class="eyebrow text-[#0d5c4a]">Catalogue exclusif</span>
-            <h2 class="h2 mt-1">Les abonnements les plus demandés</h2>
-            <p class="lead mt-1">Activations certifiées et prix les plus bas en Afrique de l'Ouest et Centrale.</p>
+            <p class="text-xs font-bold text-accent-ink">Étape {{ i + 1 }}</p>
+            <h3 class="h3 mt-0.5">{{ step.title }}</h3>
+            <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ step.text }}</p>
           </div>
-          <Link href="/boutique" class="btn btn-soft shrink-0 self-start sm:self-auto">
-            Voir tout le catalogue ({{ featured.length }}+)
-            <ArrowRight class="size-4 ml-1" />
-          </Link>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ProductCard
-            v-for="product in featured"
-            :key="product.id"
-            :product="product"
-          />
-        </div>
-      </div>
+        </li>
+      </ol>
     </section>
 
-    <!-- ── COMMENT ÇA MARCHE ── -->
-    <section class="py-16 sm:py-20 bg-white border-y border-slate-200/80">
-      <div class="container-page space-y-12">
-        <div class="text-center max-w-2xl mx-auto space-y-2">
-          <span class="eyebrow text-[#0d5c4a]">Simple et rapide</span>
-          <h2 class="h2">Comment fonctionne votre commande ?</h2>
-          <p class="lead">3 étapes simples pour activer vos outils numériques en quelques minutes.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div
-            v-for="s in steps"
-            :key="s.step"
-            class="card p-8 relative flex flex-col items-center text-center space-y-4 hover:shadow-pop transition duration-300"
-          >
-            <div class="size-16 rounded-2xl bg-[#0d5c4a]/10 text-[#0d5c4a] flex items-center justify-center font-bold">
-              <component :is="s.icon" class="size-8" />
-            </div>
-            <span class="text-xs font-mono font-bold text-slate-400 tracking-wider">ÉTAPE {{ s.step }}</span>
-            <h3 class="h3 text-lg font-bold">{{ s.title }}</h3>
-            <p class="text-sm text-slate-500 leading-relaxed">{{ s.text }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── POURQUOI NOUS CHOISIR ── -->
-    <section class="py-16 sm:py-20">
-      <div class="container-page space-y-12">
-        <div class="text-center max-w-2xl mx-auto space-y-2">
-          <span class="eyebrow text-[#0d5c4a]">Nos garanties</span>
-          <h2 class="h2">Achetez l'esprit tranquille</h2>
-          <p class="lead">Une plateforme conçue sur-mesure pour les utilisateurs africains.</p>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div
-            v-for="r in reasons"
-            :key="r.title"
-            class="card p-6 space-y-3 hover:-translate-y-1 transition duration-200"
-          >
-            <div class="size-12 rounded-xl bg-slate-100 flex items-center justify-center text-[#0d5c4a]">
-              <component :is="r.icon" class="size-6" />
-            </div>
-            <h3 class="font-bold text-slate-900">{{ r.title }}</h3>
-            <p class="text-xs text-slate-500 leading-relaxed">{{ r.text }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── FAQ ACCORDION ── -->
-    <section class="py-16 sm:py-20 bg-white border-t border-slate-200/80">
-      <div class="container-page max-w-3xl space-y-10">
-        <div class="text-center space-y-2">
-          <span class="eyebrow text-[#0d5c4a]">Questions fréquentes</span>
-          <h2 class="h2">Tout ce que vous devez savoir</h2>
-        </div>
-
-        <div class="space-y-3">
-          <div
-            v-for="(faq, i) in faqs"
-            :key="i"
-            class="card overflow-hidden border border-slate-200/80 transition"
-          >
-            <button
-              type="button"
-              @click="toggleFaq(i)"
-              class="w-full flex items-center justify-between p-5 text-left font-bold text-slate-900 hover:text-[#0d5c4a] transition"
-            >
-              <span class="text-base">{{ faq.q }}</span>
-              <ChevronDown
-                :class="[
-                  'size-5 text-slate-400 shrink-0 transition-transform duration-200',
-                  openFaq === i ? 'rotate-180 text-[#0d5c4a]' : '',
-                ]"
-              />
-            </button>
-            <div
-              v-if="openFaq === i"
-              class="px-5 pb-5 pt-1 text-sm text-slate-600 leading-relaxed border-t border-slate-100/80 animate-fade-up"
-            >
-              {{ faq.a }}
-            </div>
-          </div>
-        </div>
+    <!-- ── Questions fréquentes ── -->
+    <section class="container-page max-w-3xl pt-16">
+      <h2 class="h2">Questions fréquentes</h2>
+      <div class="mt-6 space-y-2.5">
+        <details v-for="[question, answer] in faq" :key="question" class="card group px-5 py-4">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold">
+            <span>{{ question }}</span>
+            <ChevronDown
+              class="size-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <p class="mt-2.5 text-sm leading-relaxed text-muted">{{ answer }}</p>
+        </details>
       </div>
     </section>
   </SiteLayout>

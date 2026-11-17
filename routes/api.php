@@ -29,3 +29,6 @@ Route::get('/wallet/deposit/{id}/status', [WalletApiController::class, 'status']
 
 // Webhook pawaPay
 Route::post('/webhooks/pawapay', [WebhookController::class, 'pawapay']);
+
+// Tâche planifiée externe (identique à Next.js /api/cron/tick)
+Route::match(['get', 'post'], '/cron/tick', [\App\Http\Controllers\Api\CronController::class, 'tick']);

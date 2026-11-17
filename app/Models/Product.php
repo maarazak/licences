@@ -22,8 +22,10 @@ class Product extends Model
         'display_name',
         'category',
         'shop_category',
+        'duration_label',
         'image_url',
         'delivery_kind',
+        'supplier_description',
         'cost_usd_cents',
         'list_usd_cents',
         'stock',
@@ -34,6 +36,7 @@ class Product extends Model
         'requires_email',
         'supplier_purchasable',
         'supplier_active',
+        'unavailable_readings',
         'is_published',
         'is_featured',
         'featured_rank',
@@ -66,22 +69,28 @@ class Product extends Model
     ];
 
     /**
-     * Prix de vente calculé en FCFA.
+     * Prix de vente calculé en FCFA (formule exacte issue de pricing.ts).
      */
     public function getPriceXofAttribute(): int
     {
-        if ($this->price_xof_override) {
-            return $this->price_xof_override;
+        if ($this->price_xof_override && $this->price_xof_override > 0) {
+            return (int) $this->price_xof_override;
         }
 
-        $usdRate = (float) Setting::get('usd_rate', 620);
-        $margin = (float) ($this->margin_percent_override ?? Setting::get('default_margin_percent', 25));
+        $usdRate = (int) Setting::get('usdRate', Setting::get('usd_rate', 669));
+        $marginPercent = (int) ($this->margin_percent_override ?? Setting::get('marginPercent', Setting::get('default_margin_percent', 100)));
+        $minMarginXof = (int) Setting::get('minMarginXof', 1000);
+        $roundingStep = (int) Setting::get('roundingStep', 250);
 
-        $costXof = ($this->cost_usd_cents / 100) * $usdRate;
-        $price = $costXof * (1 + ($margin / 100));
+        $costCents = (int) $this->cost_usd_cents;
+        $costXof = (int) ceil(($costCents * $usdRate) / 100);
 
-        // Arrondi aux 50 FCFA supérieurs
-        return max(500, (int) (ceil($price / 50) * 50));
+        $byPercent = ($costCents * $usdRate * (100 + $marginPercent)) / 10000;
+        $byMinimum = ($this->margin_percent_override === null) ? ($costXof + max(0, $minMarginXof)) : 0;
+        $raw = max($byPercent, $byMinimum);
+
+        $step = max(1, $roundingStep);
+        return max($step, (int) (ceil($raw / $step) * $step));
     }
 
     public function orders()

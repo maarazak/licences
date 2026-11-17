@@ -2,126 +2,157 @@
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { ShoppingCart, ArrowRight } from 'lucide-vue-next';
+import type { LogoSpec } from '@/Types/logo';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
+import BrandTint from '@/Components/Shared/BrandTint.vue';
+import { logoFor } from '@/Utils/brands';
 import { deliveryKindLabel } from '@/Types/enums';
 
-const props = defineProps<{
-  product: {
-    id: string;
-    slug: string;
-    name: string;
-    display_name?: string;
-    category?: string;
-    shop_category?: string;
-    image_url?: string;
-    price_xof: number;
-    delivery_kind?: string;
-    in_stock?: boolean;
-    stock?: number;
-    preorder?: boolean;
-    warranty?: string;
-    expire_days?: number;
-  };
-  priority?: boolean;
-}>();
+export interface ProductItem {
+  id: string;
+  slug: string;
+  name: string;
+  title?: string;
+  display_name?: string;
+  category?: string;
+  shop_category?: string;
+  shelf?: string;
+  price_xof: number;
+  priceXof?: number;
+  delivery_kind?: string;
+  accessKind?: string;
+  in_stock?: boolean;
+  stock?: number | null;
+  preorder?: boolean;
+  available?: boolean;
+  warranty?: string;
+  expire_days?: number;
+  duration?: string;
+  logo?: LogoSpec;
+}
 
-const title = computed(() => props.product.display_name || props.product.name);
-const formattedPrice = computed(() => `${(props.product.price_xof || 0).toLocaleString('fr-FR')} FCFA`);
-const isAvailable = computed(() => props.product.in_stock !== false);
-const accessLabel = computed(() => deliveryKindLabel(props.product.delivery_kind || props.product.category || ''));
+const props = withDefaults(
+  defineProps<{
+    product: ProductItem;
+    priority?: boolean;
+  }>(),
+  {
+    priority: false,
+  }
+);
+
+const displayTitle = computed(() => props.product.title || props.product.display_name || props.product.name);
+const displayShelf = computed(() => props.product.shelf || props.product.shop_category || props.product.category || '');
+const displayPriceXof = computed(() => props.product.priceXof ?? props.product.price_xof ?? 0);
+const isAvail = computed(() => props.product.available ?? (props.product.in_stock !== false && !props.product.preorder));
+
+const resolvedLogo = computed<LogoSpec>(() => {
+  if (props.product.logo) return props.product.logo;
+  return logoFor(props.product.name, props.product.display_name);
+});
+
+const accessKindText = computed(() => {
+  const raw = props.product.accessKind || props.product.delivery_kind || props.product.category || '';
+  return deliveryKindLabel(raw);
+});
+
+const durationText = computed(() => {
+  if (props.product.duration) return props.product.duration;
+  if (props.product.expire_days) {
+    if (props.product.expire_days >= 365) return '1 an';
+    if (props.product.expire_days === 30) return '1 mois';
+    return `${props.product.expire_days} jours`;
+  }
+  return props.product.warranty || 'Selon offre';
+});
+
+const formatPrice = (amount: number) => {
+  return `${amount.toLocaleString('fr-FR')} FCFA`;
+};
 </script>
 
 <template>
   <div
     :class="[
-      'group relative flex flex-col overflow-hidden rounded-3xl border bg-white shadow-card transition duration-300 hover:-translate-y-1.5 hover:shadow-pop',
-      priority ? 'border-[#19c39a]/40' : 'border-slate-200/80 hover:border-[#19c39a]/40',
+      'group relative flex flex-col overflow-hidden rounded-3xl border bg-white shadow-card transition duration-300 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/40 hover:-translate-y-1.5 hover:shadow-pop',
+      priority ? 'border-brand-bright/40' : 'border-line hover:border-brand-bright/40',
     ]"
   >
-    <!-- Top banner with protruding logo -->
-    <div class="relative h-28 bg-gradient-to-br from-slate-100 to-slate-50 border-b border-slate-100/80">
-      <div aria-hidden="true" class="absolute -top-10 -right-6 size-32 rounded-full bg-white/60 blur-2xl" />
+    <!-- Bannière supérieure avec voile coloré de la marque -->
+    <div class="relative h-28">
+      <div class="absolute inset-0 overflow-hidden">
+        <BrandTint :logo="resolvedLogo" :strength="0.15" />
+        <div aria-hidden="true" class="absolute inset-0 bg-gradient-to-b from-white/0 via-white/5 to-white" />
+        <div aria-hidden="true" class="absolute -top-10 -right-6 size-32 rounded-full bg-white/60 blur-2xl" />
+      </div>
 
-      <!-- Category tag -->
+      <!-- Rayon / Catégorie -->
       <span
-        v-if="product.shop_category || product.category"
-        class="absolute top-3.5 left-4 rounded-full bg-white/90 backdrop-blur px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm"
+        v-if="displayShelf"
+        class="absolute top-3.5 left-4 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink/70 shadow-sm"
       >
-        {{ (product.shop_category || product.category).toUpperCase() }}
+        {{ displayShelf }}
       </span>
 
-      <!-- Stock badge -->
+      <!-- Pastille de disponibilité (StockBadge) -->
       <div class="absolute top-3 right-3.5">
-        <span
-          v-if="isAvailable"
-          class="badge badge-success text-[11px] px-2.5 py-0.5"
-        >
+        <span v-if="!isAvail" class="badge badge-danger">
+          {{ product.preorder ? 'Sur commande' : 'Rupture' }}
+        </span>
+        <span v-else-if="product.stock === null || product.stock === undefined" class="badge badge-success">
           Disponible
         </span>
-        <span
-          v-else-if="product.preorder"
-          class="badge badge-warning text-[11px] px-2.5 py-0.5"
-        >
-          Sur commande
+        <span v-else-if="product.stock <= 3" class="badge badge-warning">
+          Plus que {{ product.stock }}
         </span>
-        <span
-          v-else
-          class="badge badge-danger text-[11px] px-2.5 py-0.5"
-        >
-          Rupture
+        <span v-else class="badge badge-success">
+          {{ product.stock }} en stock
         </span>
       </div>
 
-      <!-- Protruding logo -->
-      <div class="absolute -bottom-7 left-4 transition duration-300 group-hover:scale-105 z-10">
-        <BrandLogo :name="title" :image="product.image_url" size="lg" />
-      </div>
+      <!-- Logo de la marque qui dépasse de la bannière -->
+      <BrandLogo
+        :logo="resolvedLogo"
+        size="lg"
+        class="absolute -bottom-8 left-4 transition duration-300 group-hover:scale-105"
+      />
     </div>
 
-    <!-- Product Details -->
-    <div class="flex flex-1 flex-col gap-3 px-4 pt-10 pb-4">
+    <!-- Contenu de la fiche -->
+    <div class="flex flex-1 flex-col gap-3 px-4 pt-11 pb-4">
       <div>
-        <h3 class="h3 line-clamp-2 text-[15px] leading-snug">
+        <h3 translate="no" class="h3 line-clamp-2 text-[15px] leading-snug">
           <Link
             :href="`/boutique/${product.slug}`"
-            class="text-slate-900 group-hover:text-[#0d5c4a] transition outline-none after:absolute after:inset-0 after:z-0 after:content-['']"
+            class="outline-none after:absolute after:inset-0 after:z-0 after:content-[''] hover:text-brand transition"
           >
-            {{ title }}
+            {{ displayTitle }}
           </Link>
         </h3>
-
-        <div class="mt-2.5 flex flex-wrap gap-1.5">
-          <span v-if="product.expire_days" class="badge badge-neutral">
-            {{ product.expire_days }} jours
-          </span>
-          <span v-else-if="product.warranty" class="badge badge-neutral">
-            {{ product.warranty }}
-          </span>
-          <span class="badge badge-neutral">
-            {{ accessLabel }}
-          </span>
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          <span class="badge badge-neutral">{{ durationText }}</span>
+          <span class="badge badge-neutral">{{ accessKindText }}</span>
         </div>
       </div>
 
-      <!-- Price & Buy Button -->
-      <div class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-3 border-t border-slate-100">
-        <p class="font-display text-xl font-extrabold tracking-tight text-slate-900 whitespace-nowrap">
-          {{ formattedPrice }}
+      <!-- Prix & Action Acheter -->
+      <div class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2 border-t border-line/40">
+        <p class="font-display text-xl font-extrabold tracking-tight whitespace-nowrap text-ink">
+          {{ formatPrice(displayPriceXof) }}
         </p>
-
         <Link
-          v-if="isAvailable"
+          v-if="isAvail"
           :href="`/commande/validation?produit=${encodeURIComponent(product.slug)}`"
-          class="btn btn-primary btn-sm relative z-10 shrink-0 shadow-sm"
-          :aria-label="`Acheter : ${title}`"
+          :aria-label="`Acheter : ${displayTitle}`"
+          class="btn btn-primary btn-sm relative z-10 shrink-0"
         >
-          <ShoppingCart class="size-4" />
-          Acheter
+          <ShoppingCart class="size-4" aria-hidden="true" />
+          <span>Acheter</span>
         </Link>
         <span
           v-else
           aria-hidden="true"
-          class="flex size-9 items-center justify-center rounded-full bg-slate-900 text-white transition duration-300 group-hover:bg-[#ff6a13] group-hover:shadow-glow"
+          class="flex size-9 items-center justify-center rounded-full bg-ink text-white transition duration-300 group-hover:bg-accent group-hover:shadow-glow"
         >
           <ArrowRight class="size-4" />
         </span>

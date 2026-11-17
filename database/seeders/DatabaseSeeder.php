@@ -22,7 +22,6 @@ class DatabaseSeeder extends Seeder
         // Ne s'exécutera JAMAIS en production
         if (app()->environment('local', 'testing')) {
             $this->call(CustomerSeeder::class);
-            $this->call(ProductSeeder::class);
         }
 
         // 3. Nettoyage des caches applicatifs
@@ -52,7 +51,7 @@ class DatabaseSeeder extends Seeder
             $this->command->warn('Données de démonstration chargées (LOCAL / TESTING) :');
             $this->command->line(' - Client démo : test@example.com / password (Solde: 25 000 FCFA)');
             $this->command->line(' - Admin démo : admin@licences.local / password');
-            $this->command->line(' - Catalogue démo : 4 produits de test créés');
+            $this->command->line(' - Les produits viennent du fournisseur (via php artisan catalog:sync ou le cron)');
             $this->command->line('');
         } else {
             $this->command->comment('Mode PRODUCTION : Aucune donnée fictive (client démo, faux produits) n\'a été insérée.');

@@ -21,8 +21,10 @@ return new class extends Migration
                 $table->string('display_name', 255)->nullable();
                 $table->string('category', 100)->default('');
                 $table->string('shop_category', 100)->nullable();
+                $table->string('duration_label', 64)->nullable();
                 $table->string('image_url', 1024)->nullable();
                 $table->string('delivery_kind', 64)->default('');
+                $table->text('supplier_description')->nullable();
                 $table->integer('cost_usd_cents')->default(0);
                 $table->integer('list_usd_cents')->default(0);
                 $table->integer('stock')->nullable();
