@@ -18,11 +18,30 @@ Inspirée des standards de haute qualité appliqués sur `livreurcravate-web` :
 
 ### B. Données de démonstration (LOCAL et TESTING UNIQUEMENT)
 - **`CustomerSeeder.php`** : Ne s'exécute **JAMAIS** en production (`if (!app()->environment('local', 'testing')) return;`). Crée le client de test `test@example.com` (solde crédité de 25 000 FCFA) et l'administrateur secondaire de développement.
-- **`ProductSeeder.php`** : Ne s'exécute **JAMAIS** en production. Protégé par double garde (dans `DatabaseSeeder` et dans `ProductSeeder::run()`). En production, les produits proviennent exclusivement de l'API revendeur Flowseller via `php artisan catalog:sync` ou de la création manuelle par l'administrateur dans le backoffice.
+- **`ProductSeeder.php`** : Ne s'exécute **JAMAIS** en production. Protégé par double garde. En production, les produits proviennent exclusivement de l'API revendeur Flowseller via `php artisan catalog:sync` ou de la création manuelle par l'administrateur dans le backoffice.
 
 ---
 
-## 2. Commandes Artisan & Services Intégrés
+## 2. Configuration SMTP & Service d'E-mails Transactionnels
+
+- **Même Fournisseur & Relais SMTP** : Brevo (`smtp-relay.brevo.com:587`, TLS avec identifiants officiels du projet `licences`).
+- **Expéditeur Configuré** : `Licences <abdoulrazakmaali@gmail.com>`.
+- **Service Dédié** (`app/Services/MailService.php`) :
+  - Respecte le gabarit HTML/Texte officiel (couleurs `#0d5c4a`, bouton `#ff6a13`, pied de sécurité).
+  - Événements gérés :
+    1. Code de connexion magique client (`sendLoginCode`)
+    2. Confirmation de paiement reçu (`sendOrderPaid`)
+    3. Livraison des accès / licences (`sendOrderDelivered`)
+    4. Activation manuelle en cours (`sendOrderActivation`)
+    5. Commande retardée / assistance (`sendOrderDelayed`)
+    6. Remboursement validé (`sendOrderRefunded`)
+    7. Alerte de réassort (`sendStockAlert`)
+    8. Réponse au ticket de support (`sendTicketReply`)
+  - **Test d'envoi réel** : Validé avec succès via Brevo SMTP vers `abdoulrazakmaali@gmail.com` (Code retour `YES`).
+
+---
+
+## 3. Automatisation et Services Fournisseur
 
 - **`app/Services/FlowsellerService.php`** : Client API revendeur Flowseller (catalogue, solde, achat, vérification statut).
 - **`app/Services/OrderFulfillmentService.php`** : Traitement de la livraison automatique, chiffrement AES-256-GCM des accès via `CryptoService`, synchronisation pawaPay et maintenance.
@@ -31,7 +50,7 @@ Inspirée des standards de haute qualité appliqués sur `livreurcravate-web` :
 
 ---
 
-## 3. Résultats des Tests & Compilation
+## 4. Résultats des Tests & Compilation
 
 - **Exécution `php artisan migrate:fresh --seed` (Local)** : Succès avec chargement des données de test.
 - **Exécution `APP_ENV=production php artisan migrate:fresh --seed --force` (Production)** : Succès strict — **aucune donnée de démo insérée**.
