@@ -6,38 +6,34 @@
 
 ---
 
-## 1. Architecture Modulaire & Organisation
+## 1. Architecture Modulaire & Isolation Production / Local
 
 Inspirée des standards de haute qualité appliqués sur `livreurcravate-web` :
-- **Seeders granulaires et dédiés** (`database/seeders/`) :
-  - `PermissionSeeder.php` : Définition des permissions granulaires (`manage products`, `manage orders`, `adjust balances`, etc.) pour les guards `admin` et `web`.
-  - `RoleSeeder.php` : Rôles Spatie `admin` et `client` avec assignation des permissions.
-  - `SettingSeeder.php` : Paramètres système initiaux (taux USD à 620, marge par défaut à 25%, e-mails).
-  - `UserSeeder.php` : Comptes administrateurs (`abdoulrazakmaali@gmail.com`, `admin@licences.local`) et compte client test avec solde crédité.
-  - `ProductSeeder.php` : Produits de démonstration complets et vérifiés (Windows 11 Pro, Office 2021, Kaspersky, Canva Pro).
-  - `DatabaseSeeder.php` : Chef d'orchestre exécutant chaque seeder dans l'ordre, nettoyant les caches applicatifs et affichant le récapitulatif des accès en console (`userInfo()`).
+
+### A. Données obligatoires en tout environnement (Production & Local)
+- **`PermissionSeeder.php`** : Définition des permissions Spatie (`manage products`, `manage orders`, `adjust balances`, etc.) pour les guards `admin` et `web`.
+- **`RoleSeeder.php`** : Rôles Spatie `admin` et `client` avec assignation des permissions.
+- **`SettingSeeder.php`** : Paramètres système réels (`usd_rate: 620`, `default_margin_percent: 25`, adresses de contact).
+- **`AdminSeeder.php`** : Création du compte administrateur principal (`abdoulrazakmaali@gmail.com`).
+
+### B. Données de démonstration (LOCAL et TESTING UNIQUEMENT)
+- **`CustomerSeeder.php`** : Ne s'exécute **JAMAIS** en production (`if (!app()->environment('local', 'testing')) return;`). Crée le client de test `test@example.com` (solde crédité de 25 000 FCFA) et l'administrateur secondaire de développement.
+- **`ProductSeeder.php`** : Ne s'exécute **JAMAIS** en production. Protégé par double garde (dans `DatabaseSeeder` et dans `ProductSeeder::run()`). En production, les produits proviennent exclusivement de l'API revendeur Flowseller via `php artisan catalog:sync` ou de la création manuelle par l'administrateur dans le backoffice.
 
 ---
 
-## 2. Corrections Apportées & Validation Base de Données
+## 2. Commandes Artisan & Services Intégrés
 
-1. **Correction Troncature UUID (`Data truncated for column 'id'`)** :
-   - Mise à jour de `0001_01_01_000000_create_users_table.php` avec `$table->uuid('id')->primary()`.
-   - Modèle `User` configuré avec `HasUuids` et support `uuid` sur `sessions.user_id`.
-2. **Correction Session Database (`Colonne « payload » inconnue`)** :
-   - Table `sessions` dotée des colonnes natives Laravel (`id`, `user_id` uuid, `ip_address`, `user_agent`, `payload`, `last_activity`).
-3. **Migration Complète des Tables Métier** (`2026_11_17_001000_create_business_tables.php`) :
-   - `products`, `orders`, `order_events`, `wallet_entries`, `wallet_deposits`, `tickets`, `ticket_messages`, `stock_alerts`, `settings`, `audit_logs`, `login_codes`, `rate_limits`.
-4. **Commandes Artisan & Services Intégrés** :
-   - `app/Services/FlowsellerService.php` : Client API revendeur Flowseller (catalogue, solde, achat, vérification statut).
-   - `app/Services/OrderFulfillmentService.php` : Traitement de la livraison automatique, chiffrement AES-256-GCM des accès via `CryptoService`, synchronisation pawaPay et maintenance.
-   - `php artisan orders:maintain` (`MaintainOrdersCommand`) : Rattrapage automatique des webhooks, expiration des commandes impayées >48h, suivi des activations.
-   - `php artisan catalog:sync` (`SyncCatalogCommand`) : Synchronisation du catalogue revendeur.
+- **`app/Services/FlowsellerService.php`** : Client API revendeur Flowseller (catalogue, solde, achat, vérification statut).
+- **`app/Services/OrderFulfillmentService.php`** : Traitement de la livraison automatique, chiffrement AES-256-GCM des accès via `CryptoService`, synchronisation pawaPay et maintenance.
+- **`php artisan orders:maintain` (`MaintainOrdersCommand`)** : Rattrapage automatique des webhooks, expiration des commandes impayées >48h, suivi des activations (planifiée toutes les 5 minutes).
+- **`php artisan catalog:sync` (`SyncCatalogCommand`)** : Synchronisation du catalogue revendeur en production et en local.
 
 ---
 
 ## 3. Résultats des Tests & Compilation
 
-- **Exécution `php artisan migrate:fresh --seed`** : Succès total (0 erreur, récapitulatif console affiché).
-- **Compilation Vite (`npm run build`)** : 42 assets compilés en 653 ms dans `public/build/`.
+- **Exécution `php artisan migrate:fresh --seed` (Local)** : Succès avec chargement des données de test.
+- **Exécution `APP_ENV=production php artisan migrate:fresh --seed --force` (Production)** : Succès strict — **aucune donnée de démo insérée**.
 - **Suite de Tests PHPUnit (`php artisan test`)** : 12 tests réussis, 105 assertions, 0 échec.
+- **Compilation Vite (`npm run build`)** : 42 assets compilés en 653 ms dans `public/build/`.
