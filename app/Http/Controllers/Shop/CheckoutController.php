@@ -11,7 +11,7 @@ use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
 use App\Services\MailService;
 use App\Services\OrderFulfillmentService;
-use App\Services\PawaPayService;
+use App\Services\CinetPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -137,11 +137,11 @@ class CheckoutController extends Controller
             'clientToken' => 'nullable|string|max:64',
             'activationEmails' => 'nullable|array',
             'activationEmails.*' => 'nullable|email|max:191',
-            'payWith' => 'required|in:gateway,balance,pawapay',
+            'payWith' => 'required|in:gateway,balance,pawapay,cinetpay',
         ]);
 
         // Normalisation payWith
-        $payWith = in_array($validated['payWith'], ['gateway', 'pawapay'], true) ? 'pawapay' : 'balance';
+        $payWith = in_array($validated['payWith'], ['gateway', 'cinetpay', 'pawapay'], true) ? 'cinetpay' : 'balance';
 
         // Vérification anti-altération de prix
         if ($totalXof !== (int) $validated['expectedTotalXof']) {
@@ -266,7 +266,7 @@ class CheckoutController extends Controller
             return redirect()->route('account.orders.show', $orderId)->with('success', 'Commande validée et payée avec succès !');
         }
 
-        // 2. Paiement via passerelle pawaPay (Mobile Money)
+        // 2. Paiement via passerelle CinetPay (Cartes Bancaires + Mobile Money)
         $order = Order::create([
             'id' => $orderId,
             'reference' => $ref,
@@ -280,9 +280,10 @@ class CheckoutController extends Controller
             'total_xof' => $totalXof,
             'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
             'usd_rate' => (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669)),
-            'paid_with' => 'pawapay',
+            'paid_with' => 'cinetpay',
             'status' => 'pending_payment',
-            'payment_checkout_id' => $orderId,
+            'payment_checkout_id' => null,
+            'payment_intent_id' => $ref,
             'customer_first_name' => $firstName,
             'customer_last_name' => $lastName,
             'customer_email' => $user->email,
@@ -298,35 +299,42 @@ class CheckoutController extends Controller
             'type' => 'created',
             'event' => 'created',
             'actor' => 'client',
-            'message' => "Commande créée en attente de paiement Mobile Money ({$totalXof} FCFA).",
+            'message' => "Commande créée en attente de paiement CinetPay ({$totalXof} FCFA).",
             'created_at' => $now,
         ]);
 
         try {
-            $pawaPay = app(PawaPayService::class);
+            $cinetPay = app(CinetPayService::class);
             $returnUrl = url("/paiement/retour?commande={$order->id}");
 
-            $session = $pawaPay->createPaymentPage([
-                'deposit_id' => $orderId,
+            $session = $cinetPay->createPaymentPage([
                 'order_id' => $orderId,
                 'reference' => $ref,
                 'amount_xof' => $totalXof,
                 'country' => $country,
                 'phone' => $phone,
                 'email' => $user->email,
+                'firstName' => $firstName,
+                'lastName' => $lastName,
                 'return_url' => $returnUrl,
                 'description' => "{$order->product_name} × {$quantity} — commande {$ref}",
             ]);
 
             $paymentUrl = $session['redirect_url'] ?? $session['redirectUrl'] ?? $session['payment_url'] ?? null;
             if (empty($paymentUrl)) {
-                throw new \Exception("L'URL de paiement retournée par le prestataire est introuvable.");
+                throw new \Exception("L'URL de paiement retournée par CinetPay est introuvable.");
             }
-            $order->update(['payment_url' => $paymentUrl]);
+
+            $order->update([
+                'payment_url' => $paymentUrl,
+                'payment_checkout_id' => $session['transaction_id'] ?? null,
+                'payment_intent_id' => $session['merchant_transaction_id'] ?? $ref,
+                'notify_token' => $session['notify_token'] ?? null,
+            ]);
 
             return Inertia::location($paymentUrl);
         } catch (\Throwable $e) {
-            \Log::error("Erreur pawaPay checkout : " . $e->getMessage());
+            \Log::error("Erreur CinetPay checkout : " . $e->getMessage());
             $order->update([
                 'status' => 'payment_failed',
                 'failure_message' => $e->getMessage(),
@@ -347,14 +355,17 @@ class CheckoutController extends Controller
             $targetDepot = $depotId ?: $depositId;
             $walletDeposit = WalletDeposit::where('id', $targetDepot)
                 ->orWhere('payment_checkout_id', $targetDepot)
+                ->orWhere('payment_intent_id', $targetDepot)
+                ->orWhere('reference', $targetDepot)
                 ->first();
 
             if ($walletDeposit) {
                 if ($walletDeposit->status === 'pending') {
                     try {
-                        $pawaPay = app(PawaPayService::class);
-                        $state = $pawaPay->getDeposit($walletDeposit->payment_checkout_id ?: $walletDeposit->id);
-                        if (in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
+                        $cinetPay = app(CinetPayService::class);
+                        $queryKey = $walletDeposit->payment_intent_id ?: $walletDeposit->payment_checkout_id ?: $walletDeposit->reference ?: $walletDeposit->id;
+                        $state = $cinetPay->getPayment($queryKey, $walletDeposit->customer_country);
+                        if (!empty($state['is_successful']) || in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
                             DB::transaction(function () use ($walletDeposit) {
                                 $locked = WalletDeposit::lockForUpdate()->find($walletDeposit->id);
                                 if ($locked && !$locked->credited_at) {
@@ -368,7 +379,7 @@ class CheckoutController extends Controller
                                             'balance_after_xof' => $user->balance_xof,
                                             'type' => 'credit',
                                             'kind' => 'deposit',
-                                            'description' => "Recharge Mobile Money — {$locked->reference}",
+                                            'description' => "Recharge CinetPay — {$locked->reference}",
                                             'reference_type' => 'wallet_deposit',
                                             'reference_id' => $locked->id,
                                             'created_at' => now(),
@@ -399,17 +410,21 @@ class CheckoutController extends Controller
 
         $order = Order::where('id', $targetOrder)
             ->orWhere('payment_checkout_id', $targetOrder)
+            ->orWhere('payment_intent_id', $targetOrder)
+            ->orWhere('reference', $targetOrder)
             ->firstOrFail();
 
-        // Relecture sécurisée auprès de pawaPay si le statut est encore en attente
-        if ($order->status === 'pending_payment' && $order->payment_checkout_id) {
+        // Relecture sécurisée auprès de CinetPay si le statut est encore en attente
+        if ($order->status === 'pending_payment') {
             try {
-                $pawaPay = app(PawaPayService::class);
-                $state = $pawaPay->getDeposit($order->payment_checkout_id);
-                if (in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
+                $cinetPay = app(CinetPayService::class);
+                $queryKey = $order->payment_intent_id ?: $order->payment_checkout_id ?: $order->reference ?: $order->id;
+                $state = $cinetPay->getPayment($queryKey, $order->customer_country);
+                if (!empty($state['is_successful']) || in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
                     $order->update([
                         'status' => 'paid',
                         'paid_at' => now(),
+                        'paid_with' => 'cinetpay',
                     ]);
 
                     OrderEvent::create([
@@ -417,8 +432,8 @@ class CheckoutController extends Controller
                         'order_id' => $order->id,
                         'type' => 'paid',
                         'event' => 'paid',
-                        'actor' => 'pawapay',
-                        'message' => "Paiement confirmé lors du retour sur le site.",
+                        'actor' => 'cinetpay',
+                        'message' => "Paiement confirmé lors du retour sur le site via CinetPay.",
                         'created_at' => now(),
                     ]);
 
@@ -428,14 +443,14 @@ class CheckoutController extends Controller
                     } catch (\Throwable $e) {
                         \Log::warning("Erreur fulfillment post-retour: " . $e->getMessage());
                     }
-                } elseif (in_array(strtoupper($state['status'] ?? ''), ['FAILED', 'EXPIRED', 'CANCELLED'])) {
+                } elseif (!empty($state['is_final']) && !$state['is_successful']) {
                     $order->update([
                         'status' => 'payment_failed',
-                        'failure_message' => $state['failure_reason'] ?? 'Paiement non finalisé.',
+                        'failure_message' => "Paiement CinetPay non finalisé ({$state['status']}).",
                     ]);
                 }
             } catch (\Throwable $e) {
-                \Log::warning("Erreur vérification pawaPay lors du retour: " . $e->getMessage());
+                \Log::warning("Erreur vérification CinetPay lors du retour: " . $e->getMessage());
             }
         }
 

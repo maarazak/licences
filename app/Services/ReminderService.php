@@ -42,7 +42,7 @@ class ReminderService
             $user = $order->user;
             if (!$user) continue;
 
-            // Re-vérifier l'état pawaPay avant de relancer (s'il vient d'être payé, ne pas relancer)
+            // Re-vérifier l'état CinetPay avant de relancer (s'il vient d'être payé, ne pas relancer)
             try {
                 $fresh = $fulfillment->syncPayment($order->id);
                 if ($fresh && $fresh->status !== 'pending_payment') {

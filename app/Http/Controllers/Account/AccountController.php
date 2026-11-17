@@ -12,7 +12,7 @@ use App\Models\User;
 use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
 use App\Services\CryptoService;
-use App\Services\PawaPayService;
+use App\Services\CinetPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -190,26 +190,26 @@ class AccountController extends Controller
         $ref = 'DEP-' . strtoupper(Str::random(8));
 
         try {
-            $pawaPay = app(PawaPayService::class);
+            $cinetPay = app(CinetPayService::class);
             $returnUrl = url("/paiement/retour?depot={$depositId}");
 
-            $session = $pawaPay->createPaymentPage([
-                'deposit_id' => $depositId,
+            $session = $cinetPay->createPaymentPage([
                 'order_id' => $depositId,
                 'reference' => $ref,
                 'amount_xof' => $validated['amount_xof'],
                 'country' => $validated['country'],
                 'phone' => $validated['phone'] ?? null,
                 'email' => $user->email,
+                'fullName' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
                 'return_url' => $returnUrl,
                 'description' => "Recharge de solde ({$validated['amount_xof']} FCFA)",
                 'lang' => $user->lang ?? 'fr',
             ]);
 
-            $redirectUrl = $session['redirectUrl'] ?? $session['redirect_url'] ?? $session['payment_url'] ?? null;
+            $redirectUrl = $session['redirect_url'] ?? $session['redirectUrl'] ?? $session['payment_url'] ?? null;
 
             if (!$redirectUrl) {
-                return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement introuvable.");
+                return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement CinetPay introuvable.");
             }
 
             WalletDeposit::create([
@@ -221,8 +221,9 @@ class AccountController extends Controller
                 'customer_country' => $validated['country'],
                 'customer_name' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
                 'status' => 'pending',
-                'payment_checkout_id' => $session['depositId'] ?? $session['deposit_id'] ?? $depositId,
-                'payment_intent_id' => $session['depositId'] ?? $session['deposit_id'] ?? $depositId,
+                'payment_checkout_id' => $session['transaction_id'] ?? null,
+                'payment_intent_id' => $session['merchant_transaction_id'] ?? $ref,
+                'notify_token' => $session['notify_token'] ?? null,
                 'payment_url' => $redirectUrl,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -236,7 +237,7 @@ class AccountController extends Controller
 
             return Inertia::location($redirectUrl);
         } catch (\Throwable $e) {
-            \Log::error("Erreur deposit pawaPay : " . $e->getMessage());
+            \Log::error("Erreur deposit CinetPay : " . $e->getMessage());
             return back()->with('error', "Impossible d'initialiser la recharge : " . $e->getMessage());
         }
     }

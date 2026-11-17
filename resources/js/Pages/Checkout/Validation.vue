@@ -127,7 +127,7 @@ const submitCheckout = () => {
 
               <div>
                 <label for="country" class="label">
-                  Pays de paiement (Mobile Money)
+                  Pays de facturation
                 </label>
                 <select
                   id="country"
@@ -139,7 +139,7 @@ const submitCheckout = () => {
                   </option>
                 </select>
                 <p class="mt-1.5 text-xs text-muted">
-                  Le choix de votre opérateur (Orange Money, Moov, MTN, Wave...) et la validation par numéro s'effectuent directement sur la page sécurisée pawaPay.
+                  Le choix de votre moyen de paiement (Carte bancaire Visa/Mastercard ou Mobile Money : Orange Money, Moov, MTN, Wave...) s'effectue directement sur la page sécurisée CinetPay.
                 </p>
               </div>
             </div>
@@ -219,8 +219,8 @@ const submitCheckout = () => {
                   class="mt-1 size-4 accent-brand"
                 />
                 <span class="text-sm">
-                  <span class="font-semibold text-ink">Mobile Money</span>
-                  <span class="block text-muted">Orange Money, Moov, MTN, Wave selon votre pays.</span>
+                  <span class="font-semibold text-ink">Carte bancaire ou Mobile Money (CinetPay)</span>
+                  <span class="block text-muted">Visa, Mastercard, Orange Money, Moov Money, MTN, Wave...</span>
                 </span>
               </label>
 

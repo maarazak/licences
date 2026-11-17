@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
-use App\Services\PawaPayService;
+use App\Services\CinetPayService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,11 +14,11 @@ use Illuminate\Support\Str;
 
 class WalletApiController extends Controller
 {
-    protected PawaPayService $pawaPay;
+    protected CinetPayService $cinetPay;
 
-    public function __construct(PawaPayService $pawaPay)
+    public function __construct(CinetPayService $cinetPay)
     {
-        $this->pawaPay = $pawaPay;
+        $this->cinetPay = $cinetPay;
     }
 
     public function deposit(Request $request)
@@ -60,8 +60,7 @@ class WalletApiController extends Controller
         ]);
 
         try {
-            $checkout = $this->pawaPay->createPaymentPage([
-                'deposit_id' => $deposit->id,
+            $checkout = $this->cinetPay->createPaymentPage([
                 'order_id' => $deposit->id,
                 'reference' => $deposit->reference,
                 'amount_xof' => $validated['amount_xof'],
@@ -73,8 +72,9 @@ class WalletApiController extends Controller
             ]);
 
             $deposit->update([
-                'payment_checkout_id' => $checkout['deposit_id'],
-                'payment_intent_id' => $checkout['deposit_id'],
+                'payment_checkout_id' => $checkout['transaction_id'] ?? null,
+                'payment_intent_id' => $checkout['merchant_transaction_id'] ?? $deposit->reference,
+                'notify_token' => $checkout['notify_token'] ?? null,
                 'payment_url' => $checkout['redirect_url'],
                 'updated_at' => now(),
             ]);
@@ -88,7 +88,6 @@ class WalletApiController extends Controller
         } catch (Exception $e) {
             $deposit->update([
                 'status' => 'failed',
-                'failure_code' => 'checkout_failed',
                 'failure_message' => substr($e->getMessage(), 0, 300),
                 'updated_at' => now(),
             ]);
@@ -108,59 +107,54 @@ class WalletApiController extends Controller
         }
 
         try {
-            $state = $this->pawaPay->getDeposit($deposit->payment_checkout_id ?? $deposit->id);
+            $queryKey = $deposit->payment_intent_id ?: $deposit->payment_checkout_id ?: $deposit->reference ?: $deposit->id;
+            $state = $this->cinetPay->getPayment($queryKey, $deposit->customer_country);
 
-            if ($state['payment_status'] === 'completed') {
-                $amountOk = $state['amount'] === $deposit->amount_xof &&
-                    (empty($state['currency']) || in_array(strtoupper($state['currency']), ['XOF', 'XAF']));
+            if (!empty($state['is_successful']) || in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
+                DB::transaction(function () use ($deposit) {
+                    $locked = WalletDeposit::lockForUpdate()->find($deposit->id);
+                    if (!$locked || $locked->credited_at) return;
 
-                if ($amountOk) {
-                    DB::transaction(function () use ($deposit) {
-                        $locked = WalletDeposit::lockForUpdate()->find($deposit->id);
-                        if (!$locked || $locked->credited_at) return;
+                    $user = User::lockForUpdate()->find($deposit->user_id);
+                    if ($user) {
+                        $newBalance = $user->balance_xof + $deposit->amount_xof;
+                        $user->balance_xof = $newBalance;
+                        $user->save();
 
-                        $user = User::lockForUpdate()->find($deposit->user_id);
-                        if ($user) {
-                            $newBalance = $user->balance_xof + $deposit->amount_xof;
-                            $user->balance_xof = $newBalance;
-                            $user->save();
-
-                            WalletEntry::create([
-                                'id' => Str::uuid()->toString(),
-                                'user_id' => $user->id,
-                                'amount_xof' => $deposit->amount_xof,
-                                'balance_after_xof' => $newBalance,
-                                'type' => 'credit',
-                                'description' => "Recharge Mobile Money — {$deposit->reference}",
-                                'reference_type' => 'wallet_deposit',
-                                'reference_id' => $deposit->id,
-                                'created_at' => now(),
-                            ]);
-                        }
-
-                        $deposit->update([
-                            'status' => 'completed',
-                            'paid_at' => now(),
-                            'credited_at' => now(),
-                            'updated_at' => now(),
+                        WalletEntry::create([
+                            'id' => Str::uuid()->toString(),
+                            'user_id' => $user->id,
+                            'amount_xof' => $deposit->amount_xof,
+                            'balance_after_xof' => $newBalance,
+                            'type' => 'credit',
+                            'kind' => 'deposit',
+                            'description' => "Recharge CinetPay — {$deposit->reference}",
+                            'reference_type' => 'wallet_deposit',
+                            'reference_id' => $deposit->id,
+                            'created_at' => now(),
                         ]);
-                    });
-                }
-            } elseif ($state['payment_status'] === 'failed') {
-                $deposit->update([
-                    'status' => 'failed',
-                    'failure_code' => $state['failure_code'] ?? 'payment_failed',
-                    'failure_message' => $state['failure_message'] ?? 'Paiement échoué',
-                    'updated_at' => now(),
-                ]);
-            }
-        } catch (Exception $e) {
-            // Keep pending
-        }
+                    }
 
-        return response()->json([
-            'success' => true,
-            'deposit' => $deposit->fresh(),
-        ]);
+                    $locked->update([
+                        'status' => 'completed',
+                        'paid_at' => now(),
+                        'credited_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                });
+            }
+
+            return response()->json([
+                'success' => true,
+                'status' => $deposit->fresh()->status,
+                'deposit' => $deposit->fresh(),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'status' => $deposit->status,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

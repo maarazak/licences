@@ -27,8 +27,8 @@ Route::get('/orders/{id}/resume', [OrderApiController::class, 'resume']);
 Route::post('/wallet/deposit', [WalletApiController::class, 'deposit']);
 Route::get('/wallet/deposit/{id}/status', [WalletApiController::class, 'status']);
 
-// Webhook pawaPay
-Route::post('/webhooks/pawapay', [WebhookController::class, 'pawapay']);
+// Webhook CinetPay (Cartes Bancaires + Mobile Money)
+Route::match(['get', 'post'], '/webhooks/cinetpay', [WebhookController::class, 'cinetpay']);
 
 // Tâche planifiée externe (identique à Next.js /api/cron/tick)
 Route::match(['get', 'post'], '/cron/tick', [\App\Http\Controllers\Api\CronController::class, 'tick']);

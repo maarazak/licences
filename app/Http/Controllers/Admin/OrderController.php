@@ -163,7 +163,7 @@ class OrderController extends Controller
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
             'type' => 'refunded',
-            'message' => "Commande marquée comme remboursée auprès de la passerelle pawaPay.",
+            'message' => "Commande marquée comme remboursée auprès de la passerelle CinetPay.",
             'actor' => auth('admin')->user()->email ?? 'Admin',
             'created_at' => now(),
         ]);
@@ -216,10 +216,10 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
 
         try {
-            $updated = app(\App\Services\PawaPayService::class)->checkPaymentStatus($order);
+            $updated = app(\App\Services\CinetPayService::class)->checkPaymentStatus($order);
             return back()->with('success', "Statut de paiement actualisé : {$order->status}.");
         } catch (\Throwable $e) {
-            return back()->with('error', "Erreur lors de la vérification pawaPay : " . $e->getMessage());
+            return back()->with('error', "Erreur lors de la vérification CinetPay : " . $e->getMessage());
         }
     }
 

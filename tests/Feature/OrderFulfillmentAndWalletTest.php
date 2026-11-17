@@ -102,7 +102,7 @@ class OrderFulfillmentAndWalletTest extends TestCase
             'total_xof' => 5000,
             'status' => 'failed',
             'failure_code' => 'supplier_out_of_stock',
-            'paid_with' => 'pawapay',
+            'paid_with' => 'cinetpay',
             'created_at' => now(),
         ]);
 
@@ -141,17 +141,19 @@ class OrderFulfillmentAndWalletTest extends TestCase
             'role' => 'client',
         ]);
 
-        $mockPawaPay = \Mockery::mock(\App\Services\PawaPayService::class);
-        $mockPawaPay->shouldReceive('createPaymentPage')
+        $mockCinetPay = \Mockery::mock(\App\Services\CinetPayService::class);
+        $mockCinetPay->shouldReceive('createPaymentPage')
             ->once()
             ->andReturn([
-                'deposit_id' => 'pawapay-dep-test-123',
-                'depositId' => 'pawapay-dep-test-123',
-                'redirect_url' => 'https://sandbox.pawapay.io/checkout/dep-123',
-                'redirectUrl' => 'https://sandbox.pawapay.io/checkout/dep-123',
+                'transaction_id' => 'cp-trans-123',
+                'merchant_transaction_id' => 'DEP-TEST-123',
+                'redirect_url' => 'https://checkout.cinetpay.com/pay/123',
+                'redirectUrl' => 'https://checkout.cinetpay.com/pay/123',
+                'payment_url' => 'https://checkout.cinetpay.com/pay/123',
                 'status' => 'ACCEPTED',
+                'code' => 201,
             ]);
-        $this->app->instance(\App\Services\PawaPayService::class, $mockPawaPay);
+        $this->app->instance(\App\Services\CinetPayService::class, $mockCinetPay);
 
         $this->actingAs($user, 'web');
 
@@ -170,7 +172,7 @@ class OrderFulfillmentAndWalletTest extends TestCase
         $this->assertStringStartsWith('DEP-', $deposit->reference);
         $this->assertEquals(10000, $deposit->amount_xof);
         $this->assertEquals('pending', $deposit->status);
-        $this->assertEquals('pawapay-dep-test-123', $deposit->payment_checkout_id);
+        $this->assertEquals('cp-trans-123', $deposit->payment_checkout_id);
     }
 
     public function test_payment_return_syncs_and_credits_wallet_deposit(): void
@@ -186,19 +188,20 @@ class OrderFulfillmentAndWalletTest extends TestCase
             'user_id' => $user->id,
             'amount_xof' => 8000,
             'status' => 'pending',
-            'payment_checkout_id' => 'pawa-checkout-' . Str::random(6),
+            'payment_checkout_id' => 'cp-checkout-' . Str::random(6),
         ]);
 
-        $mockPawaPay = \Mockery::mock(\App\Services\PawaPayService::class);
-        $mockPawaPay->shouldReceive('getDeposit')
-            ->with($deposit->payment_checkout_id)
+        $mockCinetPay = \Mockery::mock(\App\Services\CinetPayService::class);
+        $mockCinetPay->shouldReceive('getPayment')
             ->once()
             ->andReturn([
-                'status' => 'COMPLETED',
+                'status' => 'ACCEPTED',
+                'is_successful' => true,
+                'payment_status' => 'completed',
                 'amount' => 8000,
                 'currency' => 'XOF',
             ]);
-        $this->app->instance(\App\Services\PawaPayService::class, $mockPawaPay);
+        $this->app->instance(\App\Services\CinetPayService::class, $mockCinetPay);
 
         $this->actingAs($user, 'web');
 

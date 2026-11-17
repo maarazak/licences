@@ -63,7 +63,7 @@ class MailTemplatesTest extends TestCase
             'unit_price_xof' => 5000,
             'total_xof' => 5000,
             'status' => 'pending_payment',
-            'paid_with' => 'pawapay',
+            'paid_with' => 'cinetpay',
         ]);
     }
 

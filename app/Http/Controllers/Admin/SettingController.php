@@ -20,7 +20,8 @@ class SettingController extends Controller
 
         $checks = [
             ["Clé API fournisseur (SUPPLIER_API_KEY)", !empty(env('FLOWSELLER_API_KEY', env('SUPPLIER_API_KEY')))],
-            ["Jeton API pawaPay (PAWAPAY_API_TOKEN)", !empty(env('PAWAPAY_API_TOKEN'))],
+            ["Clé API CinetPay (CINETPAY_API_KEY)", !empty(env('CINETPAY_API_KEY'))],
+            ["Mot de passe API CinetPay (CINETPAY_API_PASSWORD)", !empty(env('CINETPAY_API_PASSWORD'))],
             ["Envoi d'e-mails (SMTP_HOST)", !empty(env('MAIL_HOST', env('SMTP_HOST')))],
             ["Adresse d'assistance (SUPPORT_EMAIL)", !empty(env('SUPPORT_EMAIL', env('MAIL_FROM_ADDRESS')))],
             ["Site en HTTPS (APP_URL)", str_starts_with(env('APP_URL', ''), 'https://')],

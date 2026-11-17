@@ -78,14 +78,14 @@
                 @endif
             </div>
 
-            @if($order->paid_with === 'gateway')
+            @if(in_array($order->paid_with, ['gateway', 'cinetpay', 'pawapay']))
                 <form action="{{ route('admin.orders.refund_gateway', $order->id) }}" method="POST" class="space-y-3 border-t border-line pt-4" onsubmit="return confirm('Marquer comme remboursée auprès de la passerelle ?');">
                     @csrf
                     <p class="text-sm font-semibold">Remboursement chez le prestataire</p>
-                    <p class="text-xs leading-relaxed text-muted">Émettez d'abord le remboursement dans le tableau de bord pawaPay (paiement {{ $order->payment_intent_id ?? '—' }}), puis enregistrez-le ici. Cette étape ne déclenche aucun mouvement d'argent.</p>
+                    <p class="text-xs leading-relaxed text-muted">Émettez d'abord le remboursement dans le tableau de bord CinetPay (paiement {{ $order->payment_intent_id ?? '—' }}), puis enregistrez-le ici. Cette étape ne déclenche aucun mouvement d'argent.</p>
                     <label class="flex cursor-pointer items-center gap-2 text-sm">
                         <input type="checkbox" name="confirm" required class="size-4 accent-brand">
-                        J'ai émis le remboursement de {{ number_format($order->total_xof, 0, ',', ' ') }} FCFA chez pawaPay
+                        J'ai émis le remboursement de {{ number_format($order->total_xof, 0, ',', ' ') }} FCFA chez CinetPay
                     </label>
                     <button type="submit" class="btn btn-danger btn-sm">
                         Marquer comme remboursée
@@ -99,7 +99,7 @@
         <form action="{{ route('admin.orders.sync', $order->id) }}" method="POST">
             @csrf
             <button type="submit" class="btn btn-soft btn-sm">
-                Revérifier le paiement auprès de pawaPay
+                Revérifier le paiement auprès de CinetPay
             </button>
         </form>
     @endif
@@ -145,7 +145,7 @@
                 </div>
                 <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5">
                     <dt class="text-muted">Payée avec</dt>
-                    <dd class="min-w-0 text-right font-medium text-ink">{{ $order->paid_with === 'balance' ? 'Solde client' : 'pawaPay' }}</dd>
+                    <dd class="min-w-0 text-right font-medium text-ink">{{ $order->paid_with === 'balance' ? 'Solde client' : 'CinetPay' }}</dd>
                 </div>
                 <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5">
                     <dt class="text-muted">Créée le</dt>
@@ -188,8 +188,8 @@
                     <dd class="min-w-0 text-right font-medium text-ink">{{ $order->customer_country ?: '—' }}</dd>
                 </div>
                 <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5">
-                    <dt class="text-muted">Paiement pawaPay</dt>
-                    <dd class="min-w-0 text-right font-mono text-xs text-ink">{{ $order->payment_intent_id ?: '—' }}</dd>
+                    <dt class="text-muted">Paiement CinetPay</dt>
+                    <dd class="min-w-0 text-right font-mono text-xs text-ink">{{ $order->payment_intent_id ?: $order->payment_checkout_id ?: '—' }}</dd>
                 </div>
                 <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-2.5">
                     <dt class="text-muted">Commande fournisseur</dt>

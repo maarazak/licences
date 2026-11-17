@@ -40,9 +40,11 @@ return [
         'key' => env('SUPPLIER_API_KEY'),
     ],
 
-    'pawapay' => [
-        'url' => env('PAWAPAY_API_URL', 'https://api.sandbox.pawapay.cloud'),
-        'token' => env('PAWAPAY_API_TOKEN'),
+    'cinetpay' => [
+        'api_key' => env('CINETPAY_API_KEY'),
+        'api_password' => env('CINETPAY_API_PASSWORD'),
+        'site_id' => env('CINETPAY_SITE_ID'),
+        'environment' => env('CINETPAY_ENVIRONMENT', 'sandbox'),
     ],
 
 ];

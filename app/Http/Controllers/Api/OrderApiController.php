@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\WalletEntry;
-use App\Services\PawaPayService;
+use App\Services\CinetPayService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,33 +18,30 @@ use Illuminate\Support\Str;
 
 class OrderApiController extends Controller
 {
-    protected PawaPayService $pawaPay;
+    protected CinetPayService $cinetPay;
 
-    public function __construct(PawaPayService $pawaPay)
+    public function __construct(CinetPayService $cinetPay)
     {
-        $this->pawaPay = $pawaPay;
+        $this->cinetPay = $cinetPay;
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'product_id' => 'required|string',
-            'quantity' => 'required|integer|min:1|max:50',
+            'quantity' => 'required|integer|min:1|max:10',
             'email' => 'required|email',
-            'first_name' => 'nullable|string|max:100',
-            'last_name' => 'nullable|string|max:100',
             'phone' => 'nullable|string|max:30',
             'country' => 'nullable|string|max:10',
-            'pay_with' => 'required|in:gateway,balance',
+            'pay_with' => 'required|in:cinetpay,balance,pawapay',
             'activation_emails' => 'nullable|array',
-            'activation_emails.*' => 'email',
             'return_url' => 'required|url',
         ]);
 
         $product = Product::findOrFail($validated['product_id']);
 
-        if (!$product->is_published || !$product->supplier_active) {
-            return response()->json(['error' => 'Ce produit n\'est plus disponible à la vente.'], 400);
+        if (!$product->is_available || $product->stock <= 0) {
+            return response()->json(['error' => 'Ce produit est actuellement indisponible.'], 400);
         }
 
         $user = User::firstOrCreate(
@@ -52,8 +50,6 @@ class OrderApiController extends Controller
                 'id' => Str::uuid()->toString(),
                 'role' => 'client',
                 'balance_xof' => 0,
-                'first_name' => $validated['first_name'] ?? null,
-                'last_name' => $validated['last_name'] ?? null,
                 'phone' => $validated['phone'] ?? null,
                 'country' => $validated['country'] ?? 'BF',
                 'lang' => 'fr',
@@ -61,23 +57,32 @@ class OrderApiController extends Controller
             ]
         );
 
-        $unitPrice = (int) $product->price_xof;
-        $totalXof = $unitPrice * $validated['quantity'];
+        $unitPriceXof = (int) $product->price_xof;
+        $totalXof = $unitPriceXof * $validated['quantity'];
         $orderId = Str::uuid()->toString();
-        $reference = 'CMD-' . strtoupper(Str::random(8));
-        $usdRate = (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669));
+        $reference = 'CMD-' . date('Ymd') . '-' . strtoupper(Str::random(4));
 
-        // Paiement par solde
-        if ($validated['pay_with'] === 'balance') {
+        $payWith = in_array($validated['pay_with'], ['cinetpay', 'pawapay'], true) ? 'cinetpay' : 'balance';
+
+        // 1. Paiement via Solde Client (Cash)
+        if ($payWith === 'balance') {
             if ($user->balance_xof < $totalXof) {
-                return response()->json(['error' => 'Solde insuffisant pour régler cette commande.'], 400);
+                return response()->json([
+                    'error' => 'Solde insuffisant.',
+                    'balance_xof' => $user->balance_xof,
+                    'required_xof' => $totalXof
+                ], 400);
             }
 
-            return DB::transaction(function () use ($user, $product, $orderId, $reference, $totalXof, $unitPrice, $validated, $usdRate) {
-                $user = User::lockForUpdate()->find($user->id);
-                $newBalance = $user->balance_xof - $totalXof;
-                $user->balance_xof = $newBalance;
-                $user->save();
+            return DB::transaction(function () use ($user, $product, $validated, $totalXof, $unitPriceXof, $orderId, $reference) {
+                $userLocked = User::lockForUpdate()->find($user->id);
+                if ($userLocked->balance_xof < $totalXof) {
+                    return response()->json(['error' => 'Solde insuffisant.'], 400);
+                }
+
+                $newBalance = $userLocked->balance_xof - $totalXof;
+                $userLocked->balance_xof = $newBalance;
+                $userLocked->save();
 
                 WalletEntry::create([
                     'id' => Str::uuid()->toString(),
@@ -85,8 +90,9 @@ class OrderApiController extends Controller
                     'amount_xof' => -$totalXof,
                     'balance_after_xof' => $newBalance,
                     'type' => 'debit',
-                    'description' => "Achat commande {$reference} ({$product->name})",
-                    'reference_type' => 'order_payment',
+                    'kind' => 'order_payment',
+                    'description' => "Paiement commande {$product->name} x {$validated['quantity']}",
+                    'reference_type' => 'order',
                     'reference_id' => $orderId,
                     'created_at' => now(),
                 ]);
@@ -96,63 +102,70 @@ class OrderApiController extends Controller
                     'reference' => $reference,
                     'user_id' => $user->id,
                     'product_id' => $product->id,
-                    'product_name' => $product->display_name ?: $product->name,
-                    'supplier_product_id' => $product->supplier_id,
+                    'product_name' => $product->name,
                     'quantity' => $validated['quantity'],
-                    'unit_price_xof' => $unitPrice,
+                    'unit_price_xof' => $unitPriceXof,
                     'total_xof' => $totalXof,
                     'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
-                    'usd_rate' => $usdRate,
-                    'customer_first_name' => $validated['first_name'] ?? null,
-                    'customer_last_name' => $validated['last_name'] ?? null,
-                    'customer_phone' => $validated['phone'] ?? null,
-                    'customer_country' => $validated['country'] ?? null,
+                    'usd_rate' => (int) \App\Models\Setting::get('usdRate', 669),
+                    'paid_with' => 'balance',
                     'status' => 'paid',
                     'paid_at' => now(),
-                    'paid_with' => 'balance',
+                    'activation_emails' => $validated['activation_emails'] ?? null,
                     'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
 
                 OrderEvent::create([
                     'id' => Str::uuid()->toString(),
-                    'order_id' => $order->id,
-                    'type' => 'paid_with_balance',
-                    'message' => "Commande payée intégralement par le solde ({$totalXof} FCFA).",
+                    'order_id' => $orderId,
+                    'type' => 'paid_balance',
+                    'message' => "Paiement de {$totalXof} FCFA débité du solde client.",
                     'actor' => $user->email,
                     'created_at' => now(),
                 ]);
+
+                AuditLog::record('order.paid_balance', $orderId, [
+                    'amount_xof' => $totalXof,
+                    'new_balance' => $newBalance,
+                ]);
+
+                // Lancement de la livraison automatique en arrière-plan
+                try {
+                    app(\App\Services\MailService::class)->sendOrderPaid($order);
+                    app(\App\Services\OrderFulfillmentService::class)->fulfil($orderId);
+                } catch (\Throwable $e) {
+                    Log::warning("[OrderApiController] Échec du déclenchement fulfillment: {$e->getMessage()}");
+                }
 
                 return response()->json([
                     'success' => true,
                     'order_id' => $order->id,
                     'reference' => $order->reference,
-                    'payment_url' => null,
+                    'redirect_url' => "/compte/achats/{$order->id}",
                 ]);
             });
         }
 
-        // Paiement par Mobile Money (pawaPay)
+        // 2. Paiement par CinetPay (Cartes Bancaires + Mobile Money)
         $order = Order::create([
             'id' => $orderId,
             'reference' => $reference,
             'user_id' => $user->id,
             'product_id' => $product->id,
-            'product_name' => $product->display_name ?: $product->name,
-            'supplier_product_id' => $product->supplier_id,
+            'product_name' => $product->name,
             'quantity' => $validated['quantity'],
-            'unit_price_xof' => $unitPrice,
+            'unit_price_xof' => $unitPriceXof,
             'total_xof' => $totalXof,
             'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
-            'usd_rate' => $usdRate,
-            'customer_first_name' => $validated['first_name'] ?? null,
-            'customer_last_name' => $validated['last_name'] ?? null,
+            'usd_rate' => (int) \App\Models\Setting::get('usdRate', 669),
+            'paid_with' => 'cinetpay',
+            'status' => 'pending_payment',
+            'customer_email' => $user->email,
             'customer_phone' => $validated['phone'] ?? null,
             'customer_country' => $validated['country'] ?? 'BF',
-            'status' => 'pending_payment',
-            'paid_with' => 'gateway',
+            'activation_emails' => $validated['activation_emails'] ?? null,
+            'payment_intent_id' => $reference,
             'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
         OrderEvent::create([
@@ -165,8 +178,7 @@ class OrderApiController extends Controller
         ]);
 
         try {
-            $checkout = $this->pawaPay->createPaymentPage([
-                'deposit_id' => $order->id,
+            $checkout = $this->cinetPay->createPaymentPage([
                 'order_id' => $order->id,
                 'reference' => $order->reference,
                 'amount_xof' => $totalXof,
@@ -178,8 +190,9 @@ class OrderApiController extends Controller
             ]);
 
             $order->update([
-                'payment_checkout_id' => $checkout['deposit_id'],
-                'payment_intent_id' => $checkout['deposit_id'],
+                'payment_checkout_id' => $checkout['transaction_id'] ?? null,
+                'payment_intent_id' => $checkout['merchant_transaction_id'] ?? $reference,
+                'notify_token' => $checkout['notify_token'] ?? null,
                 'payment_url' => $checkout['redirect_url'],
                 'updated_at' => now(),
             ]);
@@ -188,8 +201,8 @@ class OrderApiController extends Controller
                 'id' => Str::uuid()->toString(),
                 'order_id' => $order->id,
                 'type' => 'checkout_created',
-                'message' => 'Session de paiement pawaPay initialisée.',
-                'actor' => 'pawapay',
+                'message' => 'Session de paiement CinetPay initialisée.',
+                'actor' => 'cinetpay',
                 'created_at' => now(),
             ]);
 
@@ -200,7 +213,7 @@ class OrderApiController extends Controller
                 'payment_url' => $checkout['redirect_url'],
             ]);
         } catch (Exception $e) {
-            Log::error("[OrderApiController] échec paiement pawaPay: {$e->getMessage()}");
+            Log::error("[OrderApiController] échec paiement CinetPay: {$e->getMessage()}");
             $order->update([
                 'status' => 'cancelled',
                 'failure_code' => 'checkout_failed',
@@ -232,20 +245,19 @@ class OrderApiController extends Controller
             return response()->json(['redirect_url' => "/compte/achats/{$order->id}"]);
         }
 
-        // Si l'URL actuelle est toujours valide
-        if (PawaPayService::isPaymentUrlValid($order->payment_url)) {
+        // Si l'URL actuelle est disponible
+        if (!empty($order->payment_url)) {
             return response()->json(['redirect_url' => $order->payment_url]);
         }
 
-        // Renouvellement pawaPay
+        // Renouvellement CinetPay
         try {
-            $checkout = $this->pawaPay->createPaymentPage([
-                'deposit_id' => $order->id,
+            $checkout = $this->cinetPay->createPaymentPage([
                 'order_id' => $order->id,
                 'reference' => $order->reference,
                 'amount_xof' => $order->total_xof,
                 'description' => "{$order->product_name} — reprise paiement {$order->reference}",
-                'email' => $order->user->email ?? 'client@example.com',
+                'email' => $order->customer_email ?: ($order->user->email ?? 'client@example.com'),
                 'phone' => $order->customer_phone,
                 'country' => $order->customer_country,
                 'return_url' => $request->query('return_url', url("/paiement/retour?commande={$order->id}")),
@@ -253,6 +265,9 @@ class OrderApiController extends Controller
 
             $order->update([
                 'payment_url' => $checkout['redirect_url'],
+                'payment_checkout_id' => $checkout['transaction_id'] ?? null,
+                'payment_intent_id' => $checkout['merchant_transaction_id'] ?? $order->reference,
+                'notify_token' => $checkout['notify_token'] ?? null,
                 'updated_at' => now(),
             ]);
 

@@ -1,5 +1,5 @@
 /**
- * Liste des pays pris en charge pour les paiements Mobile Money (pawaPay / UEMOA / CEMAC).
+ * Liste des pays pris en charge pour les paiements (CinetPay / Cartes bancaires / UEMOA / CEMAC).
  * Inclut l'indicatif international, le drapeau emoji, le nombre de chiffres attendus
  * et les fuseaux horaires pour la détection automatique locale.
  */
@@ -98,7 +98,7 @@ export const COUNTRIES: readonly CountryInfo[] = [
     timezones: ["Africa/Bissau"],
   },
 
-  // ─── Zone CEMAC & Autres pays pawaPay ────────────────────────
+  // ─── Zone CEMAC & Autres pays (CinetPay) ────────────────────────
   {
     code: "CM",
     name: "Cameroun",

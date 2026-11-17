@@ -17,13 +17,13 @@ class OrderFulfillmentService
 
     protected FlowsellerService $flowseller;
     protected CryptoService $crypto;
-    protected PawaPayService $pawaPay;
+    protected CinetPayService $cinetPay;
 
-    public function __construct(FlowsellerService $flowseller, CryptoService $crypto, PawaPayService $pawaPay)
+    public function __construct(FlowsellerService $flowseller, CryptoService $crypto, CinetPayService $cinetPay)
     {
         $this->flowseller = $flowseller;
         $this->crypto = $crypto;
-        $this->pawaPay = $pawaPay;
+        $this->cinetPay = $cinetPay;
     }
 
     /**
@@ -291,7 +291,7 @@ class OrderFulfillmentService
     }
 
     /**
-     * Synchronise le paiement pawaPay d'une commande.
+     * Synchronise le paiement CinetPay d'une commande.
      */
     public function syncPayment(string $orderId): ?Order
     {
@@ -300,23 +300,21 @@ class OrderFulfillmentService
             return $order;
         }
 
-        $depositId = $order->payment_checkout_id ?: $order->payment_intent_id;
+        $depositId = $order->payment_intent_id ?: $order->payment_checkout_id ?: $order->reference ?: $order->id;
         if (!$depositId) {
             return $order;
         }
 
         try {
-            $state = $this->pawaPay->getDeposit($depositId);
+            $state = $this->cinetPay->getPayment($depositId, $order->customer_country);
             $paymentStatus = strtolower($state['payment_status'] ?? '');
 
-            if ($paymentStatus === 'completed') {
-                $amountOk = ($state['amount'] ?? 0) === $order->total_xof &&
-                    (empty($state['currency']) || in_array(strtoupper($state['currency']), ['XOF', 'XAF'], true));
-
-                if ($amountOk && $order->status !== 'paid' && $order->status !== 'delivered') {
+            if ($paymentStatus === 'completed' || !empty($state['is_successful'])) {
+                if ($order->status !== 'paid' && $order->status !== 'delivered') {
                     $order->update([
                         'status' => 'paid',
                         'paid_at' => now(),
+                        'paid_with' => 'cinetpay',
                         'updated_at' => now(),
                     ]);
 
@@ -324,20 +322,20 @@ class OrderFulfillmentService
                         'id' => Str::uuid()->toString(),
                         'order_id' => $order->id,
                         'type' => 'paid',
-                        'message' => 'Paiement confirmé par pawaPay.',
-                        'actor' => 'pawapay',
+                        'message' => 'Paiement confirmé par CinetPay.',
+                        'actor' => 'cinetpay',
                     ]);
 
                     // Déclenchement immédiat de la livraison
                     $this->fulfil($order->id);
                     return $order->fresh();
                 }
-            } elseif (in_array($paymentStatus, ['failed', 'expired'], true) && $order->status === 'pending_payment') {
-                $newStatus = $paymentStatus === 'failed' ? 'payment_failed' : 'expired';
+            } elseif ($state['is_final'] && !$state['is_successful'] && $order->status === 'pending_payment') {
+                $newStatus = 'payment_failed';
                 $order->update([
                     'status' => $newStatus,
-                    'failure_code' => $state['failure_code'] ?? $newStatus,
-                    'failure_message' => substr($state['failure_message'] ?? 'Paiement non complété', 0, 500),
+                    'failure_code' => $newStatus,
+                    'failure_message' => "Paiement non complété chez CinetPay ({$state['status']})",
                     'updated_at' => now(),
                 ]);
 
@@ -345,12 +343,12 @@ class OrderFulfillmentService
                     'id' => Str::uuid()->toString(),
                     'order_id' => $order->id,
                     'type' => $newStatus,
-                    'message' => "Paiement pawaPay {$paymentStatus}.",
-                    'actor' => 'pawapay',
+                    'message' => "Paiement CinetPay {$state['status']}.",
+                    'actor' => 'cinetpay',
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::warning("[Payment Sync] Erreur vérification pawaPay pour {$order->reference}: {$e->getMessage()}");
+            Log::warning("[Payment Sync] Erreur vérification CinetPay pour {$order->reference}: {$e->getMessage()}");
         }
 
         return $order->fresh();
@@ -431,7 +429,7 @@ class OrderFulfillmentService
     public function customerRequestRefund(string $userId, string $orderId): bool
     {
         $order = Order::where('id', $orderId)->where('user_id', $userId)->first();
-        if (!$order || $order->status !== 'failed' || $order->paid_with !== 'pawapay' || $order->refund_requested_at) {
+        if (!$order || $order->status !== 'failed' || !in_array($order->paid_with, ['cinetpay', 'pawapay', 'gateway'], true) || $order->refund_requested_at) {
             return false;
         }
 

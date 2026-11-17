@@ -122,9 +122,9 @@ const submitDeposit = () => {
             />
           </div>
 
-          <!-- Country selection (operator & phone handled directly on pawaPay) -->
+          <!-- Country selection (handled directly on CinetPay) -->
           <div>
-            <label class="label text-xs">Pays de paiement (Mobile Money)</label>
+            <label class="label text-xs">Pays de facturation</label>
             <select
               v-model="depositForm.country"
               class="input cursor-pointer"
@@ -138,7 +138,7 @@ const submitDeposit = () => {
               </option>
             </select>
             <p class="mt-1.5 text-xs text-slate-500">
-              Le choix de votre opérateur (Orange Money, Moov, MTN, Wave...) et la validation s'effectuent directement sur la page sécurisée pawaPay.
+              Le choix du moyen de paiement (Carte Bancaire Visa/Mastercard ou Mobile Money : Orange Money, Moov, MTN, Wave...) s'effectue directement sur la page sécurisée CinetPay.
             </p>
           </div>
 

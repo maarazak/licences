@@ -196,13 +196,13 @@ const copyCredentials = () => {
             </Link>
 
             <Link
-              v-if="order.paid_with === 'pawapay'"
+              v-if="order.paid_with === 'cinetpay' || order.paid_with === 'pawapay'"
               :href="`/compte/achats/${order.id}/remboursement`"
               method="post"
               as="button"
               class="btn btn-soft btn-sm flex-1 justify-center"
             >
-              Remboursement sur mon Mobile Money
+              Demander le remboursement CinetPay
             </Link>
           </div>
         </div>
