@@ -300,18 +300,18 @@ const submitCheckout = () => {
             </div>
           </div>
 
-          <div v-if="form.errors.error || form.errors.expectedTotalXof" class="alert alert-error text-xs">
-            {{ form.errors.error || form.errors.expectedTotalXof }}
+          <div v-if="form.errors.error || form.errors.expectedTotalXof || $page.props.flash?.error" class="alert alert-error text-xs">
+            {{ form.errors.error || form.errors.expectedTotalXof || $page.props.flash?.error }}
           </div>
 
           <button
             type="submit"
             :disabled="form.processing || !phoneValidation.valid"
-            class="btn btn-primary btn-block min-h-12 text-base shadow-glow"
+            class="btn btn-primary btn-block min-h-12 text-base shadow-glow cursor-pointer"
           >
-            <span v-if="form.processing">Vérification de l'offre...</span>
+            <span v-if="form.processing">{{ t('Vérification de l\'offre…') }}</span>
             <span v-else class="flex items-center justify-center gap-2">
-              Passer au paiement
+              {{ t('Passer au paiement') }}
               <ArrowRight class="size-4" aria-hidden="true" />
             </span>
           </button>

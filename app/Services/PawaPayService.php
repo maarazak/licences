@@ -166,8 +166,11 @@ class PawaPayService
 
             return [
                 'deposit_id' => $data['depositId'] ?? $input['deposit_id'],
+                'depositId' => $data['depositId'] ?? $input['deposit_id'],
                 'status' => $data['status'] ?? 'ACCEPTED',
                 'redirect_url' => $data['redirectUrl'],
+                'redirectUrl' => $data['redirectUrl'],
+                'payment_url' => $data['redirectUrl'],
             ];
         };
 

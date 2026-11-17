@@ -318,7 +318,10 @@ class CheckoutController extends Controller
                 'description' => "{$order->product_name} × {$quantity} — commande {$ref}",
             ]);
 
-            $paymentUrl = $session['redirectUrl'] ?? $session['payment_url'] ?? null;
+            $paymentUrl = $session['redirect_url'] ?? $session['redirectUrl'] ?? $session['payment_url'] ?? null;
+            if (empty($paymentUrl)) {
+                throw new \Exception("L'URL de paiement retournée par le prestataire est introuvable.");
+            }
             $order->update(['payment_url' => $paymentUrl]);
 
             return Inertia::location($paymentUrl);
