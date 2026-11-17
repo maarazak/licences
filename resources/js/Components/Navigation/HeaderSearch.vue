@@ -29,6 +29,21 @@ const open = ref(false);
 const active = ref(-1);
 const mobileOpen = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
+const formRef = ref<HTMLFormElement | null>(null);
+
+const onDocPointerDown = (e: PointerEvent) => {
+  if (formRef.value && !formRef.value.contains(e.target as Node)) {
+    open.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocPointerDown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocPointerDown);
+});
 
 const norm = (v: string) =>
   v
@@ -89,6 +104,7 @@ const openMobile = () => {
   <!-- DESKTOP SEARCH -->
   <form
     v-if="mode === 'desktop'"
+    ref="formRef"
     role="search"
     class="relative w-full"
     @submit.prevent="submitSearch"
@@ -105,16 +121,16 @@ const openMobile = () => {
       v-model="query"
       class="input min-h-10 rounded-full border-line bg-canvas pr-11 pl-10 text-sm shadow-none"
       @focus="open = true"
+      @click="open = true"
       @input="open = true; active = -1"
       @keydown="handleKeydown"
-      @blur="setTimeout(() => { open = false }, 200)"
     />
     <button
       type="button"
       :aria-label="t('Afficher la liste des produits')"
       :aria-expanded="open"
       class="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-full text-muted transition hover:text-ink cursor-pointer"
-      @click="open = !open"
+      @click.stop="open = !open"
     >
       <ChevronDown :class="['size-4 transition', open ? 'rotate-180' : '']" aria-hidden="true" />
     </button>
@@ -135,7 +151,8 @@ const openMobile = () => {
             i === active ? 'bg-brand-soft' : 'hover:bg-slate-50',
           ]"
           @mouseenter="active = i"
-          @mousedown.prevent="pick(item.slug)"
+          @mousedown.prevent
+          @click="pick(item.slug)"
         >
           <span translate="no" class="truncate font-semibold text-ink">
             {{ item.title }}

@@ -1,34 +1,38 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, Package, ShoppingBag, Smartphone } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
+import { useI18n } from '@/Utils/useI18n';
 
-const steps = [
+const { t } = useI18n();
+
+const steps = computed(() => [
   {
     icon: ShoppingBag,
-    title: 'Choisissez votre offre',
-    text: "Type d'accès (lien, code ou compte), durée, garantie et disponibilité sont affichés avant de payer."
+    title: t('Choisissez votre offre'),
+    text: t("Type d'accès (lien, code ou compte), durée, garantie et disponibilité sont affichés avant de payer.")
   },
   {
     icon: Smartphone,
-    title: 'Payez en FCFA',
-    text: "Connectez-vous avec un code reçu par e-mail, puis payez par Mobile Money sur la page sécurisée du prestataire. La commande démarre quand le paiement est confirmé."
+    title: t('Payez en FCFA'),
+    text: t("Connectez-vous avec un code reçu par e-mail, puis payez par Mobile Money sur la page sécurisée du prestataire. La commande démarre quand le paiement est confirmé.")
   },
   {
     icon: Package,
-    title: 'Recevez votre accès',
-    text: "Vos accès apparaissent dans Mes achats et un e-mail vous prévient. Si l'activation prend du temps, la commande affiche son état."
+    title: t('Recevez votre accès'),
+    text: t("Vos accès apparaissent dans Mes achats et un e-mail vous prévient. Si l'activation prend du temps, la commande affiche son état.")
   },
-];
+]);
 </script>
 
 <template>
   <SiteLayout>
-    <Head title="Comment ça marche" />
+    <Head :title="t('Comment ça marche')" />
 
     <div class="container-page max-w-3xl py-10">
-      <h1 class="h1">Comment ça marche</h1>
-      <p class="lead mt-3">Trois étapes, quelques minutes.</p>
+      <h1 class="h1">{{ t('Comment ça marche') }}</h1>
+      <p class="lead mt-3">{{ t('Trois étapes, quelques minutes.') }}</p>
 
       <ol class="mt-8 space-y-3">
         <li
@@ -40,7 +44,7 @@ const steps = [
             <component :is="icon" class="size-6" aria-hidden="true" />
           </span>
           <div>
-            <p class="text-xs font-bold text-accent-ink">Étape {{ index + 1 }}</p>
+            <p class="text-xs font-bold text-accent-ink">{{ t('Étape {n}', { n: index + 1 }) }}</p>
             <h2 class="h3 mt-0.5 text-lg">{{ title }}</h2>
             <p class="mt-1.5 text-sm leading-relaxed text-muted">{{ text }}</p>
           </div>
@@ -48,14 +52,14 @@ const steps = [
       </ol>
 
       <div class="card mt-6 p-5">
-        <h2 class="h3">Et si la livraison échoue ?</h2>
+        <h2 class="h3">{{ t('Et si la livraison échoue ?') }}</h2>
         <p class="mt-1.5 text-sm leading-relaxed text-muted">
-          Vous êtes prévenu par e-mail et vous choisissez, depuis votre commande, entre un remboursement et un avoir sur votre solde, utilisable pour une prochaine commande.
+          {{ t('Vous êtes prévenu par e-mail et vous choisissez, depuis votre commande, entre un remboursement et un avoir sur votre solde, utilisable pour une prochaine commande.') }}
         </p>
       </div>
 
       <Link href="/boutique" class="btn btn-primary mt-8">
-        Voir les offres
+        {{ t('Voir les offres') }}
         <ArrowRight class="size-4" aria-hidden="true" />
       </Link>
     </div>

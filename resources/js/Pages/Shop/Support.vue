@@ -1,44 +1,48 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ChevronDown, Mail } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
+import { useI18n } from '@/Utils/useI18n';
+
+const { t } = useI18n();
 
 const page = usePage();
 const user = page.props.auth?.user;
 const supportEmail = (page.props as any).support_email || 'support@licences.pro';
 
-const faq = [
-  ["Je n'ai pas reçu mon code de connexion", "Vérifiez vos courriers indésirables, puis demandez un nouveau code depuis la page de connexion. Le dernier code envoyé est le seul valable."],
-  ["Mon paiement est toujours en attente", "La commande démarre quand le prestataire confirme le paiement. Cela peut prendre quelques minutes selon l'opérateur. Depuis la commande, vous pouvez reprendre un paiement non terminé."],
-  ["Mon compte a été débité mais la commande n'apparaît pas payée", "Ne payez pas une seconde fois. Vérifiez d'abord votre solde mobile money, puis ouvrez une demande d'assistance depuis la commande avec sa référence."],
-  ["Où trouver mes accès ?", "Dans Mes accès et dans le détail de chaque commande, après connexion. Pour votre sécurité, les accès ne sont pas envoyés par e-mail."],
-  ["Quelle garantie sur mon achat ?", "Elle dépend de chaque offre : elle est indiquée sur la fiche et rappelée avant le paiement. Un accès défaillant doit être signalé depuis la commande pendant la garantie."],
-  ["Une commande payée n'a pas pu être livrée", "Vous choisissez depuis la commande entre un avoir immédiat sur votre solde et un remboursement sur votre moyen de paiement."],
-];
+const faq = computed(() => [
+  [t("Je n'ai pas reçu mon code de connexion"), t("Vérifiez vos courriers indésirables, puis demandez un nouveau code depuis la page de connexion. Le dernier code envoyé est le seul valable.")],
+  [t("Mon paiement est toujours en attente"), t("La commande démarre quand le prestataire confirme le paiement. Cela peut prendre quelques minutes selon l'opérateur. Depuis la commande, vous pouvez reprendre un paiement non terminé.")],
+  [t("Mon compte a été débité mais la commande n'apparaît pas payée"), t("Ne payez pas une seconde fois. Vérifiez d'abord votre solde mobile money, puis ouvrez une demande d'assistance depuis la commande avec sa référence.")],
+  [t("Où trouver mes accès ?"), t("Dans Mes accès et dans le détail de chaque commande, après connexion. Pour votre sécurité, les accès ne sont pas envoyés par e-mail.")],
+  [t("Quelle garantie sur mon achat ?"), t("Elle dépend de chaque offre : elle est indiquée sur la fiche et rappelée avant le paiement. Un accès défaillant doit être signalé depuis la commande pendant la garantie.")],
+  [t("Une commande payée n'a pas pu être livrée"), t("Vous choisissez depuis la commande entre un avoir immédiat sur votre solde et un remboursement sur votre moyen de paiement.")],
+]);
 </script>
 
 <template>
   <SiteLayout>
-    <Head title="Assistance" />
+    <Head :title="t('Assistance')" />
 
     <div class="container-page max-w-3xl py-10">
-      <h1 class="h1">Assistance</h1>
-      <p class="lead mt-3">Chaque demande est rattachée à votre compte et à votre commande, pour être suivie jusqu'au bout.</p>
+      <h1 class="h1">{{ t('Assistance') }}</h1>
+      <p class="lead mt-3">{{ t('Chaque demande est rattachée à votre compte et à votre commande, pour être suivie jusqu\'au bout.') }}</p>
 
       <div class="card mt-6 flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
-          <h2 class="h3">Ouvrir une demande</h2>
-          <p class="mt-1 text-sm text-muted">N'indiquez jamais de mot de passe ni de code dans un message.</p>
+          <h2 class="h3">{{ t('Ouvrir une demande') }}</h2>
+          <p class="mt-1 text-sm text-muted">{{ t('N\'indiquez jamais de mot de passe ni de code dans un message.') }}</p>
         </div>
         <Link
           :href="user ? '/compte/assistance/nouveau' : '/connexion?next=%2Fcompte%2Fassistance%2Fnouveau'"
           class="btn btn-brand"
         >
-          {{ user ? 'Nouvelle demande' : 'Se connecter pour faire une demande' }}
+          {{ user ? t('Nouvelle demande') : t('Se connecter pour faire une demande') }}
         </Link>
       </div>
 
-      <h2 class="h2 mt-10">Questions fréquentes</h2>
+      <h2 class="h2 mt-10">{{ t('Questions fréquentes') }}</h2>
       <div class="mt-4 space-y-2.5">
         <details
           v-for="[question, answer] in faq"
@@ -55,7 +59,7 @@ const faq = [
 
       <p v-if="supportEmail" class="mt-8 flex items-center gap-2 text-sm text-muted">
         <Mail class="size-4" aria-hidden="true" />
-        Vous n'arrivez pas à vous connecter ? Écrivez à&nbsp;
+        {{ t("Vous n'arrivez pas à vous connecter ? Écrivez à") }}&nbsp;
         <a :href="`mailto:${supportEmail}`" class="link">
           {{ supportEmail }}
         </a>

@@ -38,9 +38,18 @@ class CatalogController extends Controller
             $category = '';
         }
 
+        $columns = [
+            'id', 'slug', 'name', 'display_name', 'shop_category', 'category',
+            'image_url', 'delivery_kind', 'cost_usd_cents', 'price_xof_override',
+            'margin_percent_override', 'stock', 'in_stock', 'preorder', 'expire_days',
+            'warranty', 'supplier_purchasable', 'supplier_active', 'is_published',
+            'is_featured', 'featured_rank', 'duration_label'
+        ];
+
         // Query produits
         $query = Product::where('is_published', true)
-            ->where('supplier_active', true);
+            ->where('supplier_active', true)
+            ->select($columns);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -55,7 +64,7 @@ class CatalogController extends Controller
         }
 
         // Mapping produits avec calculs métier identiques à catalog.ts
-        $products = $query->get()->map(function (Product $p) {
+        $products = $query->limit(500)->get()->map(function (Product $p) {
             $isAvailable = $p->supplier_purchasable
                 && $p->in_stock
                 && !$p->preorder

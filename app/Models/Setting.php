@@ -19,14 +19,24 @@ class Setting extends Model
         'value',
     ];
 
+    protected static ?array $runtimeCache = null;
+
     public static function get(string $key, $default = null)
     {
-        $setting = static::find($key);
-        return $setting ? $setting->value : $default;
+        if (static::$runtimeCache === null) {
+            static::$runtimeCache = static::pluck('value', 'key')->all();
+        }
+        return static::$runtimeCache[$key] ?? $default;
     }
 
     public static function set(string $key, $value)
     {
+        static::$runtimeCache = null;
         return static::updateOrCreate(['key' => $key], ['value' => $value]);
+    }
+
+    public static function clearRuntimeCache(): void
+    {
+        static::$runtimeCache = null;
     }
 }

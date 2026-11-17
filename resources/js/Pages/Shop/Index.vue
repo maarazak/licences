@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Search } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import CategoryBubble from '@/Components/Shop/CategoryBubble.vue';
-import LoadMoreLink from '@/Components/Shop/LoadMoreLink.vue';
 import ProductCard from '@/Components/Shop/ProductCard.vue';
 import { useI18n } from '@/Utils/useI18n';
 
@@ -79,9 +78,41 @@ const submitFilter = () => {
   );
 };
 
-const handleLoadMore = () => {
-  currentShown.value += PAGE_SIZE;
-};
+const sentinelRef = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
+
+onMounted(() => {
+  if (typeof IntersectionObserver !== 'undefined') {
+    observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          if (currentShown.value < props.products.length) {
+            currentShown.value += PAGE_SIZE;
+          }
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    if (sentinelRef.value) {
+      observer.observe(sentinelRef.value);
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+});
+
+watch(sentinelRef, (newEl) => {
+  if (observer && newEl) {
+    observer.disconnect();
+    observer.observe(newEl);
+  }
+});
 
 const linkForCategory = (cat: string) => {
   const current: Record<string, string | undefined> = {
@@ -201,13 +232,16 @@ const linkForCategory = (cat: string) => {
           />
         </div>
 
-        <LoadMoreLink
-          v-if="products.length > currentShown"
-          href="#"
-          :label="t('Charger plus')"
-          :hint="t('{shown} sur {total} offres affichées', { shown: currentShown, total: products.length })"
-          @click.prevent="handleLoadMore"
-        />
+        <!-- Défilement infini fluide au fur et à mesure du scroll (remplace le bouton Charger plus) -->
+        <div ref="sentinelRef" class="py-8 text-center">
+          <p v-if="currentShown < products.length" class="inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-xs font-semibold text-muted shadow-sm">
+            <span class="inline-block size-3.5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+            <span>{{ t('{shown} sur {total} offres affichées', { shown: visibleProducts.length, total: products.length }) }}</span>
+          </p>
+          <p v-else-if="products.length > PAGE_SIZE" class="text-xs font-medium text-muted">
+            {{ t('Toutes les offres sont affichées ({count})', { count: products.length }) }}
+          </p>
+        </div>
       </template>
 
       <!-- État vide si aucune offre trouvée -->

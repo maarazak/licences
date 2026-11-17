@@ -14,10 +14,21 @@ class HomeController extends Controller
         $rawCount = $request->query('phares');
         $featuredCount = min(max((int) ($rawCount ?: 8), 8), 200);
 
-        // Tous les produits publiés
+        $columns = [
+            'id', 'slug', 'name', 'display_name', 'shop_category', 'category',
+            'image_url', 'delivery_kind', 'cost_usd_cents', 'price_xof_override',
+            'margin_percent_override', 'stock', 'in_stock', 'preorder', 'expire_days',
+            'warranty', 'supplier_purchasable', 'supplier_active', 'is_published',
+            'is_featured', 'featured_rank', 'duration_label'
+        ];
+
+        // Produits publiés légers pour la page d'accueil (phares + choix varié)
         $allProducts = Product::where('is_published', true)
-            ->orderBy('shop_category', 'asc')
+            ->where('supplier_active', true)
+            ->select($columns)
+            ->orderByRaw('COALESCE(featured_rank, 9999) ASC')
             ->orderBy('name', 'asc')
+            ->limit(80)
             ->get();
 
         $mapProduct = function (Product $p) {
@@ -72,20 +83,19 @@ class HomeController extends Controller
             ->sortBy('featured_rank')
             ->values();
 
-        // Catégories avec comptage
-        $categoryCounts = [];
-        foreach ($allProducts as $p) {
-            $shelf = trim($p->shop_category ?: $p->category ?: '');
-            if ($shelf) {
-                $categoryCounts[$shelf] = ($categoryCounts[$shelf] ?? 0) + 1;
-            }
-        }
-        arsort($categoryCounts);
-
-        $categoriesList = [];
-        foreach ($categoryCounts as $cat => $cnt) {
-            $categoriesList[] = [$cat, $cnt];
-        }
+        // Catégories avec comptage exact en une seule requête SQL
+        $categoriesList = Product::where('is_published', true)
+            ->where('supplier_active', true)
+            ->whereNotNull('shop_category')
+            ->where('shop_category', '!=', '')
+            ->groupBy('shop_category')
+            ->selectRaw('shop_category, COUNT(*) as count')
+            ->orderByDesc('count')
+            ->take(8)
+            ->get()
+            ->map(fn ($r) => [$r->shop_category, (int) $r->count])
+            ->values()
+            ->all();
 
         return Inertia::render('Shop/Home', [
             'featured' => $featuredRaw->all(),

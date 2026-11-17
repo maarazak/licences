@@ -155,12 +155,16 @@ const handleLoadMore = () => {
       <div aria-hidden="true" class="grid-lines absolute inset-0" />
       <div class="container-page relative grid gap-12 py-14 sm:py-18 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:py-20">
         <div class="animate-fade-up">
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <p class="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-1.5 text-xs font-bold text-ink/80 shadow-sm">
-              <span class="pulse-dot size-2 rounded-full bg-brand-bright" />
-              Livraison en quelques minutes
-            </p>
-            <PaymentLogos layout="floating" />
+          <div class="space-y-3.5">
+            <div>
+              <p class="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-1.5 text-xs font-bold text-ink/80 shadow-sm">
+                <span class="pulse-dot size-2 rounded-full bg-brand-bright" />
+                {{ t('Livraison en quelques minutes') }}
+              </p>
+            </div>
+            <div>
+              <PaymentLogos layout="floating" />
+            </div>
           </div>
           <h1 class="mt-6 font-display text-[2.6rem] leading-[1.04] font-extrabold tracking-tight text-ink sm:text-6xl lg:text-[4rem]">
             Vos abonnements premium, <span class="text-gradient">payés en FCFA.</span>
