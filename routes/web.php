@@ -63,6 +63,7 @@ Route::post('/deconnexion', [ClientAuthController::class, 'logout'])->name('logo
 Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(function () {
     Route::get('/', [AccountController::class, 'dashboard'])->name('dashboard');
     Route::get('/achats', [AccountController::class, 'orders'])->name('orders.index');
+    Route::get('/acces', [AccountController::class, 'accessList'])->name('access.index');
     Route::get('/achats/{id}', [AccountController::class, 'orderDetail'])->name('orders.show');
     Route::post('/achats/{id}/avoir', [AccountController::class, 'chooseCredit'])->name('orders.credit');
     Route::post('/achats/{id}/remboursement', [AccountController::class, 'requestRefund'])->name('orders.refund');
@@ -86,6 +87,7 @@ Route::middleware(['auth:web'])->prefix('compte')->name('account.')->group(funct
     // Profil
     Route::get('/profil', [AccountController::class, 'profile'])->name('profile.index');
     Route::post('/profil', [AccountController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/profil/deconnecter-partout', [AccountController::class, 'logoutEverywhere'])->name('profile.logout_everywhere');
 });
 
 /*

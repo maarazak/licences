@@ -61,6 +61,41 @@ class AccountController extends Controller
         ]);
     }
 
+    public function accessList()
+    {
+        $user = $this->user();
+
+        $deliveredOrders = Order::where('user_id', $user->id)
+            ->where('status', 'delivered')
+            ->orderBy('delivered_at', 'desc')
+            ->get()
+            ->map(function ($order) {
+                $items = [];
+                if ($order->delivery_encrypted) {
+                    $raw = CryptoService::decrypt($order->delivery_encrypted, $order->id);
+                    if ($raw) {
+                        $parsed = json_decode($raw, true);
+                        if (is_array($parsed)) {
+                            $items = $parsed;
+                        } else {
+                            $items = [$raw];
+                        }
+                    }
+                }
+                return [
+                    'id' => $order->id,
+                    'reference' => $order->reference,
+                    'product_name' => $order->product_name,
+                    'delivered_at' => $order->delivered_at ? $order->delivered_at->toIso8601String() : null,
+                    'items' => $items,
+                ];
+            });
+
+        return Inertia::render('Account/Access', [
+            'orders' => $deliveredOrders->all(),
+        ]);
+    }
+
     public function orderDetail($id)
     {
         $user = $this->user();
@@ -347,9 +382,12 @@ class AccountController extends Controller
             'user' => [
                 'id' => $user->id,
                 'email' => $user->email,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'phone' => $user->phone,
                 'country' => $user->country ?? 'BF',
                 'lang' => $user->lang ?? 'fr',
+                'mail_reminders' => (bool) $user->mail_reminders,
             ],
         ]);
     }
@@ -357,14 +395,35 @@ class AccountController extends Controller
     public function updateProfile(Request $request)
     {
         $validated = $request->validate([
+            'first_name' => 'nullable|string|max:100',
+            'last_name' => 'nullable|string|max:100',
             'phone' => 'nullable|string|max:30',
-            'country' => 'required|string|max:5',
-            'lang' => 'required|in:fr,en',
+            'country' => 'nullable|string|max:5',
+            'lang' => 'nullable|in:fr,en',
+            'mail_reminders' => 'nullable|boolean',
         ]);
 
         $user = $this->user();
-        $user->update($validated);
+        $user->update([
+            'first_name' => $validated['first_name'] ?? $user->first_name,
+            'last_name' => $validated['last_name'] ?? $user->last_name,
+            'phone' => $validated['phone'] ?? $user->phone,
+            'country' => $validated['country'] ?? $user->country,
+            'lang' => $validated['lang'] ?? $user->lang,
+            'mail_reminders' => $request->boolean('mail_reminders'),
+        ]);
 
-        return back()->with('success', 'Vos préférences ont été enregistrées.');
+        return back()->with('success', 'Vos modifications ont été enregistrées.');
+    }
+
+    public function logoutEverywhere(Request $request)
+    {
+        $user = $this->user();
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/')->with('success', 'Tous vos appareils ont été déconnectés.');
     }
 }

@@ -19,6 +19,7 @@ const authUser = computed(() => page.props.auth?.user);
 const items = [
   { href: '/compte', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/compte/achats', label: 'Mes achats', icon: Package },
+  { href: '/compte/acces', label: 'Mes accès', icon: KeyRound },
   { href: '/compte/solde', label: 'Mon solde', icon: Wallet },
   { href: '/compte/alertes', label: 'Mes alertes', icon: Bell },
   { href: '/compte/assistance', label: 'Assistance', icon: LifeBuoy },

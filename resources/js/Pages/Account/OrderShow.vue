@@ -31,6 +31,9 @@ const props = defineProps<{
     delivery_content?: string | null;
     delivered_at?: string | null;
     paid_at?: string | null;
+    refund_requested_at?: string | null;
+    refund_method?: string | null;
+    can_resolve?: boolean;
     created_at: string;
     payment_url?: string;
     events: Array<{
@@ -159,7 +162,7 @@ const copyCredentials = () => {
           </a>
         </div>
 
-        <!-- PROCESSING / FAILED -->
+        <!-- PROCESSING / ACTIVATION -->
         <div v-else-if="order.status === 'paid' || order.status === 'processing'" class="p-5 bg-teal-50 border border-teal-200/80 rounded-2xl text-xs text-teal-900 space-y-2">
           <p class="font-bold flex items-center gap-2">
             <Clock class="size-4 text-[#0d5c4a]" />
@@ -167,6 +170,60 @@ const copyCredentials = () => {
           </p>
           <p class="leading-relaxed">
             Notre système est en train de préparer votre accès numérique. Vous recevrez une notification par e-mail dès qu'il sera prêt.
+          </p>
+        </div>
+
+        <!-- RESOLUTION EN CAS D'ECHEC (AVOIR OU REMBOURSEMENT) -->
+        <div v-if="order.can_resolve && !order.refund_requested_at" class="p-6 bg-amber-50 border border-amber-200 rounded-2xl space-y-4">
+          <div class="space-y-1">
+            <h3 class="font-bold text-base text-amber-950 flex items-center gap-2">
+              <AlertCircle class="size-5 text-amber-600" />
+              Cette commande n'a pas pu être livrée
+            </h3>
+            <p class="text-xs text-amber-800 leading-relaxed">
+              En raison d'un contretemps technique ou d'une indisponibilité temporaire chez le fournisseur, vous pouvez choisir dès maintenant votre dédommagement :
+            </p>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-3 pt-1">
+            <Link
+              :href="`/compte/achats/${order.id}/avoir`"
+              method="post"
+              as="button"
+              class="btn btn-primary btn-sm flex-1 justify-center shadow-sm"
+            >
+              Avoir immédiat sur mon solde ({{ (order.total_xof || 0).toLocaleString('fr-FR') }} FCFA)
+            </Link>
+
+            <Link
+              v-if="order.paid_with === 'pawapay'"
+              :href="`/compte/achats/${order.id}/remboursement`"
+              method="post"
+              as="button"
+              class="btn btn-soft btn-sm flex-1 justify-center"
+            >
+              Remboursement sur mon Mobile Money
+            </Link>
+          </div>
+        </div>
+
+        <div v-else-if="order.refund_requested_at && order.status !== 'refunded'" class="p-5 bg-sky-50 border border-sky-200 rounded-2xl text-xs text-sky-900 space-y-1.5">
+          <p class="font-bold flex items-center gap-2">
+            <Clock class="size-4 text-sky-600" />
+            Demande de remboursement en cours
+          </p>
+          <p class="leading-relaxed">
+            Votre demande de remboursement opérateur a bien été reçue. Notre équipe traite la transaction sous 24 à 48 heures.
+          </p>
+        </div>
+
+        <div v-else-if="order.status === 'refunded'" class="p-5 bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-800 space-y-1">
+          <p class="font-bold flex items-center gap-2">
+            <CheckCircle2 class="size-4 text-emerald-600" />
+            Commande remboursée
+          </p>
+          <p class="leading-relaxed text-slate-600">
+            {{ order.refund_method === 'balance' ? 'Le montant a été crédité en avoir sur votre solde client.' : 'Le montant a été remboursé.' }}
           </p>
         </div>
       </div>
