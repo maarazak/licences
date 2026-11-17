@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { usePage, router } from '@inertiajs/vue3';
 
-const currentCurrency = ref(document.cookie.match(/currency=([^;]+)/)?.[1] || 'XOF');
+const page = usePage();
+const currentCurrency = computed(() => (page.props.locale as any)?.currency || 'XOF');
 
-const setCurrency = (c: string) => {
-  currentCurrency.value = c;
-  document.cookie = `currency=${c};path=/;max-age=31536000;SameSite=Lax`;
-  router.reload();
+const setCurrency = (currency: string) => {
+  if (currency === currentCurrency.value) return;
+  router.post('/locale/currency', { currency }, {
+    preserveScroll: true,
+  });
 };
 </script>
 

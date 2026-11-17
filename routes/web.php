@@ -43,6 +43,10 @@ Route::get('/conditions', [PageController::class, 'terms'])->name('pages.terms')
 Route::get('/confidentialite', [PageController::class, 'privacy'])->name('pages.privacy');
 Route::get('/mentions-legales', [PageController::class, 'legal'])->name('pages.legal');
 
+// Préférences Langue et Devise
+Route::post('/locale/lang', [\App\Http\Controllers\LocaleController::class, 'setLang'])->name('locale.lang');
+Route::post('/locale/currency', [\App\Http\Controllers\LocaleController::class, 'setCurrency'])->name('locale.currency');
+
 /*
 |--------------------------------------------------------------------------
 | Client Authentication (Code par e-mail)

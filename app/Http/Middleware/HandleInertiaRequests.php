@@ -30,9 +30,23 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $lang = $request->cookie('lang') ?: ($user?->lang ?: 'fr');
+        if (!in_array($lang, ['fr', 'en'], true)) {
+            $lang = 'fr';
+        }
+        $currency = $request->cookie('currency') ?: ($request->cookie('devise') ?: 'XOF');
+        if (!in_array($currency, ['XOF', 'USD'], true)) {
+            $currency = 'XOF';
+        }
+        $usdRate = (int) \App\Models\Setting::get('usd_rate', 655);
 
         return [
             ...parent::share($request),
+            'locale' => [
+                'lang' => $lang,
+                'currency' => $currency,
+                'usdRate' => $usdRate,
+            ],
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

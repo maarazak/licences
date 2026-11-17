@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { usePage, router } from '@inertiajs/vue3';
 import { Globe } from 'lucide-vue-next';
 
-const currentLang = ref(document.cookie.match(/lang=([^;]+)/)?.[1] || 'fr');
+const page = usePage();
+const currentLang = computed(() => (page.props.locale as any)?.lang || 'fr');
 
 const setLang = (lang: string) => {
-  currentLang.value = lang;
-  document.cookie = `lang=${lang};path=/;max-age=31536000;SameSite=Lax`;
-  router.reload();
+  router.post('/locale/lang', { lang }, {
+    preserveScroll: true,
+  });
 };
 </script>
 
