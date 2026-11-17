@@ -6,10 +6,11 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Accès administrateur — Licences</title>
     
-    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=2">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
-    <link rel="shortcut icon" href="/favicon.ico?v=2">
-    <link rel="apple-touch-icon" href="/icon.svg?v=2">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=3">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=3">
+    <link rel="shortcut icon" href="/favicon.ico?v=3">
+    <link rel="apple-touch-icon" href="/icon.png?v=3">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
