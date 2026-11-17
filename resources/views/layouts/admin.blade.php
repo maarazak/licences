@@ -92,7 +92,7 @@
             <div class="flex items-center justify-between">
                 <div class="truncate mr-2">
                     <p class="text-xs font-semibold text-white truncate">{{ auth('admin')->user()->email ?? 'Administrateur' }}</p>
-                    <p class="text-[11px] text-teal-400">Rôle : Admin (Spatie)</p>
+                    <p class="text-[11px] text-teal-400">Admin</p>
                 </div>
                 <form action="{{ route('admin.logout') }}" method="POST">
                     @csrf
@@ -112,7 +112,7 @@
             <div class="flex items-center gap-4">
                 <a href="{{ route('home') }}" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-teal-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">
                     <i data-lucide="external-link" class="size-3.5"></i>
-                    Voir la boutique (Vue 3)
+                    Voir la boutique
                 </a>
             </div>
         </header>
