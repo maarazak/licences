@@ -201,7 +201,7 @@ class AccountController extends Controller
 
                 $redirectUrl = $session['payment_url'] ?? null;
                 if (!$redirectUrl) {
-                    return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement Cryptomus introuvable.");
+                    throw new \Exception("URL de paiement introuvable.");
                 }
 
                 WalletDeposit::create([
@@ -234,15 +234,16 @@ class AccountController extends Controller
                 return Inertia::location($redirectUrl);
             } catch (\Throwable $e) {
                 \Log::error("Erreur deposit Cryptomus : " . $e->getMessage());
+                $genericError = "Le service de recharge est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
                 if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
                     return response()->json([
                         'success' => false,
-                        'error' => $e->getMessage(),
+                        'error' => $genericError,
                     ], 500);
                 }
 
-                return back()->with('error', "Échec de l'initialisation de la recharge en crypto : " . $e->getMessage());
+                return back()->with('error', $genericError);
             }
         }
 
@@ -266,7 +267,7 @@ class AccountController extends Controller
             $redirectUrl = $session['redirect_url'] ?? $session['redirectUrl'] ?? $session['payment_url'] ?? null;
 
             if (!$redirectUrl) {
-                return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement CinetPay introuvable.");
+                throw new \Exception("URL de paiement introuvable.");
             }
 
             WalletDeposit::create([
@@ -307,15 +308,16 @@ class AccountController extends Controller
             return Inertia::location($redirectUrl);
         } catch (\Throwable $e) {
             \Log::error("Erreur deposit CinetPay : " . $e->getMessage());
+            $genericError = "Le service de recharge est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
             if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
-                    'error' => "Impossible d'initialiser la recharge : " . $e->getMessage(),
+                    'error' => $genericError,
                 ], 422);
             }
 
-            return back()->with('error', "Impossible d'initialiser la recharge : " . $e->getMessage());
+            return back()->with('error', $genericError);
         }
     }
 

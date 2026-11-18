@@ -167,7 +167,7 @@ class WebhookController extends Controller
                     'type' => 'paid',
                     'event' => 'paid',
                     'actor' => 'cryptomus',
-                    'message' => "Paiement de {$order->total_xof} FCFA confirmé en crypto via Cryptomus [{$payerCurrency}{$netInfo}].",
+                    'message' => "Paiement de {$order->total_xof} FCFA confirmé en crypto [{$payerCurrency}{$netInfo}].",
                     'created_at' => now(),
                 ]);
 
@@ -183,7 +183,7 @@ class WebhookController extends Controller
             $order->update([
                 'status' => 'cancelled',
                 'failure_code' => 'payment_failed',
-                'failure_message' => "Paiement crypto non finalisé chez Cryptomus ({$payload['status']})",
+                'failure_message' => "Paiement crypto non finalisé ({$payload['status']})",
                 'updated_at' => now(),
             ]);
         }
@@ -220,7 +220,7 @@ class WebhookController extends Controller
                         'balance_after_xof' => $newBalance,
                         'type' => 'credit',
                         'kind' => 'deposit',
-                        'description' => "Recharge Crypto via Cryptomus [{$payerCurrency}{$netInfo}] — {$deposit->reference}",
+                        'description' => "Recharge Crypto [{$payerCurrency}{$netInfo}] — {$deposit->reference}",
                         'reference_type' => 'wallet_deposit',
                         'reference_id' => $deposit->id,
                         'created_at' => now(),
@@ -238,7 +238,7 @@ class WebhookController extends Controller
         } elseif ($isFailed && $deposit->status === 'pending') {
             $deposit->update([
                 'status' => 'failed',
-                'failure_message' => "Paiement crypto non complété chez Cryptomus ({$payload['status']})",
+                'failure_message' => "Paiement crypto non complété ({$payload['status']})",
                 'updated_at' => now(),
             ]);
         }
@@ -265,7 +265,7 @@ class WebhookController extends Controller
                     'type' => 'paid',
                     'event' => 'paid',
                     'actor' => 'cinetpay',
-                    'message' => "Paiement de {$order->total_xof} FCFA confirmé via CinetPay.",
+                    'message' => "Paiement de {$order->total_xof} FCFA confirmé.",
                     'created_at' => now(),
                 ]);
 
@@ -281,7 +281,7 @@ class WebhookController extends Controller
             $order->update([
                 'status' => 'cancelled',
                 'failure_code' => 'payment_failed',
-                'failure_message' => "Paiement refusé par CinetPay ({$state['status']})",
+                'failure_message' => "Paiement non validé ({$state['status']})",
                 'updated_at' => now(),
             ]);
         }
@@ -313,7 +313,7 @@ class WebhookController extends Controller
                         'balance_after_xof' => $newBalance,
                         'type' => 'credit',
                         'kind' => 'deposit',
-                        'description' => "Recharge CinetPay — {$deposit->reference}",
+                        'description' => "Recharge de solde — {$deposit->reference}",
                         'reference_type' => 'wallet_deposit',
                         'reference_id' => $deposit->id,
                         'created_at' => now(),
@@ -330,7 +330,7 @@ class WebhookController extends Controller
         } elseif ($state['payment_status'] === 'failed' && $deposit->status === 'pending') {
             $deposit->update([
                 'status' => 'failed',
-                'failure_message' => "Paiement non complété chez CinetPay ({$state['status']})",
+                'failure_message' => "Paiement non complété ({$state['status']})",
                 'updated_at' => now(),
             ]);
         }

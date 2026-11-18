@@ -310,7 +310,7 @@ class CheckoutController extends Controller
                 'type' => 'created',
                 'event' => 'created',
                 'actor' => 'client',
-                'message' => "Commande créée en attente de paiement Crypto Cryptomus ({$totalXof} FCFA).",
+                'message' => "Commande créée en attente de règlement en crypto-monnaies ({$totalXof} FCFA).",
                 'created_at' => $now,
             ]);
 
@@ -326,7 +326,7 @@ class CheckoutController extends Controller
 
                 $paymentUrl = $session['payment_url'] ?? null;
                 if (empty($paymentUrl)) {
-                    throw new \Exception("L'URL de paiement retournée par Cryptomus est introuvable.");
+                    throw new \Exception("URL de redirection introuvable.");
                 }
 
                 $order->update([
@@ -350,17 +350,19 @@ class CheckoutController extends Controller
                 \Log::error("Erreur Cryptomus checkout : " . $e->getMessage());
                 $order->update([
                     'status' => 'payment_failed',
-                    'failure_message' => $e->getMessage(),
+                    'failure_message' => 'Service de paiement temporairement indisponible',
                 ]);
+
+                $genericError = "Ce moyen de paiement est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
                 if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
                     return response()->json([
                         'success' => false,
-                        'error' => $e->getMessage(),
+                        'error' => $genericError,
                     ], 500);
                 }
 
-                return back()->with('error', "Échec de l'initialisation du paiement crypto : " . $e->getMessage());
+                return back()->with('error', $genericError);
             }
         }
 
@@ -397,7 +399,7 @@ class CheckoutController extends Controller
             'type' => 'created',
             'event' => 'created',
             'actor' => 'client',
-            'message' => "Commande créée en attente de paiement CinetPay ({$totalXof} FCFA).",
+            'message' => "Commande créée en attente de règlement ({$totalXof} FCFA).",
             'created_at' => $now,
         ]);
 
@@ -419,7 +421,7 @@ class CheckoutController extends Controller
 
             $paymentUrl = $session['redirect_url'] ?? $session['redirectUrl'] ?? $session['payment_url'] ?? null;
             if (empty($paymentUrl)) {
-                throw new \Exception("L'URL de paiement retournée par CinetPay est introuvable.");
+                throw new \Exception("URL de redirection introuvable.");
             }
 
             $paymentToken = $session['payment_token'] ?? null;
@@ -448,17 +450,19 @@ class CheckoutController extends Controller
             \Log::error("Erreur CinetPay checkout : " . $e->getMessage());
             $order->update([
                 'status' => 'payment_failed',
-                'failure_message' => $e->getMessage(),
+                'failure_message' => 'Service de paiement temporairement indisponible',
             ]);
+
+            $genericError = "Ce moyen de paiement est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'error' => "Impossible d'initialiser le paiement : " . $e->getMessage(),
+                    'error' => $genericError,
                 ], 422);
             }
 
-            return back()->with('error', "Impossible d'initialiser le paiement : " . $e->getMessage());
+            return back()->with('error', $genericError);
         }
     }
 
@@ -497,7 +501,7 @@ class CheckoutController extends Controller
                                             'balance_after_xof' => $user->balance_xof,
                                             'type' => 'credit',
                                             'kind' => 'deposit',
-                                            'description' => "Recharge CinetPay — {$locked->reference}",
+                                            'description' => "Recharge de solde — {$locked->reference}",
                                             'reference_type' => 'wallet_deposit',
                                             'reference_id' => $locked->id,
                                             'created_at' => now(),
@@ -513,7 +517,7 @@ class CheckoutController extends Controller
                         } elseif (!empty($state['is_final']) && !$state['is_successful']) {
                             $walletDeposit->update([
                                 'status' => 'failed',
-                                'failure_message' => "Paiement non complété chez CinetPay ({$state['status']})",
+                                'failure_message' => "Paiement non complété ({$state['status']})",
                             ]);
                         }
                     } catch (\Throwable $e) {
@@ -530,7 +534,7 @@ class CheckoutController extends Controller
                     return redirect()->route('account.wallet.index')->with('error', 'Le paiement de la recharge a échoué ou a été annulé auprès de la passerelle.');
                 }
 
-                return redirect()->route('account.wallet.index')->with('info', 'Paiement de la recharge en cours de confirmation par CinetPay.');
+                return redirect()->route('account.wallet.index')->with('info', 'Paiement de la recharge en cours de confirmation.');
             }
         }
 
@@ -563,8 +567,8 @@ class CheckoutController extends Controller
                         'order_id' => $order->id,
                         'type' => 'paid',
                         'event' => 'paid',
-                        'actor' => 'cryptomus',
-                        'message' => "Paiement confirmé lors du retour sur le site via Cryptomus.",
+                        'actor' => 'crypto',
+                        'message' => "Paiement en crypto confirmé lors du retour sur le site.",
                         'created_at' => now(),
                     ]);
 
@@ -598,8 +602,8 @@ class CheckoutController extends Controller
                         'order_id' => $order->id,
                         'type' => 'paid',
                         'event' => 'paid',
-                        'actor' => 'cinetpay',
-                        'message' => "Paiement confirmé lors du retour sur le site via CinetPay.",
+                        'actor' => 'payment_gateway',
+                        'message' => "Paiement confirmé lors du retour sur le site.",
                         'created_at' => now(),
                     ]);
 
@@ -612,7 +616,7 @@ class CheckoutController extends Controller
                 } elseif (!empty($state['is_final']) && !$state['is_successful']) {
                     $order->update([
                         'status' => 'payment_failed',
-                        'failure_message' => "Paiement CinetPay non finalisé ({$state['status']}).",
+                        'failure_message' => "Paiement non finalisé ({$state['status']}).",
                     ]);
                 }
             } catch (\Throwable $e) {

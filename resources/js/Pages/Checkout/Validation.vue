@@ -302,7 +302,7 @@ const submitCheckout = () => {
                 </div>
               </div>
 
-              <!-- Option 2 : Crypto-monnaies (Cryptomus) -->
+              <!-- Option 2 : Crypto-monnaies -->
               <div
                 @click="payChoice = 'cryptomus'"
                 :class="[
@@ -338,7 +338,7 @@ const submitCheckout = () => {
                       <span class="text-base font-extrabold text-ink">{{ t('Crypto-monnaies') }}</span>
                       <span class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
                         <Zap class="size-2.5 text-purple-600" />
-                        {{ t('Cryptomus · Sans frais bancaires') }}
+                        {{ t('Réseaux rapides · Zéro frais bancaires') }}
                       </span>
                     </div>
                     <p class="text-xs text-muted leading-relaxed">

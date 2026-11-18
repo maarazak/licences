@@ -322,8 +322,8 @@ class OrderFulfillmentService
                         'id' => Str::uuid()->toString(),
                         'order_id' => $order->id,
                         'type' => 'paid',
-                        'message' => 'Paiement confirmé par CinetPay.',
-                        'actor' => 'cinetpay',
+                        'message' => 'Paiement confirmé.',
+                        'actor' => 'payment_gateway',
                     ]);
 
                     // Déclenchement immédiat de la livraison
@@ -335,7 +335,7 @@ class OrderFulfillmentService
                 $order->update([
                     'status' => $newStatus,
                     'failure_code' => $newStatus,
-                    'failure_message' => "Paiement non complété chez CinetPay ({$state['status']})",
+                    'failure_message' => "Paiement non complété ({$state['status']})",
                     'updated_at' => now(),
                 ]);
 
@@ -343,8 +343,8 @@ class OrderFulfillmentService
                     'id' => Str::uuid()->toString(),
                     'order_id' => $order->id,
                     'type' => $newStatus,
-                    'message' => "Paiement CinetPay {$state['status']}.",
-                    'actor' => 'cinetpay',
+                    'message' => "Paiement {$state['status']}.",
+                    'actor' => 'payment_gateway',
                 ]);
             }
         } catch (\Throwable $e) {
