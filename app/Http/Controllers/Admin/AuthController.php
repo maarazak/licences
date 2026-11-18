@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -47,11 +48,24 @@ class AuthController extends Controller
         ]);
 
         $email = strtolower(trim($validated['email']));
+        $ip = $request->ip();
+        $rateKey = 'admin-login:' . $ip . ':' . $email;
+
+        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
+            $seconds = RateLimiter::availableIn($rateKey);
+            return back()->withInput(['email' => $email])->withErrors([
+                'email' => "Trop de tentatives de connexion échouées. Veuillez patienter {$seconds} secondes.",
+            ]);
+        }
+
         $user = User::where('email', $email)->first();
 
         if (!$user || !$this->isAdmin($user) || $user->is_blocked || !Hash::check($validated['password'], $user->password)) {
+            RateLimiter::hit($rateKey, 900); // 15 minutes lock
             return back()->withInput(['email' => $email])->withErrors(['email' => 'Identifiants invalides.']);
         }
+
+        RateLimiter::clear($rateKey);
 
         $token = Str::random(40);
         $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
@@ -88,6 +102,13 @@ class AuthController extends Controller
 
     public function verify2fa(Request $request)
     {
+        $verifyKey = 'admin-2fa-verify-ip:' . $request->ip();
+        if (RateLimiter::tooManyAttempts($verifyKey, 10)) {
+            $seconds = RateLimiter::availableIn($verifyKey);
+            return back()->withErrors(['code' => "Trop de tentatives de vérification 2FA. Patientez {$seconds} secondes."]);
+        }
+        RateLimiter::hit($verifyKey, 900);
+
         $challenge = $this->readChallengeCookie($request);
         if (!$challenge) {
             return redirect()->route('admin.login')->withErrors(['email' => "Vérification expirée ou trop d'essais. Reconnectez-vous."]);

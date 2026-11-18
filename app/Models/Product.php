@@ -49,6 +49,17 @@ class Product extends Model
         'synced_at',
     ];
 
+    protected $hidden = [
+        'cost_usd_cents',
+        'list_usd_cents',
+        'supplier_id',
+        'supplier_purchasable',
+        'supplier_active',
+        'unavailable_readings',
+        'margin_percent_override',
+        'supplier_description',
+    ];
+
     protected $casts = [
         'is_published' => 'boolean',
         'is_featured' => 'boolean',
@@ -117,6 +128,45 @@ class Product extends Model
     public function getShelfAttribute(): string
     {
         return $this->shop_category ?: $this->category ?: 'Sans catégorie';
+    }
+
+    /**
+     * Durée commerciale lisible (déduite des jours ou du titre, sans jamais afficher de garantie).
+     */
+    public function getDurationAttribute(): string
+    {
+        if (!empty($this->duration_label) && !preg_match('/warranty/i', $this->duration_label)) {
+            return $this->duration_label;
+        }
+
+        $expireDays = (int) $this->expire_days;
+        if ($expireDays >= 365) {
+            $years = (int) round($expireDays / 365);
+            return $years > 1 ? "{$years} ans" : '1 an';
+        }
+        if ($expireDays >= 30) {
+            $months = (int) round($expireDays / 30);
+            return $months > 1 ? "{$months} mois" : '1 mois';
+        }
+        if ($expireDays > 0) {
+            return "{$expireDays} jours";
+        }
+
+        $title = $this->display_name ?: $this->name;
+        if (preg_match('/(\d+)\s*(?:years?|ans?|yr)\b/i', $title, $m)) {
+            return $m[1] . ' an' . ($m[1] > 1 ? 's' : '');
+        }
+        if (preg_match('/(\d+)\s*(?:months?|mois|m)\b/i', $title, $m) && !preg_match('/(?:token|credit|crédit)/i', $title)) {
+            return $m[1] . ' mois';
+        }
+        if (preg_match('/(\d+)\s*(?:days?|jours?|d)\b/i', $title, $m)) {
+            return $m[1] . ' jours';
+        }
+        if (preg_match('/(\d+)\s*(?:hours?|heures?|h)\b/i', $title, $m)) {
+            return $m[1] . ' h';
+        }
+
+        return 'Selon offre';
     }
 
     public function orders()

@@ -89,7 +89,6 @@ const assurances = computed(() => [
 const terms = computed(() => [
   t("Type d'accès : {value}.", { value: accessText.value }),
   t("Durée : {value}.", { value: t(props.product.duration) }),
-  props.product.warranty ? t("Garantie : {value}.", { value: props.product.warranty }) : t("Garantie intégrale durant toute la période"),
   t("Livraison numérique dans votre espace « Mes achats » avec notification par e-mail."),
   t("En cas d’impossibilité de livraison, vous choisissez entre un avoir immédiat ou un remboursement."),
 ]);
@@ -151,10 +150,6 @@ const terms = computed(() => [
               <div class="flex items-center justify-between py-3 text-sm">
                 <span class="text-muted">{{ t('Durée') }}</span>
                 <span class="font-semibold text-ink">{{ t(product.duration) }}</span>
-              </div>
-              <div class="flex items-center justify-between py-3 text-sm">
-                <span class="text-muted">{{ t('Garantie') }}</span>
-                <span class="font-semibold text-ink">{{ product.warranty || t('Garantie intégrale') }}</span>
               </div>
               <div v-if="product.requires_email" class="flex items-center justify-between py-3 text-sm">
                 <span class="text-muted">{{ t('Activation') }}</span>

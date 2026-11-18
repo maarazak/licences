@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Send, UserRound, Shield } from 'lucide-vue-next';
 import AccountLayout from '@/Layouts/AccountLayout.vue';
 import { TICKET_STATUS_LABELS } from '@/Types/enums';
+import { useI18n } from '@/Utils/useI18n';
 
 const props = defineProps<{
   ticket: {
@@ -18,6 +19,8 @@ const props = defineProps<{
     }>;
   };
 }>();
+
+const { t, lang } = useI18n();
 
 const replyForm = useForm({
   message: '',
@@ -35,7 +38,7 @@ const submitReply = () => {
 
 <template>
   <AccountLayout>
-    <Head :title="`Ticket : ${ticket.subject} — Assistance client`" />
+    <Head :title="`${t('Ticket : {subject}', { subject: ticket.subject })} — ${t('Assistance client')}`" />
 
     <div class="space-y-6 max-w-3xl">
       <!-- Header -->
@@ -45,7 +48,7 @@ const submitReply = () => {
           class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition"
         >
           <ArrowLeft class="size-4" />
-          Tous les tickets
+          {{ t('Tous les tickets') }}
         </Link>
 
         <span
@@ -56,14 +59,14 @@ const submitReply = () => {
             ticket.status === 'closed' ? 'badge-neutral' : '',
           ]"
         >
-          {{ TICKET_STATUS_LABELS[ticket.status as keyof typeof TICKET_STATUS_LABELS] || ticket.status }}
+          {{ t(TICKET_STATUS_LABELS[ticket.status as keyof typeof TICKET_STATUS_LABELS] || ticket.status) }}
         </span>
       </div>
 
       <div class="card p-6 shadow-card space-y-4">
         <h1 class="h2 text-xl font-bold">{{ ticket.subject }}</h1>
         <p class="text-xs text-slate-400">
-          Ticket ouvert le {{ new Date(ticket.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+          {{ t('Ticket ouvert le') }} {{ new Date(ticket.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
         </p>
       </div>
 
@@ -84,11 +87,11 @@ const submitReply = () => {
               <Shield v-if="msg.is_staff" class="size-4 text-[#0d5c4a]" />
               <UserRound v-else class="size-4 text-slate-500" />
               <span :class="msg.is_staff ? 'text-[#0d5c4a]' : 'text-slate-800'">
-                {{ msg.is_staff ? 'Équipe Support Licences' : 'Vous' }}
+                {{ msg.is_staff ? t('Équipe Support Licences') : t('Vous') }}
               </span>
             </div>
             <span class="text-slate-400">
-              {{ new Date(msg.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
+              {{ new Date(msg.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
             </span>
           </div>
 
@@ -101,12 +104,12 @@ const submitReply = () => {
       <!-- Reply Box -->
       <div v-if="ticket.status !== 'closed'" class="card p-6 shadow-card">
         <form @submit.prevent="submitReply" class="space-y-4">
-          <h3 class="h3 text-sm">Ajouter une réponse</h3>
+          <h3 class="h3 text-sm">{{ t('Ajouter une réponse') }}</h3>
           <textarea
             v-model="replyForm.message"
             required
             rows="4"
-            placeholder="Écrivez votre message..."
+            :placeholder="t('Écrivez votre message...')"
             class="input text-sm py-3"
           />
 
@@ -114,16 +117,16 @@ const submitReply = () => {
             <button
               type="submit"
               :disabled="replyForm.processing || !replyForm.message.trim()"
-              class="btn btn-primary btn-sm px-5"
+              class="btn btn-primary btn-sm px-5 cursor-pointer"
             >
               <Send class="size-3.5" />
-              <span>Envoyer ma réponse</span>
+              <span>{{ t('Envoyer ma réponse') }}</span>
             </button>
           </div>
         </form>
       </div>
       <div v-else class="alert alert-info text-center text-xs">
-        Ce ticket a été clôturé. Si vous avez un nouveau problème, ouvrez une nouvelle demande d'aide.
+        {{ t("Ce ticket a été clôturé. Si vous avez un nouveau problème, ouvrez une nouvelle demande d'aide.") }}
       </div>
     </div>
   </AccountLayout>

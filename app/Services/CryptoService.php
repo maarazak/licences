@@ -6,7 +6,7 @@ class CryptoService
 {
     protected static function getKey(): string
     {
-        $raw = env('ENCRYPTION_KEY', '');
+        $raw = config('app.encryption_key') ?: env('ENCRYPTION_KEY', '');
         return base64_decode($raw);
     }
 
@@ -51,7 +51,7 @@ class CryptoService
     public static function encrypt(string $plain, string $aad = ''): string
     {
         $key = self::getKey();
-        $iv = openssl_random_pseudo_bytes(12);
+        $iv = random_bytes(12);
         $tag = '';
 
         $encrypted = openssl_encrypt(

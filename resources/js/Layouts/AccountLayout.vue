@@ -12,9 +12,11 @@ import {
   LogOut,
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
+import { useI18n } from '@/Utils/useI18n';
 
 const page = usePage();
 const authUser = computed(() => page.props.auth?.user);
+const { t, format } = useI18n();
 
 const items = [
   { href: '/compte', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -46,7 +48,7 @@ const handleLogout = () => {
           <div class="min-w-0 flex-1">
             <p class="truncate text-xs font-semibold text-slate-500">{{ authUser.email }}</p>
             <p class="text-sm font-extrabold text-[#0d5c4a] mt-0.5">
-              {{ (authUser.balance_xof || 0).toLocaleString('fr-FR') }} FCFA
+              {{ format(authUser.balance_xof || 0) }}
             </p>
           </div>
         </div>
@@ -64,16 +66,16 @@ const handleLogout = () => {
             ]"
           >
             <component :is="item.icon" class="size-4 shrink-0" />
-            <span>{{ item.label }}</span>
+            <span>{{ t(item.label) }}</span>
           </Link>
 
           <button
             type="button"
             @click="handleLogout"
-            class="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition pt-2 border-t border-slate-100"
+            class="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition pt-2 border-t border-slate-100 cursor-pointer"
           >
             <LogOut class="size-4 shrink-0" />
-            <span>Se déconnecter</span>
+            <span>{{ t('Se déconnecter') }}</span>
           </button>
         </nav>
       </aside>

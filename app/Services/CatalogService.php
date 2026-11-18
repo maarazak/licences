@@ -149,6 +149,10 @@ class CatalogService
                 $previouslySellable = $known->supplier_purchasable && $known->in_stock && !$known->preorder && ($known->stock === null || $known->stock > 0);
                 $currentlySellable = $fields['supplier_purchasable'] && $fields['in_stock'] && !$fields['preorder'] && ($fields['stock'] === null || $fields['stock'] > 0);
 
+                if (empty($known->shop_category)) {
+                    $fields['shop_category'] = self::guessCategory($fields['name']);
+                }
+
                 $held = false;
                 if ($previouslySellable && !$currentlySellable && ($known->unavailable_readings + 1 < self::CONFIRM_UNAVAILABLE_READINGS)) {
                     // Conserver temporairement l'état vendable pour amortir les micro-coupures fournisseur
@@ -188,12 +192,14 @@ class CatalogService
             $fields['supplier_id'] = $supplierId;
             $fields['slug'] = $slug;
             $fields['display_name'] = $item['name'] ?? '';
+            $fields['shop_category'] = self::guessCategory($fields['name']);
             $fields['is_published'] = $autoPublish;
             $fields['unavailable_readings'] = 0;
             $fields['created_at'] = $now;
             $fields['updated_at'] = $now;
 
-            Product::create($fields);
+            $created = Product::create($fields);
+            $existing->put($supplierId, $created);
             $report['created']++;
         }
 
@@ -237,5 +243,30 @@ class CatalogService
             Setting::set('supplierBalanceError', mb_substr($e->getMessage(), 0, 300));
             Log::warning("[CatalogService] Erreur rafraîchissement solde fournisseur: {$e->getMessage()}");
         }
+    }
+
+    /**
+     * Détermine automatiquement la catégorie de boutique selon le nom du produit.
+     */
+    public static function guessCategory(string $name): string
+    {
+        $categories = [
+            'IA et assistants' => '/(chatgpt|openai|claude|codex|gemini|google ai|deepseek|kimi|grok|eleven|muse ai|fin |fin ia|perplexity|cursor|granola|flow |pangram)/i',
+            'Divertissement' => '/(netflix|prime video|apple tv|crunchyroll|shahid|spotify|apple music|headspace|steam)/i',
+            'Création et design' => '/(canva|capcut|adobe|figma|framer|gamma|mobbin|supercut|magic patterns|picsart)/i',
+            'Bureautique' => '/(microsoft|office|notion|zoom|miro|linear|ilovepdf|grammarly|linkedin)/i',
+            'Apprentissage' => '/(duolingo|coursera|edx|scribd|wordwall|udemy)/i',
+            'Développement' => '/(jetbrains|posthog|lovable|railway|replit|arize|n8n)/i',
+            'VPN et sécurité' => '/(nord|surfshark|proton|hma|avira|expressvpn|v2ray|proxy)/i',
+            'Comptes et réseaux' => '/(gmail|hotmail|outlook|icloud|instagram)/i',
+        ];
+
+        foreach ($categories as $cat => $re) {
+            if (preg_match($re, $name)) {
+                return $cat;
+            }
+        }
+
+        return 'Autres';
     }
 }

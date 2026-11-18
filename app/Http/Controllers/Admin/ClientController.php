@@ -53,7 +53,6 @@ class ClientController extends Controller
     public function adjustBalance(Request $request, $id = null)
     {
         $userId = $id ?: $request->input('userId');
-        $client = User::findOrFail($userId);
 
         $validated = $request->validate([
             'amount_xof' => 'required|numeric',
@@ -64,28 +63,33 @@ class ClientController extends Controller
         $amount = (int) $validated['amount_xof'];
         $reason = $validated['label'] ?? $validated['reason'] ?? 'Ajustement administratif';
 
-        $newBalance = max(0, $client->balance_xof + $amount);
-        $client->balance_xof = $newBalance;
-        $client->save();
+        $client = \Illuminate\Support\Facades\DB::transaction(function () use ($userId, $amount, $reason) {
+            $user = User::lockForUpdate()->findOrFail($userId);
+            $newBalance = max(0, $user->balance_xof + $amount);
+            $user->balance_xof = $newBalance;
+            $user->save();
 
-        WalletEntry::create([
-            'id' => Str::uuid()->toString(),
-            'user_id' => $client->id,
-            'amount_xof' => $amount,
-            'balance_after_xof' => $newBalance,
-            'type' => $amount >= 0 ? 'credit' : 'debit',
-            'description' => "Ajustement administratif : {$reason}",
-            'reference_type' => 'admin_adjustment',
-            'reference_id' => auth('admin')->id(),
-            'created_at' => now(),
-        ]);
+            WalletEntry::create([
+                'id' => Str::uuid()->toString(),
+                'user_id' => $user->id,
+                'amount_xof' => $amount,
+                'balance_after_xof' => $newBalance,
+                'type' => $amount >= 0 ? 'credit' : 'debit',
+                'description' => "Ajustement administratif : {$reason}",
+                'reference_type' => 'admin_adjustment',
+                'reference_id' => auth('admin')->id(),
+                'created_at' => now(),
+            ]);
+
+            return $user;
+        });
 
         AuditLog::record('client.adjust_balance', $client->id, [
             'amount' => $amount,
             'reason' => $reason,
         ]);
 
-        return back()->with('success', "Le solde a été mis à jour ({$newBalance} FCFA).");
+        return back()->with('success', "Le solde a été mis à jour ({$client->balance_xof} FCFA).");
     }
 
     public function toggleBlock(Request $request, $id = null)

@@ -3,28 +3,31 @@ import { Head, Link } from '@inertiajs/vue3';
 import { LifeBuoy, Plus, ArrowRight, MessageSquare } from 'lucide-vue-next';
 import AccountLayout from '@/Layouts/AccountLayout.vue';
 import { TICKET_STATUS_LABELS } from '@/Types/enums';
+import { useI18n } from '@/Utils/useI18n';
 
 const props = defineProps<{
   tickets: any[];
 }>();
+
+const { t, lang } = useI18n();
 </script>
 
 <template>
   <AccountLayout>
-    <Head title="Assistance & Tickets — Espace client" />
+    <Head :title="`${t('Assistance & Tickets')} — ${t('Espace client')}`" />
 
     <div class="space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="h1 text-2xl">Assistance & Support</h1>
+          <h1 class="h1 text-2xl">{{ t('Assistance & Support') }}</h1>
           <p class="text-xs text-slate-500 mt-1">
-            Besoin d'aide ou d'un remplacement ? Ouvrez un ticket, notre équipe vous répond en priorité.
+            {{ t("Besoin d'aide ou d'un remplacement ? Ouvrez un ticket, notre équipe vous répond en priorité.") }}
           </p>
         </div>
 
         <Link href="/compte/assistance/nouveau" class="btn btn-primary btn-sm">
           <Plus class="size-4" />
-          Nouveau ticket
+          {{ t('Nouveau ticket') }}
         </Link>
       </div>
 
@@ -41,7 +44,7 @@ const props = defineProps<{
                 {{ ticket.subject }}
               </h3>
               <p class="text-xs text-slate-400">
-                Ouvert le {{ new Date(ticket.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}
+                {{ t('Ouvert le') }} {{ new Date(ticket.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}
               </p>
             </div>
 
@@ -54,7 +57,7 @@ const props = defineProps<{
                   ticket.status === 'closed' ? 'badge-neutral' : '',
                 ]"
               >
-                {{ TICKET_STATUS_LABELS[ticket.status as keyof typeof TICKET_STATUS_LABELS] || ticket.status }}
+                {{ t(TICKET_STATUS_LABELS[ticket.status as keyof typeof TICKET_STATUS_LABELS] || ticket.status) }}
               </span>
               <ArrowRight class="size-4 text-slate-300 group-hover:text-slate-600 transition" />
             </div>
@@ -63,9 +66,9 @@ const props = defineProps<{
 
         <div v-else class="text-center py-12 text-xs text-slate-400 space-y-3">
           <LifeBuoy class="size-10 mx-auto text-slate-300" />
-          <p>Vous n'avez aucun ticket de support ouvert.</p>
+          <p>{{ t("Vous n'avez aucun ticket de support ouvert.") }}</p>
           <Link href="/compte/assistance/nouveau" class="btn btn-soft btn-sm inline-flex">
-            Ouvrir une demande
+            {{ t('Ouvrir une demande') }}
           </Link>
         </div>
       </div>

@@ -13,6 +13,7 @@ use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
 use App\Services\CryptoService;
 use App\Services\CinetPayService;
+use App\Services\CryptomusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -121,7 +122,7 @@ class AccountController extends Controller
                 'paid_with' => $order->paid_with,
                 'refund_requested_at' => $order->refund_requested_at ? $order->refund_requested_at->toIso8601String() : null,
                 'refund_method' => $order->refund_method,
-                'can_resolve' => $order->status === 'failed' && !in_array($order->failure_code, ['amount_mismatch', 'too_many_attempts', 'empty_delivery', 'uncertain_outcome', 'manual_hold', 'activation_timeout']),
+                'can_resolve' => false,
                 'customer_phone' => $order->customer_phone,
                 'customer_country' => $order->customer_country,
                 'delivery_content' => $decryptedDelivery,
@@ -129,38 +130,33 @@ class AccountController extends Controller
                 'paid_at' => $order->paid_at ? $order->paid_at->toIso8601String() : null,
                 'created_at' => $order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String(),
                 'payment_url' => $order->payment_url,
-                'events' => $order->events->map(fn ($e) => [
-                    'id' => $e->id,
-                    'event' => $e->event ?: $e->type,
-                    'message' => $e->message,
-                    'created_at' => $e->created_at ? $e->created_at->toIso8601String() : ($order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String()),
-                ]),
+                'events' => $order->events->map(function ($e) use ($order) {
+                    $cleanMsg = $e->message ?: '';
+                    // Anonymisation stricte : masquer tout terme fournisseur ou message technique brut
+                    $cleanMsg = preg_replace('/(Flowseller|pe-supplykh|fournisseur)/i', 'service technique', $cleanMsg);
+                    $cleanMsg = preg_replace('/(clé API.*|API key.*)/i', 'configuration technique.', $cleanMsg);
+                    if (str_contains($cleanMsg, 'Livraison impossible (')) {
+                        $cleanMsg = "Commande prise en charge par notre équipe pour régularisation.";
+                    }
+                    return [
+                        'id' => $e->id,
+                        'event' => $e->event ?: $e->type,
+                        'message' => $cleanMsg,
+                        'created_at' => $e->created_at ? $e->created_at->toIso8601String() : ($order->created_at ? $order->created_at->toIso8601String() : now()->toIso8601String()),
+                    ];
+                }),
             ],
         ]);
     }
 
     public function chooseCredit($id)
     {
-        $user = $this->user();
-        $ok = app(\App\Services\OrderFulfillmentService::class)->customerChooseCredit($user->id, $id);
-
-        if ($ok) {
-            return redirect()->route('account.orders.show', $id)->with('success', 'Avoir crédité sur votre solde avec succès !');
-        }
-
-        return back()->with('error', 'Impossible de convertir cette commande en avoir.');
+        abort(403, "Seul le service administratif ou le back-office peut attribuer un avoir pour cette commande.");
     }
 
     public function requestRefund($id)
     {
-        $user = $this->user();
-        $ok = app(\App\Services\OrderFulfillmentService::class)->customerRequestRefund($user->id, $id);
-
-        if ($ok) {
-            return redirect()->route('account.orders.show', $id)->with('success', 'Votre demande de remboursement a bien été transmise à notre équipe.');
-        }
-
-        return back()->with('error', 'Impossible de demander un remboursement pour cette commande.');
+        abort(403, "Seul le service administratif ou le back-office peut traiter un remboursement pour cette commande.");
     }
 
     public function wallet()
@@ -181,14 +177,76 @@ class AccountController extends Controller
         $validated = $request->validate([
             'amount_xof' => 'required|integer|min:500|max:1000000',
             'phone' => 'nullable|string|max:30',
-            'country' => 'required|string|max:5',
+            'country' => 'nullable|string|max:5',
             'fullName' => 'nullable|string|max:120',
+            'gateway' => 'nullable|string|in:cinetpay,cryptomus,crypto',
         ]);
 
+        $gateway = in_array($validated['gateway'] ?? '', ['cryptomus', 'crypto'], true) ? 'cryptomus' : 'cinetpay';
         $user = $this->user();
         $depositId = Str::uuid()->toString();
         $ref = 'DEP-' . strtoupper(Str::random(8));
 
+        // 1. Rechargement par Cryptomus (Crypto-monnaies : USDT, BTC, ETH, TON, SOL)
+        if ($gateway === 'cryptomus') {
+            try {
+                $cryptomus = app(CryptomusService::class);
+                $returnUrl = url("/paiement/retour?depot={$depositId}");
+
+                $session = $cryptomus->createPayment([
+                    'order_id' => $ref,
+                    'amount_xof' => $validated['amount_xof'],
+                    'return_url' => $returnUrl,
+                ]);
+
+                $redirectUrl = $session['payment_url'] ?? null;
+                if (!$redirectUrl) {
+                    return back()->with('error', "Impossible d'initialiser la recharge : URL de paiement Cryptomus introuvable.");
+                }
+
+                WalletDeposit::create([
+                    'id' => $depositId,
+                    'reference' => $ref,
+                    'user_id' => $user->id,
+                    'amount_xof' => $validated['amount_xof'],
+                    'customer_phone' => $validated['phone'] ?? null,
+                    'customer_country' => $validated['country'] ?? ($user->country ?: 'BF'),
+                    'customer_name' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
+                    'status' => 'pending',
+                    'payment_checkout_id' => $session['uuid'] ?? null,
+                    'payment_intent_id' => $ref,
+                    'payment_url' => $redirectUrl,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
+                    return response()->json([
+                        'success' => true,
+                        'seamless' => false,
+                        'deposit_id' => $depositId,
+                        'reference' => $ref,
+                        'payment_url' => $redirectUrl,
+                        'return_url' => $returnUrl,
+                    ]);
+                }
+
+                return Inertia::location($redirectUrl);
+            } catch (\Throwable $e) {
+                \Log::error("Erreur deposit Cryptomus : " . $e->getMessage());
+
+                if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => $e->getMessage(),
+                    ], 500);
+                }
+
+                return back()->with('error', "Échec de l'initialisation de la recharge en crypto : " . $e->getMessage());
+            }
+        }
+
+        // 2. Rechargement par CinetPay (Mobile Money & Cartes Bancaires)
         try {
             $cinetPay = app(CinetPayService::class);
             $returnUrl = url("/paiement/retour?depot={$depositId}");
@@ -197,7 +255,7 @@ class AccountController extends Controller
                 'order_id' => $depositId,
                 'reference' => $ref,
                 'amount_xof' => $validated['amount_xof'],
-                'country' => $validated['country'],
+                'country' => $validated['country'] ?? ($user->country ?: 'BF'),
                 'email' => $user->email,
                 'fullName' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
                 'return_url' => $returnUrl,
@@ -234,9 +292,29 @@ class AccountController extends Controller
             if (!empty($validated['country']) && !$user->country) $userUpdates['country'] = $validated['country'];
             if (!empty($userUpdates)) $user->update($userUpdates);
 
+            if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
+                return response()->json([
+                    'success' => true,
+                    'seamless' => true,
+                    'deposit_id' => $depositId,
+                    'reference' => $ref,
+                    'payment_token' => $session['payment_token'] ?? null,
+                    'payment_url' => $redirectUrl,
+                    'return_url' => $returnUrl,
+                ]);
+            }
+
             return Inertia::location($redirectUrl);
         } catch (\Throwable $e) {
             \Log::error("Erreur deposit CinetPay : " . $e->getMessage());
+
+            if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => "Impossible d'initialiser la recharge : " . $e->getMessage(),
+                ], 422);
+            }
+
             return back()->with('error', "Impossible d'initialiser la recharge : " . $e->getMessage());
         }
     }
@@ -284,11 +362,20 @@ class AccountController extends Controller
         $user = $this->user();
         $ticketId = Str::uuid()->toString();
 
-        DB::transaction(function () use ($user, $validated, $ticketId) {
+        $orderId = $validated['order_id'] ?? null;
+        if ($orderId) {
+            $userOwnsOrder = Order::where('id', $orderId)->where('user_id', $user->id)->exists();
+            if (!$userOwnsOrder) {
+                $orderId = null;
+            }
+        }
+
+        DB::transaction(function () use ($user, $validated, $ticketId, $orderId) {
             $ticket = Ticket::create([
                 'id' => $ticketId,
+                'reference' => 'TIC-' . strtoupper(Str::random(8)),
                 'user_id' => $user->id,
-                'order_id' => $validated['order_id'] ?? null,
+                'order_id' => $orderId,
                 'subject' => $validated['subject'],
                 'status' => 'open',
                 'created_at' => now(),
@@ -297,8 +384,8 @@ class AccountController extends Controller
             TicketMessage::create([
                 'id' => Str::uuid()->toString(),
                 'ticket_id' => $ticket->id,
-                'user_id' => $user->id,
-                'message' => $validated['message'],
+                'author_id' => $user->id,
+                'body' => $validated['message'],
                 'is_staff' => false,
                 'created_at' => now(),
             ]);
@@ -324,9 +411,9 @@ class AccountController extends Controller
                 'created_at' => $ticket->created_at->toIso8601String(),
                 'messages' => $ticket->messages->map(fn ($m) => [
                     'id' => $m->id,
-                    'message' => $m->message,
+                    'message' => $m->body,
                     'is_staff' => (bool) $m->is_staff,
-                    'created_at' => $m->created_at->toIso8601String(),
+                    'created_at' => $m->created_at ? $m->created_at->toIso8601String() : now()->toIso8601String(),
                 ]),
             ],
         ]);
@@ -344,8 +431,8 @@ class AccountController extends Controller
         TicketMessage::create([
             'id' => Str::uuid()->toString(),
             'ticket_id' => $ticket->id,
-            'user_id' => $user->id,
-            'message' => $validated['message'],
+            'author_id' => $user->id,
+            'body' => $validated['message'],
             'is_staff' => false,
             'created_at' => now(),
         ]);

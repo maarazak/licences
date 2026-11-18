@@ -83,7 +83,7 @@ class FlowsellerService
 
             $response = match (strtoupper($method)) {
                 'POST' => $client->post("{$this->apiUrl}{$path}", $data),
-                default => $client->get("{$this->apiUrl}{$path}", $data),
+                default => empty($data) ? $client->get("{$this->apiUrl}{$path}") : $client->get("{$this->apiUrl}{$path}", $data),
             };
 
             if (!$response->successful()) {
@@ -133,38 +133,44 @@ class FlowsellerService
     public function listAllProducts(): array
     {
         $products = [];
-        $seenIds = [];
+        $seenMap = [];
         $invalid = 0;
 
         for ($page = 1; $page <= 50; $page++) {
             if ($page > 1) {
-                usleep(150000); // Pause de 150ms pour respecter le débit de l'API
+                usleep(200000); // Pause de 200ms pour respecter le débit de l'API
             }
-            $payload = $this->request('GET', "/products?page={$page}&per_page=100");
+            $payload = $this->request('GET', '/products', ['page' => $page, 'per_page' => 100]);
             $data = $payload['data'] ?? [];
 
-            if (!is_array($data)) {
+            if (!is_array($data) || empty($data)) {
                 break;
             }
 
+            $newItemsOnPage = 0;
             foreach ($data as $item) {
                 if (isset($item['id'])) {
-                    $seenIds[] = (string) $item['id'];
-                    $products[] = $item;
+                    $id = (string) $item['id'];
+                    if (!isset($seenMap[$id])) {
+                        $seenMap[$id] = true;
+                        $products[] = $item;
+                        $newItemsOnPage++;
+                    }
                 } else {
                     $invalid++;
                 }
             }
 
             $hasMore = $payload['pagination']['has_more'] ?? false;
-            if (!$hasMore || empty($data)) {
+            // Si le fournisseur renvoie has_more=true mais aucun nouvel élément (ex: boucle sur la même page), on stoppe
+            if (!$hasMore || $newItemsOnPage === 0) {
                 break;
             }
         }
 
         return [
             'products' => $products,
-            'seenIds' => $seenIds,
+            'seenIds' => array_keys($seenMap),
             'invalid' => $invalid,
         ];
     }

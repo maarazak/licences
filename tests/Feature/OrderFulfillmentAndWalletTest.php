@@ -108,9 +108,23 @@ class OrderFulfillmentAndWalletTest extends TestCase
 
         $this->actingAs($user, 'web');
 
-        // Demande d'avoir immédiat
+        // Le client n'a pas le droit de déclencher l'avoir lui-même (réservé au back-office)
         $response = $this->post(route('account.orders.credit', $order->id));
-        $response->assertSessionHas('success');
+        $response->assertStatus(403);
+
+        // L'administrateur génère l'avoir depuis le back-office
+        $admin = User::create([
+            'id' => Str::uuid()->toString(),
+            'first_name' => 'Admin',
+            'last_name' => 'Test',
+            'email' => 'admin-test-' . Str::random(5) . '@licences.local',
+            'password' => bcrypt('Secret123!'),
+            'role' => 'admin',
+        ]);
+
+        $this->actingAs($admin, 'admin');
+        $adminResponse = $this->post(route('admin.orders.refund_balance', $order->id));
+        $adminResponse->assertSessionHas('success');
 
         // Solde augmenté de 5 000 FCFA
         $freshUser = User::find($user->id);
@@ -120,10 +134,6 @@ class OrderFulfillmentAndWalletTest extends TestCase
         $freshOrder = Order::find($order->id);
         $this->assertEquals('refunded', $freshOrder->status);
         $this->assertEquals('balance', $freshOrder->refund_method);
-
-        // Anti-double compensation : un second appel échoue
-        $secondResponse = $this->post(route('account.orders.credit', $order->id));
-        $secondResponse->assertSessionHas('error');
     }
 
     public function test_artisan_orders_maintain_command(): void

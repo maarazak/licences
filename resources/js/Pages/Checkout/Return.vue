@@ -21,13 +21,16 @@ const props = defineProps<{
     quantity: number;
     total_xof: number;
     status: string;
+    paid_at?: string | null;
     payment_url?: string;
   };
 }>();
 
+const isPaid = !!props.order.paid_at;
 const isPending = props.order.status === 'pending_payment';
-const isSuccess = ['paid', 'processing', 'activation_awaiting', 'delivered'].includes(props.order.status);
-const isFailed = ['payment_failed', 'expired', 'cancelled'].includes(props.order.status);
+const isSuccess = isPaid || ['paid', 'processing', 'activation_awaiting', 'delivered'].includes(props.order.status);
+const isDeliveryIssue = isPaid && props.order.status === 'failed';
+const isFailed = !isPaid && ['payment_failed', 'expired', 'cancelled', 'failed'].includes(props.order.status);
 
 let timer: any = null;
 onMounted(() => {
@@ -73,7 +76,10 @@ onUnmounted(() => {
 
         <!-- Titles & Text -->
         <div class="space-y-2">
-          <h1 v-if="isSuccess" class="h2 text-2xl text-slate-900">
+          <h1 v-if="isDeliveryIssue" class="h2 text-2xl text-slate-900">
+            Paiement validé avec succès
+          </h1>
+          <h1 v-else-if="isSuccess" class="h2 text-2xl text-slate-900">
             Paiement reçu avec succès
           </h1>
           <h1 v-else-if="isPending" class="h2 text-2xl text-slate-900">
@@ -83,7 +89,10 @@ onUnmounted(() => {
             Le paiement n'a pas abouti
           </h1>
 
-          <p v-if="isSuccess" class="text-sm text-muted leading-relaxed">
+          <p v-if="isDeliveryIssue" class="text-sm text-muted leading-relaxed">
+            Votre paiement a bien été reçu. Notre équipe administrative traite votre commande pour vous livrer dans les plus brefs délais.
+          </p>
+          <p v-else-if="isSuccess" class="text-sm text-muted leading-relaxed">
             Nous préparons vos accès. Vous pouvez dès à présent suivre l'état de votre commande.
           </p>
           <p v-else-if="isPending" class="text-sm text-muted leading-relaxed">

@@ -46,4 +46,10 @@ return [
         'environment' => env('CINETPAY_ENVIRONMENT', 'sandbox'),
     ],
 
+    'cryptomus' => [
+        'merchant_id' => env('CRYPTOMUS_MERCHANT_ID'),
+        'payment_key' => env('CRYPTOMUS_PAYMENT_KEY'),
+        'api_url' => env('CRYPTOMUS_API_URL', 'https://api.cryptomus.com/v1'),
+    ],
+
 ];

@@ -1,4 +1,4 @@
-import { deliveryKindLabel } from "./enums";
+import { deliveryKindLabel } from "@/Types/enums";
 import { formatWarranty } from "./format";
 import type { TFn } from "./i18n";
 import { SITE_NAME } from "./site";

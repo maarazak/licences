@@ -70,12 +70,7 @@ class CatalogController extends Controller
                 && !$p->preorder
                 && ($p->stock === null || $p->stock > 0);
 
-            $duration = $p->duration_label ?: match (true) {
-                $p->expire_days >= 365 => '1 an',
-                $p->expire_days === 30 => '1 mois',
-                $p->expire_days > 0 => "{$p->expire_days} jours",
-                default => $p->warranty ?: 'Selon offre',
-            };
+            $duration = $p->duration;
 
             $accessKind = preg_match('/account|link|code/i', (string) $p->category)
                 ? $p->category
@@ -157,12 +152,7 @@ class CatalogController extends Controller
             && !$product->preorder
             && ($product->stock === null || $product->stock > 0);
 
-        $duration = $product->duration_label ?: match (true) {
-            $product->expire_days >= 365 => '1 an',
-            $product->expire_days === 30 => '1 mois',
-            $product->expire_days > 0 => "{$product->expire_days} jours",
-            default => $product->warranty ?: 'Selon offre',
-        };
+        $duration = $product->duration;
 
         $accessKind = preg_match('/account|link|code/i', (string) $product->category)
             ? $product->category

@@ -36,7 +36,7 @@ const props = defineProps<{
   categories: string[];
   activeCategory: string;
   searchQuery: string;
-  availability: string;
+  availability?: string;
   sort: string;
   shown: number;
 }>();
@@ -47,7 +47,6 @@ const PAGE_SIZE = 12;
 const currentShown = ref(props.shown || PAGE_SIZE);
 
 const qInput = ref(props.searchQuery || '');
-const dispoInput = ref(props.availability === 'available' ? 'disponible' : '');
 const sortInput = ref(props.sort || 'featured');
 
 const SORTS = computed(() => [
@@ -58,7 +57,7 @@ const SORTS = computed(() => [
 ]);
 
 const filtered = computed(() => {
-  return !!(props.searchQuery || props.activeCategory || props.availability === 'available');
+  return !!(props.searchQuery || props.activeCategory || (props.sort && props.sort !== 'featured'));
 });
 
 const visibleProducts = computed(() => {
@@ -71,7 +70,6 @@ const submitFilter = () => {
     {
       q: qInput.value.trim() || undefined,
       categorie: props.activeCategory || undefined,
-      dispo: dispoInput.value || undefined,
       tri: sortInput.value === 'featured' ? undefined : sortInput.value,
     },
     { preserveState: true }
@@ -118,7 +116,6 @@ const linkForCategory = (cat: string) => {
   const current: Record<string, string | undefined> = {
     q: props.searchQuery || undefined,
     categorie: cat || undefined,
-    dispo: props.availability === 'available' ? 'disponible' : undefined,
     tri: props.sort === 'featured' ? undefined : props.sort,
   };
   const searchParams = new URLSearchParams();
@@ -163,14 +160,8 @@ const linkForCategory = (cat: string) => {
             />
           </div>
 
-          <label for="dispo" class="sr-only">{{ t('Disponibilité') }}</label>
-          <select id="dispo" v-model="dispoInput" class="input sm:w-44">
-            <option value="">{{ t('Toutes les offres') }}</option>
-            <option value="disponible">{{ t('En stock uniquement') }}</option>
-          </select>
-
           <label for="tri" class="sr-only">{{ t('Trier par') }}</label>
-          <select id="tri" v-model="sortInput" class="input sm:w-52">
+          <select id="tri" v-model="sortInput" @change="submitFilter" class="input sm:w-56">
             <option v-for="s in SORTS" :key="s.value" :value="s.value">
               {{ s.label }}
             </option>

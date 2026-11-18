@@ -29,6 +29,7 @@ use App\Http\Controllers\Account\AccountController;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/boutique', [CatalogController::class, 'index'])->name('shop.index');
 Route::get('/boutique/{slug}', [CatalogController::class, 'show'])->name('shop.show');
+Route::get('/produit/{slug}', fn ($slug) => redirect()->route('shop.show', ['slug' => $slug]));
 
 // Checkout & Payments
 Route::get('/commande/validation', [CheckoutController::class, 'showValidation'])->name('checkout.validation');

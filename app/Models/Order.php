@@ -60,6 +60,20 @@ class Order extends Model
         'client_token',
     ];
 
+    protected $hidden = [
+        'delivery_encrypted',
+        'unit_cost_usd_cents',
+        'usd_rate',
+        'supplier_product_id',
+        'supplier_idem_key',
+        'supplier_order_id',
+        'supplier_reference',
+        'supplier_status',
+        'admin_note',
+        'failure_code',
+        'failure_message',
+    ];
+
     protected $casts = [
         'quantity' => 'integer',
         'unit_price_xof' => 'integer',

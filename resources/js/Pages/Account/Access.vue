@@ -4,6 +4,7 @@ import { PackageOpen, ArrowRight } from 'lucide-vue-next';
 import AccountLayout from '@/Layouts/AccountLayout.vue';
 import CopyButton from '@/Components/Shared/CopyButton.vue';
 import { formatDate } from '@/Utils/format';
+import { useI18n } from '@/Utils/useI18n';
 
 interface DeliveredOrder {
   id: string;
@@ -16,17 +17,19 @@ interface DeliveredOrder {
 defineProps<{
   orders: DeliveredOrder[];
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
   <AccountLayout>
-    <Head title="Mes accès" />
+    <Head :title="`${t('Mes accès')} — ${t('Espace client')}`" />
 
     <div class="space-y-6">
       <div>
-        <h1 class="h2 text-2xl font-bold text-ink">Mes accès</h1>
+        <h1 class="h2 text-2xl font-bold text-ink">{{ t('Mes accès') }}</h1>
         <p class="text-xs text-muted mt-1 leading-relaxed">
-          Réservé au propriétaire connecté de chaque commande. Un numéro de commande seul n'y donne jamais accès.
+          {{ t("Réservé au propriétaire connecté de chaque commande. Un numéro de commande seul n'y donne jamais accès.") }}
         </p>
       </div>
 
@@ -39,7 +42,7 @@ defineProps<{
           <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3">
             <h2 class="h3 text-base font-bold text-ink">{{ order.product_name }}</h2>
             <Link :href="`/compte/achats/${order.id}`" class="link text-xs">
-              {{ order.reference }} · livrée le {{ formatDate(order.delivered_at ? new Date(order.delivered_at) : null) }}
+              {{ order.reference }} · {{ t('livrée le') }} {{ formatDate(order.delivered_at ? new Date(order.delivered_at) : null) }}
             </Link>
           </div>
 
@@ -57,7 +60,7 @@ defineProps<{
           </ul>
 
           <p v-else class="alert alert-warning text-xs">
-            Accès indisponibles pour le moment. Contactez l'assistance depuis la commande.
+            {{ t("Accès indisponibles pour le moment. Contactez l'assistance depuis la commande.") }}
           </p>
         </section>
       </div>
@@ -68,14 +71,14 @@ defineProps<{
           <PackageOpen class="size-8" />
         </div>
         <div class="space-y-1">
-          <h2 class="h3 text-lg font-bold text-ink">Aucun accès disponible pour l'instant</h2>
+          <h2 class="h3 text-lg font-bold text-ink">{{ t("Aucun accès disponible pour l'instant") }}</h2>
           <p class="text-xs text-muted max-w-sm mx-auto leading-relaxed">
-            Vos accès apparaîtront ici dès confirmation du paiement et livraison automatique.
+            {{ t('Vos accès apparaîtront ici dès confirmation du paiement et livraison automatique.') }}
           </p>
         </div>
         <div class="pt-2">
           <Link href="/compte/achats" class="btn btn-primary min-h-11 text-xs">
-            Voir mes achats
+            {{ t('Voir mes achats') }}
             <ArrowRight class="size-3.5 ml-1" />
           </Link>
         </div>

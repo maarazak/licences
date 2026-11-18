@@ -16,7 +16,7 @@ const faq = computed(() => [
   [t("Mon paiement est toujours en attente"), t("La commande démarre quand le prestataire confirme le paiement. Cela peut prendre quelques minutes selon l'opérateur. Depuis la commande, vous pouvez reprendre un paiement non terminé.")],
   [t("Mon compte a été débité mais la commande n'apparaît pas payée"), t("Ne payez pas une seconde fois. Vérifiez d'abord votre solde mobile money, puis ouvrez une demande d'assistance depuis la commande avec sa référence.")],
   [t("Où trouver mes accès ?"), t("Dans Mes accès et dans le détail de chaque commande, après connexion. Pour votre sécurité, les accès ne sont pas envoyés par e-mail.")],
-  [t("Quelle garantie sur mon achat ?"), t("Elle dépend de chaque offre : elle est indiquée sur la fiche et rappelée avant le paiement. Un accès défaillant doit être signalé depuis la commande pendant la garantie.")],
+  [t("Et si mon accès ne fonctionne pas ?"), t("Un accès défaillant peut être signalé à tout moment depuis votre commande : notre support intervient rapidement pour le remplacer ou créditer votre solde.")],
   [t("Une commande payée n'a pas pu être livrée"), t("Vous choisissez depuis la commande entre un avoir immédiat sur votre solde et un remboursement sur votre moyen de paiement.")],
 ]);
 </script>

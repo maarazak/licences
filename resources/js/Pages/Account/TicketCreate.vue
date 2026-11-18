@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Send, LifeBuoy } from 'lucide-vue-next';
 import AccountLayout from '@/Layouts/AccountLayout.vue';
+import { useI18n } from '@/Utils/useI18n';
 
 const props = defineProps<{
   order?: {
@@ -10,6 +11,8 @@ const props = defineProps<{
     product_name: string;
   } | null;
 }>();
+
+const { t } = useI18n();
 
 const form = useForm({
   subject: props.order ? `Assistance commande ${props.order.reference} (${props.order.product_name})` : '',
@@ -24,7 +27,7 @@ const submitTicket = () => {
 
 <template>
   <AccountLayout>
-    <Head title="Créer un ticket — Assistance client" />
+    <Head :title="`${t('Créer un ticket')} — ${t('Assistance client')}`" />
 
     <div class="space-y-6 max-w-2xl">
       <div class="flex items-center gap-3">
@@ -35,9 +38,9 @@ const submitTicket = () => {
           <ArrowLeft class="size-4" />
         </Link>
         <div>
-          <h1 class="h1 text-2xl">Ouvrir un ticket d'aide</h1>
+          <h1 class="h1 text-2xl">{{ t("Ouvrir un ticket d'aide") }}</h1>
           <p class="text-xs text-slate-500 mt-0.5">
-            Détaillez votre problème ou votre question, nous vous répondrons dans les plus brefs délais.
+            {{ t('Détaillez votre problème ou votre question, nous vous répondrons dans les plus brefs délais.') }}
           </p>
         </div>
       </div>
@@ -45,42 +48,42 @@ const submitTicket = () => {
       <div class="card p-6 sm:p-8 shadow-card">
         <form @submit.prevent="submitTicket" class="space-y-5">
           <div v-if="order" class="p-3.5 bg-teal-50 border border-teal-200/80 rounded-xl text-xs text-teal-900">
-            Demande liée à la commande <strong>{{ order.reference }}</strong> ({{ order.product_name }})
+            {{ t('Demande liée à la commande') }} <strong>{{ order.reference }}</strong> ({{ order.product_name }})
           </div>
 
           <div>
-            <label class="label text-xs">Objet de votre demande <span class="text-red-500">*</span></label>
+            <label class="label text-xs">{{ t('Objet de votre demande') }} <span class="text-red-500">*</span></label>
             <input
               v-model="form.subject"
               type="text"
               required
-              placeholder="Ex. Problème de connexion, clé non reconnue..."
+              :placeholder="t('Ex. Problème de connexion, clé non reconnue...')"
               class="input text-sm"
             />
           </div>
 
           <div>
-            <label class="label text-xs">Votre message détaillé <span class="text-red-500">*</span></label>
+            <label class="label text-xs">{{ t('Votre message détaillé') }} <span class="text-red-500">*</span></label>
             <textarea
               v-model="form.message"
               required
               rows="6"
-              placeholder="Expliquez ce qui se passe, le message d'erreur éventuel..."
+              :placeholder="t('Expliquez ce qui se passe, le message d\'erreur éventuel...')"
               class="input text-sm py-3 leading-relaxed"
             />
           </div>
 
           <div class="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
-            <Link href="/compte/assistance" class="btn btn-soft btn-sm">
-              Annuler
+            <Link href="/compte/assistance" class="btn btn-soft btn-sm cursor-pointer">
+              {{ t('Annuler') }}
             </Link>
             <button
               type="submit"
               :disabled="form.processing"
-              class="btn btn-primary btn-sm min-h-10 px-5"
+              class="btn btn-primary btn-sm min-h-10 px-5 cursor-pointer"
             >
               <Send class="size-3.5" />
-              <span>Envoyer le ticket</span>
+              <span>{{ t('Envoyer le ticket') }}</span>
             </button>
           </div>
         </form>

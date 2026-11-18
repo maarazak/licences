@@ -53,12 +53,13 @@ export interface CatalogProduct {
 const props = defineProps<{
   products: CatalogProduct[];
   featuredRaw: CatalogProduct[];
+  carouselProducts?: CatalogProduct[];
   availableProducts: CatalogProduct[];
   categories: [string, number][];
   initialFeaturedCount?: number;
 }>();
 
-const FEATURED_PAGE = 8;
+const FEATURED_PAGE = 12;
 const featuredCount = ref(props.initialFeaturedCount || FEATURED_PAGE);
 
 // Décorer chaque produit avec son LogoSpec
@@ -69,26 +70,23 @@ const decorateWithLogo = (p: CatalogProduct): CatalogProduct => ({
 
 const available = computed(() => (props.availableProducts || []).map(decorateWithLogo));
 const featuredRawList = computed(() => (props.featuredRaw || []).map(decorateWithLogo));
-
-// Produits phares d'abord ; à défaut de sélection, un choix varié de marques.
-const featured = computed(() => {
-  if (featuredRawList.value.length >= 4) {
-    return featuredRawList.value;
-  }
-  return diversify(available.value, 8);
+const carouselList = computed(() => {
+  const source = (props.carouselProducts && props.carouselProducts.length > 0)
+    ? props.carouselProducts
+    : (props.featuredRaw || []);
+  return source.map(decorateWithLogo);
 });
 
-const featuredIds = computed(() => new Set(featured.value.map((p) => p.id)));
-
-// Section « Les plus demandés » : phares d'abord, puis les autres offres disponibles (sans doublon)
+// Section « Les plus demandés » : commence immédiatement par les marques VIP phares
 const pool = computed(() => {
-  const others = available.value.filter((p) => !featuredIds.value.has(p.id));
-  return featured.value.concat(others);
+  return (props.products || []).map(decorateWithLogo);
 });
+
+const featuredIds = computed(() => new Set((props.featuredRaw || []).map((p) => p.id)));
 
 // Marques pour le bandeau défilant BrandMarquee
 const brands = computed(() => {
-  const allLogos = featured.value.concat(available.value).map((p) => p.logo).filter(Boolean) as LogoSpec[];
+  const allLogos = carouselList.value.concat(available.value).map((p) => p.logo).filter(Boolean) as LogoSpec[];
   return distinctBrands(allLogos, 16);
 });
 
@@ -102,9 +100,9 @@ function stockBadge(p: CatalogProduct): { badge: string; badgeTone: 'success' | 
   return { badge: t('Disponible'), badgeTone: 'success' };
 }
 
-// Slides pour le HeroCarousel 3D
+// Slides pour le HeroCarousel 3D (uniquement les marques demandées)
 const slides = computed<HeroSlide[]>(() => {
-  return featured.value.slice(0, 6).map((p) => ({
+  return carouselList.value.map((p) => ({
     slug: p.slug,
     title: p.title,
     duration: t(p.duration),
@@ -123,7 +121,7 @@ const reasons = computed(() => [
 ]);
 
 const steps = computed(() => [
-  { icon: ShoppingBag, title: t('Choisissez votre offre'), text: t('Type d’accès, durée et garantie sont affichés avant de payer.') },
+  { icon: ShoppingBag, title: t('Choisissez votre offre'), text: t('Type d’accès et durée sont clairement indiqués avant de payer.') },
   { icon: Smartphone, title: t('Payez en FCFA'), text: t('Mobile Money (Orange, Moov, MTN, Wave) en toute sécurité.') },
   { icon: Package, title: t('Recevez votre accès'), text: t('Livraison automatique dans Mes achats, avec un e-mail de confirmation.') },
 ]);
@@ -131,7 +129,7 @@ const steps = computed(() => [
 const faq = computed(() => [
   [t('Combien de temps pour recevoir mon accès ?'), t('En général quelques minutes après la confirmation du paiement. Certaines offres demandent une activation manuelle, indiquée sur la fiche.')],
   [t('Comment payer ?'), t('Par mobile money, sur la page sécurisée de notre prestataire de paiement. Le prix affiché est le prix final, en FCFA.')],
-  [t('Et si mon accès ne fonctionne pas ?'), t('Signalez-le depuis votre commande pendant la durée de garantie : nous le remplaçons ou nous créditons votre solde.')],
+  [t('Et si mon accès ne fonctionne pas ?'), t('Signalez-le depuis votre commande : nous le remplaçons ou nous créditons votre solde.')],
   [t('Où retrouver mes accès ?'), t('Dans Mes achats, à tout moment, après connexion par code e-mail. Aucun mot de passe à retenir.')],
 ]);
 
@@ -148,29 +146,27 @@ const handleLoadMore = () => {
 
 <template>
   <SiteLayout>
-    <Head title="Abonnements et licences numériques payés en FCFA" />
+    <Head :title="t('Abonnements et licences numériques payés en FCFA')" />
 
     <!-- ── Héros ── -->
     <section class="bg-hero relative overflow-hidden">
       <div aria-hidden="true" class="grid-lines absolute inset-0" />
       <div class="container-page relative grid gap-12 py-14 sm:py-18 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:py-20">
         <div class="animate-fade-up">
-          <div class="space-y-3.5">
-            <div>
-              <p class="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-1.5 text-xs font-bold text-ink/80 shadow-sm">
-                <span class="pulse-dot size-2 rounded-full bg-brand-bright" />
-                {{ t('Livraison en quelques minutes') }}
-              </p>
-            </div>
-            <div>
+          <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+            <p class="inline-flex items-center gap-2.5 rounded-full border border-line bg-white px-4 py-1.5 text-xs font-bold text-ink/80 shadow-sm">
+              <span class="pulse-dot size-2 rounded-full bg-brand-bright" />
+              {{ t('Livraison en quelques minutes') }}
+            </p>
+            <div class="sm:pl-1">
               <PaymentLogos layout="floating" />
             </div>
           </div>
           <h1 class="mt-6 font-display text-[2.6rem] leading-[1.04] font-extrabold tracking-tight text-ink sm:text-6xl lg:text-[4rem]">
-            Vos abonnements premium, <span class="text-gradient">payés en FCFA.</span>
+            {{ t('Vos abonnements premium,') }} <span class="text-gradient">{{ t('payés en FCFA.') }}</span>
           </h1>
           <p class="mt-6 max-w-lg text-lg leading-relaxed text-muted">
-            Netflix, ChatGPT, Claude, Canva et bien plus. Payez par mobile money, recevez votre accès en quelques minutes.
+            {{ t('Netflix, ChatGPT, Claude, Canva et bien plus. Payez par mobile money, recevez votre accès en quelques minutes.') }}
           </p>
           <div class="mt-8 flex flex-wrap gap-3">
             <a href="#phares" class="btn btn-primary min-h-12 px-7 text-base">
@@ -208,7 +204,7 @@ const handleLoadMore = () => {
         </Link>
       </div>
 
-      <template v-if="featured.length">
+      <template v-if="pool.length">
         <div class="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <ProductCard
             v-for="product in pool.slice(0, featuredCount)"
@@ -220,13 +216,13 @@ const handleLoadMore = () => {
         <LoadMoreLink
           v-if="pool.length > featuredCount"
           :href="`/?phares=${featuredCount + FEATURED_PAGE}#phares`"
-          label="Charger plus"
-          :hint="`${featuredCount} sur ${pool.length} offres affichées`"
+          :label="t('Charger plus')"
+          :hint="t('{shown} sur {total} offres affichées', { shown: featuredCount, total: pool.length })"
           @click.prevent="handleLoadMore"
         />
       </template>
       <p v-else class="card mt-7 px-6 py-12 text-center text-sm text-muted">
-        Les offres arrivent bientôt. Revenez dans un instant.
+        {{ t('Les offres arrivent bientôt. Revenez dans un instant.') }}
       </p>
     </section>
 

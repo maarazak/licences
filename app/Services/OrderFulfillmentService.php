@@ -78,7 +78,7 @@ class OrderFulfillmentService
             return true;
         }
 
-        // Si Flowseller n'est pas configuré, marquer en attente d'activation manuelle
+        // Si le service externe n'est pas configuré, marquer en attente d'activation manuelle
         if (!$this->flowseller->isConfigured()) {
             $order->update([
                 'status' => 'activation_awaiting',
@@ -88,7 +88,7 @@ class OrderFulfillmentService
                 'id' => Str::uuid()->toString(),
                 'order_id' => $order->id,
                 'type' => 'activation_awaiting',
-                'message' => 'En attente d\'activation manuelle (clé API fournisseur non configurée).',
+                'message' => 'Commande en cours de préparation par notre équipe technique.',
                 'actor' => 'system',
             ]);
             return true;
@@ -137,7 +137,7 @@ class OrderFulfillmentService
                 'id' => Str::uuid()->toString(),
                 'order_id' => $order->id,
                 'type' => 'fulfil_retry',
-                'message' => "Livraison à reprendre (essai {$order->fulfil_attempts}) : {$e->getMessage()}",
+                'message' => "Activation en cours de traitement par notre équipe technique.",
                 'actor' => 'system',
             ]);
 
@@ -210,7 +210,7 @@ class OrderFulfillmentService
                 'id' => Str::uuid()->toString(),
                 'order_id' => $order->id,
                 'type' => 'activation_awaiting',
-                'message' => 'Activation en attente chez le fournisseur.',
+                'message' => 'Votre licence est en cours d\'activation sur la plateforme.',
                 'actor' => 'supplier',
             ]);
 
@@ -236,7 +236,7 @@ class OrderFulfillmentService
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
             'type' => 'supplier_pending',
-            'message' => "Commande fournisseur en cours ({$status}).",
+            'message' => "Activation en cours sur nos serveurs.",
             'actor' => 'supplier',
         ]);
     }
@@ -258,7 +258,7 @@ class OrderFulfillmentService
             'id' => Str::uuid()->toString(),
             'order_id' => $order->id,
             'type' => 'fulfil_failed',
-            'message' => "Livraison impossible ({$code}) : {$message}",
+            'message' => "Commande prise en charge par notre équipe pour régularisation.",
             'actor' => 'system',
         ]);
 

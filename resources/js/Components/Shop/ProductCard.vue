@@ -58,13 +58,13 @@ const accessKindText = computed(() => {
 });
 
 const durationText = computed(() => {
-  if (props.product.duration) return props.product.duration;
+  if (props.product.duration && !/warranty/i.test(props.product.duration)) return props.product.duration;
   if (props.product.expire_days) {
     if (props.product.expire_days >= 365) return '1 an';
     if (props.product.expire_days === 30) return '1 mois';
     return `${props.product.expire_days} jours`;
   }
-  return props.product.warranty || 'Selon offre';
+  return 'Selon offre';
 });
 
 const { t, format } = useI18n();

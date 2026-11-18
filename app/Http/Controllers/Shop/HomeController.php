@@ -22,13 +22,12 @@ class HomeController extends Controller
             'is_featured', 'featured_rank', 'duration_label'
         ];
 
-        // Produits publiés légers pour la page d'accueil (phares + choix varié)
+        // Tous les produits publiés pour la page d'accueil (sans limite artificielle)
         $allProducts = Product::where('is_published', true)
             ->where('supplier_active', true)
             ->select($columns)
             ->orderByRaw('COALESCE(featured_rank, 9999) ASC')
             ->orderBy('name', 'asc')
-            ->limit(80)
             ->get();
 
         $mapProduct = function (Product $p) {
@@ -38,12 +37,7 @@ class HomeController extends Controller
                 && !$p->preorder
                 && ($p->stock === null || $p->stock > 0);
 
-            $duration = $p->duration_label ?: match (true) {
-                $p->expire_days >= 365 => '1 an',
-                $p->expire_days === 30 => '1 mois',
-                $p->expire_days > 0 => "{$p->expire_days} jours",
-                default => $p->warranty ?: 'Selon offre',
-            };
+            $duration = $p->duration;
 
             $accessKind = preg_match('/account|link|code/i', (string) $p->category)
                 ? $p->category
@@ -75,11 +69,29 @@ class HomeController extends Controller
         };
 
         $mapped = $allProducts->map($mapProduct);
-        $available = $mapped->filter(fn ($p) => $p['available'])->values();
 
-        // Produits phares configurés et disponibles
-        $featuredRaw = $available
-            ->filter(fn ($p) => $p['is_featured'])
+        // Tri : marques VIP phares d'abord (ranks 1..33), puis disponibles, puis alphabétique
+        $sorted = $mapped->sort(function ($a, $b) {
+            $rankA = $a['featured_rank'] ?? 9999;
+            $rankB = $b['featured_rank'] ?? 9999;
+            if ($rankA !== $rankB) {
+                return $rankA <=> $rankB;
+            }
+            if ($a['available'] !== $b['available']) {
+                return $b['available'] <=> $a['available'];
+            }
+            return strcasecmp($a['title'], $b['title']);
+        })->values();
+
+        // Produits réservés pour le carrousel 3D (exactement les 10 marques demandées)
+        $carouselProducts = $mapped
+            ->filter(fn ($p) => ($p['featured_rank'] ?? 9999) <= 10)
+            ->sortBy('featured_rank')
+            ->values();
+
+        // Produits phares généraux
+        $featuredRaw = $sorted
+            ->filter(fn ($p) => !empty($p['is_featured']))
             ->sortBy('featured_rank')
             ->values();
 
@@ -98,10 +110,11 @@ class HomeController extends Controller
             ->all();
 
         return Inertia::render('Shop/Home', [
-            'featured' => $featuredRaw->all(),
-            'products' => $mapped->all(),
+            'featured' => $carouselProducts->all(),
+            'carouselProducts' => $carouselProducts->all(),
+            'products' => $sorted->all(),
             'featuredRaw' => $featuredRaw->all(),
-            'availableProducts' => $available->all(),
+            'availableProducts' => $sorted->all(),
             'categories' => $categoriesList,
             'initialFeaturedCount' => $featuredCount,
         ]);

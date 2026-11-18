@@ -147,4 +147,83 @@ class CinetPayIntegrationTest extends TestCase
             'type' => 'paid',
         ]);
     }
+
+    public function test_seamless_checkout_returns_json_tokens_and_urls(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'seamless@example.com',
+            'country' => 'BF',
+        ]);
+
+        $product = Product::create([
+            'id' => (string) Str::uuid(),
+            'supplier_id' => 'SUP-SEAMLESS',
+            'slug' => 'test-seamless-product-' . Str::random(5),
+            'name' => 'Produit Seamless',
+            'category' => 'Bureautique',
+            'cost_usd_cents' => 300,
+            'price_xof_override' => 5000,
+            'is_published' => true,
+            'supplier_active' => true,
+            'in_stock' => true,
+        ]);
+
+        $mockCinetPay = Mockery::mock(CinetPayService::class);
+        $mockCinetPay->shouldReceive('createPaymentPage')
+            ->once()
+            ->andReturn([
+                'merchant_transaction_id' => 'CMD-SEAMLESS-1',
+                'transaction_id' => 'CP-TX-SEAMLESS',
+                'notify_token' => 'tok_seamless',
+                'payment_token' => 'ptok_seamless_xyz',
+                'redirect_url' => 'https://checkout.cinetpay.com/payment/seamless',
+                'payment_url' => 'https://checkout.cinetpay.com/payment/seamless',
+                'status' => 'ACCEPTED',
+                'code' => 201,
+            ]);
+        $this->app->instance(CinetPayService::class, $mockCinetPay);
+
+        $this->actingAs($user, 'web');
+
+        $response = $this->postJson(route('checkout.store'), [
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'expectedTotalXof' => 5000,
+            'country' => 'BF',
+            'payWith' => 'cinetpay',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'seamless' => true,
+            'payment_token' => 'ptok_seamless_xyz',
+            'payment_url' => 'https://checkout.cinetpay.com/payment/seamless',
+        ]);
+    }
+
+    public function test_return_page_redirects_paid_failed_orders_with_info(): void
+    {
+        $user = User::factory()->create();
+
+        $order = Order::create([
+            'id' => (string) Str::uuid(),
+            'reference' => 'CMD-PAID-FAIL',
+            'user_id' => $user->id,
+            'product_name' => 'Produit Test',
+            'quantity' => 1,
+            'unit_price_xof' => 2750,
+            'total_xof' => 2750,
+            'status' => 'failed',
+            'failure_code' => 'insufficient_balance',
+            'paid_at' => now(),
+            'paid_with' => 'cinetpay',
+        ]);
+
+        $this->actingAs($user, 'web');
+
+        $response = $this->get('/paiement/retour?commande=' . $order->id);
+        $response->assertRedirect(route('account.orders.show', $order->id));
+        $response->assertSessionHas('info');
+    }
 }

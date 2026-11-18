@@ -18,6 +18,12 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # Block access to hidden files and directories (e.g. .env, .git)
+    RewriteRule (^\.|/\.) - [F]
+
+    # Block access to sensitive file extensions (e.g. .sql, .dump, .json, .lock, .md, .yml, .yaml)
+    RewriteRule \.(sql|dump|lock|md|yml|yaml|env)$ - [F]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

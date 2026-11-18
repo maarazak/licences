@@ -11,7 +11,7 @@ const steps = computed(() => [
   {
     icon: ShoppingBag,
     title: t('Choisissez votre offre'),
-    text: t("Type d'accès (lien, code ou compte), durée, garantie et disponibilité sont affichés avant de payer.")
+    text: t("Type d'accès (lien, code ou compte), durée et disponibilité sont affichés avant de payer.")
   },
   {
     icon: Smartphone,

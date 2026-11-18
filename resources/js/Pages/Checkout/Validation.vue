@@ -41,13 +41,18 @@ const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
 const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
-const payChoice = ref<'gateway' | 'balance'>('gateway');
+const payChoice = ref<'cinetpay' | 'cryptomus' | 'balance'>('cinetpay');
 
 const currentCountry = computed(() => getCountry(selectedCountry.value));
 
 const totalXof = computed(() => props.product.unitPriceXof * quantity.value);
 const canUseBalance = computed(() => props.balanceXof >= totalXof.value);
-const effectivePayWith = computed(() => (canUseBalance.value ? payChoice.value : 'gateway'));
+const effectivePayWith = computed(() => {
+  if (payChoice.value === 'balance') {
+    return canUseBalance.value ? 'balance' : 'cinetpay';
+  }
+  return payChoice.value;
+});
 
 const activationEmails = ref<string[]>(Array.from({ length: 1 }, (_, i) => (i === 0 ? props.defaults.email : '')));
 
@@ -210,14 +215,32 @@ const submitCheckout = () => {
                 <input
                   type="radio"
                   name="payWith"
-                  value="gateway"
-                  :checked="effectivePayWith === 'gateway'"
-                  @change="payChoice = 'gateway'"
+                  value="cinetpay"
+                  :checked="effectivePayWith === 'cinetpay'"
+                  @change="payChoice = 'cinetpay'"
                   class="mt-1 size-4 accent-brand"
                 />
                 <span class="text-sm">
-                  <span class="font-semibold text-ink">Carte bancaire ou Mobile Money (CinetPay)</span>
-                  <span class="block text-muted">Visa, Mastercard, Orange Money, Moov Money, MTN, Wave...</span>
+                  <span class="font-semibold text-ink">Mobile Money ou Carte bancaire</span>
+                  <span class="block text-muted">Orange Money, Moov Money, MTN, Wave, Visa, Mastercard</span>
+                </span>
+              </label>
+
+              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50 transition">
+                <input
+                  type="radio"
+                  name="payWith"
+                  value="cryptomus"
+                  :checked="effectivePayWith === 'cryptomus'"
+                  @change="payChoice = 'cryptomus'"
+                  class="mt-1 size-4 accent-brand"
+                />
+                <span class="text-sm">
+                  <span class="font-semibold text-ink flex items-center gap-2">
+                    Crypto-monnaies (Cryptomus)
+                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">USDT, BTC, SOL...</span>
+                  </span>
+                  <span class="block text-muted">USDT (TRC20, BEP20, Polygon), Bitcoin, Solana, TON, Ethereum, Litecoin</span>
                 </span>
               </label>
 

@@ -160,7 +160,7 @@ const bottomLinks = [
         class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold text-ink transition active:bg-ink/5"
       >
         <component :is="link.icon" class="size-5" aria-hidden="true" />
-        {{ link.label }}
+        {{ t(link.label) }}
       </Link>
     </nav>
 
@@ -172,7 +172,7 @@ const bottomLinks = [
             <LogoLockup />
           </Link>
           <p class="mt-4 text-sm leading-relaxed text-muted">
-            Vos abonnements premium, payés en FCFA et livrés en quelques minutes.
+            {{ t('Vos abonnements premium, payés en FCFA et livrés en quelques minutes.') }}
           </p>
         </div>
 
