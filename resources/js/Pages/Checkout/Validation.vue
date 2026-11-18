@@ -1,7 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowRight, Lock, Minus, Plus } from 'lucide-vue-next';
+import {
+  ArrowRight,
+  Lock,
+  Minus,
+  Plus,
+  Smartphone,
+  CreditCard,
+  Coins,
+  Wallet,
+  Sparkles,
+  ShieldCheck,
+  Zap
+} from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import { COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
@@ -208,66 +220,237 @@ const submitCheckout = () => {
           </section>
 
           <!-- Moyen de paiement -->
-          <section class="card p-5 sm:p-6">
-            <h2 class="h3 text-lg">Moyen de paiement</h2>
-            <div class="mt-3 space-y-2.5">
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50 transition">
-                <input
-                  type="radio"
-                  name="payWith"
-                  value="cinetpay"
-                  :checked="effectivePayWith === 'cinetpay'"
-                  @change="payChoice = 'cinetpay'"
-                  class="mt-1 size-4 accent-brand"
-                />
-                <span class="text-sm">
-                  <span class="font-semibold text-ink">Mobile Money ou Carte bancaire</span>
-                  <span class="block text-muted">Orange Money, Moov Money, MTN, Wave, Visa, Mastercard</span>
-                </span>
-              </label>
+          <section class="card p-6 sm:p-7 shadow-card">
+            <div class="flex items-center justify-between gap-3 border-b border-line/80 pb-4">
+              <div>
+                <h2 class="h3 text-xl text-ink font-extrabold flex items-center gap-2.5">
+                  <ShieldCheck class="size-5 text-brand" />
+                  {{ t('Moyen de paiement') }}
+                </h2>
+                <p class="text-xs text-muted mt-0.5">
+                  {{ t('Sélectionnez votre mode de règlement préféré.') }}
+                </p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
+                <Lock class="size-3" />
+                {{ t('100% Sécurisé') }}
+              </span>
+            </div>
 
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3.5 has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50 transition">
-                <input
-                  type="radio"
-                  name="payWith"
-                  value="cryptomus"
-                  :checked="effectivePayWith === 'cryptomus'"
-                  @change="payChoice = 'cryptomus'"
-                  class="mt-1 size-4 accent-brand"
-                />
-                <span class="text-sm">
-                  <span class="font-semibold text-ink flex items-center gap-2">
-                    Crypto-monnaies (Cryptomus)
-                    <span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">USDT, BTC, SOL...</span>
-                  </span>
-                  <span class="block text-muted">USDT (TRC20, BEP20, Polygon), Bitcoin, Solana, TON, Ethereum, Litecoin</span>
-                </span>
-              </label>
-
-              <label
+            <div class="mt-5 space-y-3.5">
+              <!-- Option 1 : Mobile Money & Cartes Bancaires -->
+              <div
+                @click="payChoice = 'cinetpay'"
                 :class="[
-                  'flex items-start gap-3 rounded-xl border border-line p-3.5 transition',
-                  canUseBalance ? 'cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand-soft/50' : 'cursor-not-allowed bg-canvas-subtle/50 opacity-60'
+                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200 cursor-pointer',
+                  effectivePayWith === 'cinetpay'
+                    ? 'border-brand ring-2 ring-brand/30 bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/30 shadow-md'
+                    : 'border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
                 ]"
               >
-                <input
-                  type="radio"
-                  name="payWith"
-                  value="balance"
-                  :checked="effectivePayWith === 'balance'"
-                  @change="payChoice = 'balance'"
-                  :disabled="!canUseBalance"
-                  class="mt-1 size-4 accent-brand disabled:cursor-not-allowed"
-                />
-                <span class="text-sm">
-                  <span class="font-semibold text-ink">
-                    Mon solde ({{ formatXof(balanceXof) }})
+                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                  <!-- Radio custom indicator -->
+                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
+                    <div
+                      :class="[
+                        'size-5 rounded-full border-2 flex items-center justify-center transition',
+                        effectivePayWith === 'cinetpay' ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
+                      ]"
+                    >
+                      <span v-if="effectivePayWith === 'cinetpay'" class="size-2 rounded-full bg-white" />
+                    </div>
+                  </div>
+
+                  <!-- Icon badge -->
+                  <div class="size-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-0.5 shadow-sm flex items-center justify-center text-white">
+                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                      <Smartphone class="size-6 text-white" />
+                    </div>
+                  </div>
+
+                  <!-- Text details -->
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-base font-extrabold text-ink">{{ t('Mobile Money ou Carte bancaire') }}</span>
+                      <span class="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700 border border-orange-200">
+                        {{ t('Recommandé en Afrique') }}
+                      </span>
+                    </div>
+                    <p class="text-xs text-muted leading-relaxed">
+                      {{ t('Orange Money, Wave, MTN, Moov, Carte Visa ou Mastercard') }}
+                    </p>
+
+                    <!-- Badges des opérateurs -->
+                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        <span class="size-1.5 rounded-full bg-orange-500" /> Orange
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        <span class="size-1.5 rounded-full bg-sky-500" /> Wave
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        <span class="size-1.5 rounded-full bg-yellow-500" /> MTN
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        <span class="size-1.5 rounded-full bg-blue-500" /> Moov
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        <CreditCard class="size-3 text-slate-500" /> Visa / Mastercard
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Option 2 : Crypto-monnaies (Cryptomus) -->
+              <div
+                @click="payChoice = 'cryptomus'"
+                :class="[
+                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200 cursor-pointer',
+                  effectivePayWith === 'cryptomus'
+                    ? 'border-brand ring-2 ring-brand/30 bg-gradient-to-r from-emerald-50/70 via-white to-purple-50/30 shadow-md'
+                    : 'border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
+                ]"
+              >
+                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                  <!-- Radio custom indicator -->
+                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
+                    <div
+                      :class="[
+                        'size-5 rounded-full border-2 flex items-center justify-center transition',
+                        effectivePayWith === 'cryptomus' ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
+                      ]"
+                    >
+                      <span v-if="effectivePayWith === 'cryptomus'" class="size-2 rounded-full bg-white" />
+                    </div>
+                  </div>
+
+                  <!-- Icon badge -->
+                  <div class="size-12 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 p-0.5 shadow-sm flex items-center justify-center text-white">
+                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                      <Coins class="size-6 text-white" />
+                    </div>
+                  </div>
+
+                  <!-- Text details -->
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-base font-extrabold text-ink">{{ t('Crypto-monnaies') }}</span>
+                      <span class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                        <Zap class="size-2.5 text-purple-600" />
+                        {{ t('Cryptomus · Sans frais bancaires') }}
+                      </span>
+                    </div>
+                    <p class="text-xs text-muted leading-relaxed">
+                      {{ t('Paiement mondial instantané sur réseaux rapides à très faibles frais.') }}
+                    </p>
+
+                    <!-- Badges des cryptos -->
+                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
+                        USDT (TRC20 / BEP20)
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        Bitcoin
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        Solana
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        TON
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        Ethereum
+                      </span>
+                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        Litecoin
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Option 3 : Mon solde client (Wallet) -->
+              <div
+                @click="canUseBalance && (payChoice = 'balance')"
+                :class="[
+                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200',
+                  !canUseBalance
+                    ? 'cursor-not-allowed bg-slate-50/70 border-slate-200 opacity-65'
+                    : effectivePayWith === 'balance'
+                      ? 'cursor-pointer border-brand ring-2 ring-brand/30 bg-gradient-to-r from-teal-50/70 via-white to-emerald-50/40 shadow-md'
+                      : 'cursor-pointer border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
+                ]"
+              >
+                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                  <!-- Radio custom indicator -->
+                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
+                    <div
+                      :class="[
+                        'size-5 rounded-full border-2 flex items-center justify-center transition',
+                        !canUseBalance
+                          ? 'border-slate-300 bg-slate-100'
+                          : effectivePayWith === 'balance'
+                            ? 'border-brand bg-brand text-white'
+                            : 'border-slate-300 bg-white group-hover:border-slate-400'
+                      ]"
+                    >
+                      <span v-if="effectivePayWith === 'balance'" class="size-2 rounded-full bg-white" />
+                    </div>
+                  </div>
+
+                  <!-- Icon badge -->
+                  <div
+                    :class="[
+                      'size-12 shrink-0 rounded-2xl p-0.5 shadow-sm flex items-center justify-center text-white',
+                      canUseBalance
+                        ? 'bg-gradient-to-br from-emerald-500 via-teal-500 to-[#0d5c4a]'
+                        : 'bg-slate-300'
+                    ]"
+                  >
+                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                      <Wallet class="size-6 text-white" />
+                    </div>
+                  </div>
+
+                  <!-- Text details -->
+                  <div class="min-w-0 flex-1 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-base font-extrabold text-ink">{{ t('Mon solde client') }}</span>
+                      <span
+                        :class="[
+                          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-extrabold',
+                          canUseBalance
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : 'bg-slate-200 text-slate-700'
+                        ]"
+                      >
+                        <Sparkles v-if="canUseBalance" class="size-3 text-emerald-600" />
+                        {{ formatXof(balanceXof) }} {{ t('disponible') }}
+                      </span>
+                    </div>
+
+                    <p class="text-xs text-muted leading-relaxed">
+                      <template v-if="canUseBalance">
+                        <span class="font-semibold text-emerald-800">{{ t('Validation immédiate en 1 clic sans redirection.') }}</span>
+                        {{ t(' Le montant de la commande sera automatiquement déduit de votre solde.') }}
+                      </template>
+                      <template v-else>
+                        <span class="text-rose-600 font-semibold">{{ t('Solde insuffisant pour cette commande.') }}</span>
+                        {{ t(' Rechargez votre solde depuis votre espace ou choisissez Mobile Money / Crypto.') }}
+                      </template>
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Tag d'état rapide -->
+                <div v-if="canUseBalance" class="hidden sm:flex shrink-0">
+                  <span class="inline-flex items-center gap-1 text-xs font-bold text-brand bg-brand/10 rounded-full px-3 py-1">
+                    <Zap class="size-3.5" />
+                    {{ t('Instantané') }}
                   </span>
-                  <span class="block text-muted">
-                    {{ canUseBalance ? 'Le solde paie la commande entière.' : 'Solde insuffisant pour cette commande.' }}
-                  </span>
-                </span>
-              </label>
+                </div>
+              </div>
             </div>
           </section>
         </div>

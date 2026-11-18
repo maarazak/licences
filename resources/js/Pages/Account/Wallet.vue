@@ -8,6 +8,10 @@ import {
   ArrowUpRight,
   ShieldCheck,
   CheckCircle2,
+  Smartphone,
+  Coins,
+  CreditCard,
+  Zap,
 } from 'lucide-vue-next';
 import AccountLayout from '@/Layouts/AccountLayout.vue';
 import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
@@ -127,38 +131,82 @@ const submitDeposit = () => {
 
           <!-- Gateway selection -->
           <div>
-            <label class="label text-xs">{{ t('Moyen de rechargement') }}</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3.5 has-[:checked]:border-[#0d5c4a] has-[:checked]:bg-emerald-50/50 transition">
-                <input
-                  type="radio"
-                  name="depositGateway"
-                  value="cinetpay"
-                  v-model="depositForm.gateway"
-                  class="mt-1 size-4 accent-[#0d5c4a]"
-                />
-                <span class="text-xs">
-                  <span class="font-bold text-slate-800 block">{{ t('Mobile Money & Carte') }}</span>
-                  <span class="text-slate-500 block text-[11px] mt-0.5">{{ t('Orange, MTN, Moov, Wave, Visa, Mastercard') }}</span>
-                </span>
-              </label>
+            <label class="label text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">{{ t('Moyen de rechargement') }}</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-1">
+              <!-- Mobile Money & Cartes -->
+              <div
+                @click="depositForm.gateway = 'cinetpay'"
+                :class="[
+                  'group relative flex items-start gap-3.5 rounded-2xl border p-4 transition-all duration-200 cursor-pointer',
+                  depositForm.gateway === 'cinetpay'
+                    ? 'border-[#0d5c4a] ring-2 ring-[#0d5c4a]/30 bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/30 shadow-md'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50 shadow-sm'
+                ]"
+              >
+                <!-- Radio circle -->
+                <div class="mt-0.5 flex shrink-0 items-center justify-center">
+                  <div
+                    :class="[
+                      'size-4.5 rounded-full border-2 flex items-center justify-center transition',
+                      depositForm.gateway === 'cinetpay' ? 'border-[#0d5c4a] bg-[#0d5c4a] text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
+                    ]"
+                  >
+                    <span v-if="depositForm.gateway === 'cinetpay'" class="size-1.5 rounded-full bg-white" />
+                  </div>
+                </div>
 
-              <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3.5 has-[:checked]:border-[#0d5c4a] has-[:checked]:bg-emerald-50/50 transition">
-                <input
-                  type="radio"
-                  name="depositGateway"
-                  value="cryptomus"
-                  v-model="depositForm.gateway"
-                  class="mt-1 size-4 accent-[#0d5c4a]"
-                />
-                <span class="text-xs">
-                  <span class="font-bold text-slate-800 flex items-center gap-1.5">
-                    {{ t('Crypto-monnaies') }}
-                    <span class="rounded bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">USDT, BTC...</span>
-                  </span>
-                  <span class="text-slate-500 block text-[11px] mt-0.5">{{ t('USDT TRC20/BEP20, Bitcoin, Solana, TON...') }}</span>
-                </span>
-              </label>
+                <!-- Icon -->
+                <div class="size-10 shrink-0 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-sm">
+                  <Smartphone class="size-5 text-white" />
+                </div>
+
+                <div class="min-w-0 flex-1 space-y-0.5">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-sm font-bold text-slate-800">{{ t('Mobile Money & Carte') }}</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 leading-tight">
+                    {{ t('Orange, MTN, Moov, Wave, Visa, Mastercard') }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Crypto -->
+              <div
+                @click="depositForm.gateway = 'cryptomus'"
+                :class="[
+                  'group relative flex items-start gap-3.5 rounded-2xl border p-4 transition-all duration-200 cursor-pointer',
+                  depositForm.gateway === 'cryptomus'
+                    ? 'border-[#0d5c4a] ring-2 ring-[#0d5c4a]/30 bg-gradient-to-r from-emerald-50/70 via-white to-purple-50/30 shadow-md'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50 shadow-sm'
+                ]"
+              >
+                <!-- Radio circle -->
+                <div class="mt-0.5 flex shrink-0 items-center justify-center">
+                  <div
+                    :class="[
+                      'size-4.5 rounded-full border-2 flex items-center justify-center transition',
+                      depositForm.gateway === 'cryptomus' ? 'border-[#0d5c4a] bg-[#0d5c4a] text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
+                    ]"
+                  >
+                    <span v-if="depositForm.gateway === 'cryptomus'" class="size-1.5 rounded-full bg-white" />
+                  </div>
+                </div>
+
+                <!-- Icon -->
+                <div class="size-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-sm">
+                  <Coins class="size-5 text-white" />
+                </div>
+
+                <div class="min-w-0 flex-1 space-y-0.5">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-sm font-bold text-slate-800">{{ t('Crypto-monnaies') }}</span>
+                    <span class="rounded bg-purple-100 px-1.5 py-0.2 text-[9px] font-extrabold text-purple-800">USDT, BTC...</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 leading-tight">
+                    {{ t('USDT TRC20/BEP20, Bitcoin, Solana, TON...') }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
