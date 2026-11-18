@@ -263,7 +263,7 @@ class CheckoutController extends Controller
                 \Log::warning("Erreur fulfillment solde: " . $e->getMessage());
             }
 
-            if ($request->wantsJson() || $request->ajax()) {
+            if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => true,
                     'seamless' => false,
@@ -455,7 +455,7 @@ class CheckoutController extends Controller
 
             $genericError = "Ce moyen de paiement est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
-            if ($request->wantsJson() || $request->ajax()) {
+            if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'error' => $genericError,

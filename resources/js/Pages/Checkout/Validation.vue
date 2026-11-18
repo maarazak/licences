@@ -4,15 +4,11 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
   ArrowRight,
   Lock,
-  Minus,
   Plus,
   Smartphone,
   CreditCard,
   Coins,
-  Wallet,
-  Sparkles,
-  ShieldCheck,
-  Zap
+  Wallet
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
@@ -220,84 +216,51 @@ const submitCheckout = () => {
           </section>
 
           <!-- Moyen de paiement -->
-          <section class="card p-6 sm:p-7 shadow-card">
-            <div class="flex items-center justify-between gap-3 border-b border-line/80 pb-4">
+          <section class="card p-5 sm:p-6 shadow-sm">
+            <div class="flex items-center justify-between border-b border-line pb-4">
               <div>
-                <h2 class="h3 text-xl text-ink font-extrabold flex items-center gap-2.5">
-                  <ShieldCheck class="size-5 text-brand" />
+                <h2 class="h3 text-lg font-bold text-ink flex items-center gap-2">
+                  <CreditCard class="size-5 text-brand" />
                   {{ t('Moyen de paiement') }}
                 </h2>
                 <p class="text-xs text-muted mt-0.5">
-                  {{ t('Sélectionnez votre mode de règlement préféré.') }}
+                  {{ t('Sélectionnez votre mode de règlement.') }}
                 </p>
               </div>
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
-                <Lock class="size-3" />
-                {{ t('100% Sécurisé') }}
+              <span class="inline-flex items-center gap-1 text-xs text-muted">
+                <Lock class="size-3.5 text-emerald-600" />
+                {{ t('Paiement 100% sécurisé') }}
               </span>
             </div>
 
-            <div class="mt-5 space-y-3.5">
-              <!-- Option 1 : Mobile Money & Cartes Bancaires -->
+            <div class="mt-4 space-y-3">
+              <!-- Option 1 : Mobile Money ou Carte bancaire -->
               <div
                 @click="payChoice = 'cinetpay'"
                 :class="[
-                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200 cursor-pointer',
+                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition cursor-pointer',
                   effectivePayWith === 'cinetpay'
-                    ? 'border-brand ring-2 ring-brand/30 bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/30 shadow-md'
-                    : 'border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
+                    ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30'
+                    : 'border-line bg-white hover:border-slate-300'
                 ]"
               >
-                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                  <!-- Radio custom indicator -->
-                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
-                    <div
-                      :class="[
-                        'size-5 rounded-full border-2 flex items-center justify-center transition',
-                        effectivePayWith === 'cinetpay' ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
-                      ]"
-                    >
-                      <span v-if="effectivePayWith === 'cinetpay'" class="size-2 rounded-full bg-white" />
-                    </div>
+                <div class="flex items-center gap-3.5 min-w-0">
+                  <div
+                    :class="[
+                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
+                      effectivePayWith === 'cinetpay' ? 'border-brand bg-brand' : 'border-slate-300 bg-white'
+                    ]"
+                  >
+                    <span v-if="effectivePayWith === 'cinetpay'" class="size-1.5 rounded-full bg-white" />
                   </div>
 
-                  <!-- Icon badge -->
-                  <div class="size-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-0.5 shadow-sm flex items-center justify-center text-white">
-                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                      <Smartphone class="size-6 text-white" />
-                    </div>
+                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <Smartphone class="size-5" />
                   </div>
 
-                  <!-- Text details -->
-                  <div class="min-w-0 flex-1 space-y-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-base font-extrabold text-ink">{{ t('Mobile Money ou Carte bancaire') }}</span>
-                      <span class="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-700 border border-orange-200">
-                        {{ t('Recommandé en Afrique') }}
-                      </span>
-                    </div>
-                    <p class="text-xs text-muted leading-relaxed">
-                      {{ t('Orange Money, Wave, MTN, Moov, Carte Visa ou Mastercard') }}
-                    </p>
-
-                    <!-- Badges des opérateurs -->
-                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        <span class="size-1.5 rounded-full bg-orange-500" /> Orange
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        <span class="size-1.5 rounded-full bg-sky-500" /> Wave
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        <span class="size-1.5 rounded-full bg-yellow-500" /> MTN
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        <span class="size-1.5 rounded-full bg-blue-500" /> Moov
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        <CreditCard class="size-3 text-slate-500" /> Visa / Mastercard
-                      </span>
-                    </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Mobile Money ou Carte bancaire') }}</p>
+                    <p class="text-xs text-muted mt-0.5">Orange, Wave, MTN, Moov, Visa, Mastercard</p>
                   </div>
                 </div>
               </div>
@@ -306,150 +269,79 @@ const submitCheckout = () => {
               <div
                 @click="payChoice = 'cryptomus'"
                 :class="[
-                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200 cursor-pointer',
+                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition cursor-pointer',
                   effectivePayWith === 'cryptomus'
-                    ? 'border-brand ring-2 ring-brand/30 bg-gradient-to-r from-emerald-50/70 via-white to-purple-50/30 shadow-md'
-                    : 'border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
+                    ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30'
+                    : 'border-line bg-white hover:border-slate-300'
                 ]"
               >
-                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                  <!-- Radio custom indicator -->
-                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
-                    <div
-                      :class="[
-                        'size-5 rounded-full border-2 flex items-center justify-center transition',
-                        effectivePayWith === 'cryptomus' ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'
-                      ]"
-                    >
-                      <span v-if="effectivePayWith === 'cryptomus'" class="size-2 rounded-full bg-white" />
-                    </div>
+                <div class="flex items-center gap-3.5 min-w-0">
+                  <div
+                    :class="[
+                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
+                      effectivePayWith === 'cryptomus' ? 'border-brand bg-brand' : 'border-slate-300 bg-white'
+                    ]"
+                  >
+                    <span v-if="effectivePayWith === 'cryptomus'" class="size-1.5 rounded-full bg-white" />
                   </div>
 
-                  <!-- Icon badge -->
-                  <div class="size-12 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 p-0.5 shadow-sm flex items-center justify-center text-white">
-                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                      <Coins class="size-6 text-white" />
-                    </div>
+                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <Coins class="size-5" />
                   </div>
 
-                  <!-- Text details -->
-                  <div class="min-w-0 flex-1 space-y-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-base font-extrabold text-ink">{{ t('Crypto-monnaies') }}</span>
-                      <span class="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
-                        <Zap class="size-2.5 text-purple-600" />
-                        {{ t('Réseaux rapides · Zéro frais bancaires') }}
-                      </span>
-                    </div>
-                    <p class="text-xs text-muted leading-relaxed">
-                      {{ t('Paiement mondial instantané sur réseaux rapides à très faibles frais.') }}
-                    </p>
-
-                    <!-- Badges des cryptos -->
-                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
-                        USDT (TRC20 / BEP20)
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        Bitcoin
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        Solana
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        TON
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        Ethereum
-                      </span>
-                      <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                        Litecoin
-                      </span>
-                    </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Crypto-monnaies') }}</p>
+                    <p class="text-xs text-muted mt-0.5">USDT, Bitcoin, Ethereum, Solana, TON, Litecoin</p>
                   </div>
                 </div>
               </div>
 
-              <!-- Option 3 : Mon solde client (Wallet) -->
+              <!-- Option 3 : Mon solde client -->
               <div
                 @click="canUseBalance && (payChoice = 'balance')"
                 :class="[
-                  'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 transition-all duration-200',
+                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition',
                   !canUseBalance
-                    ? 'cursor-not-allowed bg-slate-50/70 border-slate-200 opacity-65'
+                    ? 'border-line bg-slate-50/70 opacity-60 cursor-not-allowed'
                     : effectivePayWith === 'balance'
-                      ? 'cursor-pointer border-brand ring-2 ring-brand/30 bg-gradient-to-r from-teal-50/70 via-white to-emerald-50/40 shadow-md'
-                      : 'cursor-pointer border-line bg-white hover:border-slate-300 hover:bg-slate-50/40 shadow-sm'
+                      ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30 cursor-pointer'
+                      : 'border-line bg-white hover:border-slate-300 cursor-pointer'
                 ]"
               >
-                <div class="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                  <!-- Radio custom indicator -->
-                  <div class="mt-0.5 sm:mt-0 flex shrink-0 items-center justify-center">
-                    <div
-                      :class="[
-                        'size-5 rounded-full border-2 flex items-center justify-center transition',
-                        !canUseBalance
-                          ? 'border-slate-300 bg-slate-100'
-                          : effectivePayWith === 'balance'
-                            ? 'border-brand bg-brand text-white'
-                            : 'border-slate-300 bg-white group-hover:border-slate-400'
-                      ]"
-                    >
-                      <span v-if="effectivePayWith === 'balance'" class="size-2 rounded-full bg-white" />
-                    </div>
-                  </div>
-
-                  <!-- Icon badge -->
+                <div class="flex items-center gap-3.5 min-w-0">
                   <div
                     :class="[
-                      'size-12 shrink-0 rounded-2xl p-0.5 shadow-sm flex items-center justify-center text-white',
-                      canUseBalance
-                        ? 'bg-gradient-to-br from-emerald-500 via-teal-500 to-[#0d5c4a]'
-                        : 'bg-slate-300'
+                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
+                      !canUseBalance
+                        ? 'border-slate-300 bg-slate-100'
+                        : effectivePayWith === 'balance'
+                          ? 'border-brand bg-brand'
+                          : 'border-slate-300 bg-white'
                     ]"
                   >
-                    <div class="size-full rounded-[14px] bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                      <Wallet class="size-6 text-white" />
-                    </div>
+                    <span v-if="effectivePayWith === 'balance'" class="size-1.5 rounded-full bg-white" />
                   </div>
 
-                  <!-- Text details -->
-                  <div class="min-w-0 flex-1 space-y-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-base font-extrabold text-ink">{{ t('Mon solde client') }}</span>
-                      <span
-                        :class="[
-                          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-extrabold',
-                          canUseBalance
-                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                            : 'bg-slate-200 text-slate-700'
-                        ]"
-                      >
-                        <Sparkles v-if="canUseBalance" class="size-3 text-emerald-600" />
-                        {{ formatXof(balanceXof) }} {{ t('disponible') }}
-                      </span>
-                    </div>
+                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <Wallet class="size-5" />
+                  </div>
 
-                    <p class="text-xs text-muted leading-relaxed">
-                      <template v-if="canUseBalance">
-                        <span class="font-semibold text-emerald-800">{{ t('Validation immédiate en 1 clic sans redirection.') }}</span>
-                        {{ t(' Le montant de la commande sera automatiquement déduit de votre solde.') }}
-                      </template>
-                      <template v-else>
-                        <span class="text-rose-600 font-semibold">{{ t('Solde insuffisant pour cette commande.') }}</span>
-                        {{ t(' Rechargez votre solde depuis votre espace ou choisissez Mobile Money / Crypto.') }}
-                      </template>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Mon solde') }}</p>
+                    <p class="text-xs mt-0.5" :class="canUseBalance ? 'text-muted' : 'text-rose-600 font-medium'">
+                      {{ canUseBalance ? t('Débit direct sans redirection') : t('Solde insuffisant') }}
                     </p>
                   </div>
                 </div>
 
-                <!-- Tag d'état rapide -->
-                <div v-if="canUseBalance" class="hidden sm:flex shrink-0">
-                  <span class="inline-flex items-center gap-1 text-xs font-bold text-brand bg-brand/10 rounded-full px-3 py-1">
-                    <Zap class="size-3.5" />
-                    {{ t('Instantané') }}
-                  </span>
-                </div>
+                <span
+                  :class="[
+                    'text-xs font-bold px-2.5 py-1 rounded-lg shrink-0',
+                    canUseBalance ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600'
+                  ]"
+                >
+                  {{ formatXof(balanceXof) }}
+                </span>
               </div>
             </div>
           </section>

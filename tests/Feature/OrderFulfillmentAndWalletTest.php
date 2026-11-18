@@ -84,6 +84,49 @@ class OrderFulfillmentAndWalletTest extends TestCase
         $response->assertRedirect(route('account.orders.show', $order->id));
     }
 
+    public function test_wallet_balance_order_payment_with_inertia_request(): void
+    {
+        $user = User::factory()->create([
+            'balance_xof' => 25000,
+        ]);
+
+        $product = Product::where('is_published', true)->where('supplier_active', true)->first() ?? Product::create([
+            'id' => Str::uuid()->toString(),
+            'supplier_id' => 'TEST-PROD-INERTIA',
+            'slug' => 'test-produit-inertia-' . Str::random(5),
+            'name' => 'Produit Test Inertia',
+            'category' => 'Bureautique',
+            'cost_usd_cents' => 300,
+            'price_xof_override' => 5000,
+            'is_published' => true,
+            'supplier_active' => true,
+            'in_stock' => true,
+        ]);
+
+        $this->actingAs($user, 'web');
+
+        $response = $this->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->post('/commande/validation', [
+            'productId' => $product->id,
+            'quantity' => 1,
+            'fullName' => 'Test User',
+            'phone' => '+22670112233',
+            'country' => 'BF',
+            'payWith' => 'balance',
+            'expectedTotalXof' => 5000,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertStatus(302);
+
+        $order = Order::where('user_id', $user->id)->latest()->first();
+        $this->assertNotNull($order);
+        $this->assertContains($order->status, ['paid', 'processing', 'activation_awaiting', 'delivered', 'failed']);
+        $response->assertRedirect(route('account.orders.show', $order->id));
+    }
+
     public function test_customer_can_choose_credit_on_failed_order(): void
     {
         $user = User::factory()->create([
