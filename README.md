@@ -1,58 +1,183 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Licences.pro — Abonnements & Licences Numériques en FCFA et Crypto
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Plateforme e-commerce moderne et sécurisée spécialisée dans la vente d'abonnements premium, licences logicielles et accès numériques (Netflix, ChatGPT, Claude, Canva, Spotify, Duolingo, JetBrains, VPN, etc.).
 
-## About Laravel
+Conçue avec **Laravel 11**, **Vue 3 (Composition API)**, **Inertia.js**, **TypeScript** et **Tailwind CSS**, la plateforme permet aux utilisateurs d'Afrique de l'Ouest/Centrale et de l'international de régler leurs accès en **FCFA (Mobile Money / Cartes)** ou en **Crypto-monnaies (USDT, BTC, SOL...)**, avec livraison instantanée dans leur espace sécurisé.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🌟 Fonctionnalités Principales
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 🛒 Boutique & Expérience Client
+* **Catalogue dynamique (100+ offres)** : Filtrage instantané par catégorie (*IA et assistants*, *Création et design*, *Bureautique*, *Divertissement*, *VPN*, etc.), recherche textuelle, tri par prix et défilement infini (*Infinite Scroll*).
+* **Carrousel 3D d'accueil & Produits Phares** : Mise en avant prioritaire des 10 grandes marques VIP (Netflix, Spotify, Prime Video, Claude, ChatGPT, Canva, CapCut, Apple Music, Apple TV, ElevenLabs).
+* **Affichage transparent** : Durées déduites dynamiquement (*1 mois, 3 mois, 1 an...*), type d'accès clarifié (*Lien d'activation, Compte fourni, Code à copier*), prix nets en FCFA sans frais cachés.
+* **Bilingue natif (FR / EN)** : Traduction complète et basculement instantané Français / Anglais sur toute la boutique et l'espace client.
 
-## Learning Laravel
+### 💳 Passerelles de Paiement
+* **Mobile Money & Cartes Bancaires (CinetPay)** :
+  * Orange Money, MTN Mobile Money, Moov Money, Wave.
+  * Cartes bancaires internationales (Visa, Mastercard).
+* **Crypto-monnaies (Cryptomus via SDK officiel PHP)** :
+  * USDT (réseaux économiques TRC20, BEP20, Polygon), Bitcoin, Solana, TON, Ethereum, Litecoin.
+  * Conversion automatique FCFA ➔ USD/USDT selon le taux de change configurable.
+  * Validation instantanée par webhook sécurisé avec signature cryptographique.
+* **Portefeuille client (Wallet interne)** :
+  * Rechargement de solde par Mobile Money ou Crypto.
+  * Paiement en 1 clic sans redirection pour les clients réguliers.
+  * Traçabilité comptable complète de chaque mouvement (*crédit, débit, commande liée*).
+* **Reprise de paiement intelligente (`/paiement/reprendre`)** : Permet à l'utilisateur de finaliser une commande en attente sans devoir repasser toute la commande.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 🔐 Sécurité & Confidentialité
+* **Authentification sans mot de passe (*Passwordless*)** : Connexion ultra-rapide et sécurisée par code temporaire à usage unique envoyé par e-mail (aucun mot de passe stocké ni piratable).
+* **Coffre-fort d'accès chiffré (AES-256-GCM)** : Les identifiants, liens et clés de licence livrés sont chiffrés en base de données et décryptés uniquement à la volée dans l'espace client sécurisé. Aucun identifiant n'est envoyé en clair dans les e-mails.
+* **Headers HTTP de sécurité renforcés** : `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`.
+* **Confidentialité totale des fournisseurs** : Masquage strict de tous les identifiants techniques, URLs d'API et messages d'erreurs du fournisseur grossiste.
+* **Protection IDOR & Anti-tampering** : Vérification stricte des autorisations de chaque utilisateur sur ses commandes, tickets et transactions.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### ⚙️ Automatisation & Background Workers
+* **Synchronisation Catalogue Fournisseur** : Gestion résiliente de la pagination, détection des ruptures de stock, index unique anti-doublons et calcul automatique des marges bénéficiaires.
+* **Livraison automatique (*Fulfillment*)** : Déclenchement automatique de la commande grossiste et attribution de l'accès dès réception de la notification webhook de paiement (CinetPay ou Cryptomus).
+* **Tâche planifiée (`cron:tick`)** : Exécutée chaque minute pour rattraper les commandes en attente, rafraîchir les stocks toutes les 5 minutes, traiter les alertes de stock et purger les codes expirés.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## 🛠️ Stack Technique
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+* **Backend** : PHP 8.2+, Laravel 11.x, Eloquent ORM, MySQL 8.0+ / SQLite.
+* **Frontend** : Vue 3 (Composition API avec `<script setup>`), Inertia.js, TypeScript.
+* **Design & Styles** : Tailwind CSS, Lucide Icons, Simple Icons (logos de marques en SVG).
+* **Paiements** : SDK officiel `cryptomus/api-php-sdk`, passerelle CinetPay.
+* **Build tool** : Vite 8.x.
+* **Tests** : PHPUnit 11 (63 tests automatisés, 378 assertions).
 
+---
+
+## 🚀 Installation & Développement Local
+
+### Prérequis
+* PHP >= 8.2 (extensions : `curl`, `mbstring`, `pdo_mysql`, `openssl`, `bcmath`)
+* Composer >= 2.x
+* Node.js >= 18.x & npm
+* MySQL ou SQLite
+
+### 1. Cloner le projet
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/maarazak/licences.git
+cd licences
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Installer les dépendances
+```bash
+# Dépendances PHP
+composer install
 
-## Contributing
+# Dépendances JavaScript
+npm install
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Configurer l'environnement
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Code of Conduct
+Éditez le fichier `.env` avec vos accès :
+```ini
+APP_NAME="Licences.pro"
+APP_URL=http://localhost:8000
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Base de données
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=licences_laravel
+DB_USERNAME=root
+DB_PASSWORD=
 
-## Security Vulnerabilities
+# Passerelle Fournisseur Grossiste
+SUPPLIER_API_URL=https://flowseller-api.pe-supplykh.com
+SUPPLIER_API_KEY=votre_cle_fournisseur
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Passerelle Mobile Money (CinetPay)
+CINETPAY_API_KEY=votre_cle_cinetpay
+CINETPAY_API_PASSWORD=votre_mot_de_passe_cinetpay
+CINETPAY_ENVIRONMENT=sandbox # ou production
 
-## License
+# Passerelle Crypto (Cryptomus)
+CRYPTOMUS_MERCHANT_ID=votre_merchant_uuid
+CRYPTOMUS_PAYMENT_KEY=votre_payment_key
+CRYPTOMUS_PAYOUT_KEY=votre_payout_key # optionnel
+CRYPTOMUS_API_URL=https://api.cryptomus.com/v1
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Expédition des e-mails
+MAIL_MAILER=smtp
+MAIL_HOST=...
+MAIL_PORT=587
+MAIL_USERNAME=...
+MAIL_PASSWORD=...
+MAIL_FROM_ADDRESS="support@licences.pro"
+MAIL_FROM_NAME="Licences.pro"
+```
+
+### 4. Migrations et Données Initiales
+```bash
+php artisan migrate
+php artisan catalog:sync
+```
+
+### 5. Lancer l'environnement de développement
+```bash
+# Terminal 1 : Serveur Laravel
+php artisan serve
+
+# Terminal 2 : Serveur Vite (Hot Reload)
+npm run dev
+```
+
+L'application est accessible sur `http://localhost:8000`.
+
+---
+
+## 🧪 Tests Automatisés
+
+Le projet dispose d'une couverture de tests rigoureuse vérifiant les paiements, les webhooks, le chiffrement, les flux de commandes et la sécurité :
+
+```bash
+php artisan test
+```
+
+Résultat : **63 tests passés avec succès (378 assertions)**.
+
+---
+
+## ⏱️ Tâches Planifiées (Cron)
+
+En production, configurez le cron système pour faire tourner le planificateur Laravel toutes les minutes :
+
+```bash
+* * * * * cd /chemin/vers/votre/projet && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Vous pouvez aussi tester manuellement la tâche d'arrière-plan via :
+```bash
+php artisan cron:tick
+```
+
+---
+
+## 📦 Compilation de Production
+
+Pour construire les assets optimisés pour la production :
+```bash
+npm run build
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence propriétaire. Tous droits réservés.
