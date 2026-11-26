@@ -12,7 +12,7 @@ use App\Models\WalletEntry;
 use App\Services\MailService;
 use App\Services\OrderFulfillmentService;
 use App\Services\CinetPayService;
-use App\Services\CryptomusService;
+use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -133,12 +133,12 @@ class CheckoutController extends Controller
             'clientToken' => 'nullable|string|max:64',
             'activationEmails' => 'nullable|array',
             'activationEmails.*' => 'nullable|email|max:191',
-            'payWith' => 'required|in:gateway,balance,pawapay,cinetpay,cryptomus,crypto',
+            'payWith' => 'required|in:gateway,balance,cinetpay,nowpayments,crypto',
         ]);
 
         // Normalisation payWith
         $payWith = match ($validated['payWith']) {
-            'cryptomus', 'crypto' => 'cryptomus',
+            'nowpayments', 'crypto' => 'nowpayments',
             'balance' => 'balance',
             default => 'cinetpay',
         };
@@ -276,8 +276,8 @@ class CheckoutController extends Controller
             return redirect()->route('account.orders.show', $orderId)->with('success', 'Commande validée et payée avec succès !');
         }
 
-        // 2. Paiement via passerelle Cryptomus (Crypto-monnaies : USDT, BTC, ETH, TON, SOL)
-        if ($payWith === 'cryptomus') {
+        // 2. Paiement en crypto-monnaies via NOWPayments (USDT, BTC, ETH, SOL, TON, LTC…)
+        if ($payWith === 'nowpayments') {
             $order = Order::create([
                 'id' => $orderId,
                 'reference' => $ref,
@@ -291,7 +291,7 @@ class CheckoutController extends Controller
                 'total_xof' => $totalXof,
                 'unit_cost_usd_cents' => $product->cost_usd_cents ?? 0,
                 'usd_rate' => (int) \App\Models\Setting::get('usdRate', \App\Models\Setting::get('usd_rate', 669)),
-                'paid_with' => 'cryptomus',
+                'paid_with' => 'nowpayments',
                 'status' => 'pending_payment',
                 'payment_checkout_id' => null,
                 'payment_intent_id' => $ref,
@@ -315,13 +315,13 @@ class CheckoutController extends Controller
             ]);
 
             try {
-                $cryptomus = app(CryptomusService::class);
                 $returnUrl = url("/paiement/retour?commande={$order->id}");
 
-                $session = $cryptomus->createPayment([
+                $session = app(NowPaymentsService::class)->createInvoice([
                     'order_id' => $ref,
                     'amount_xof' => $totalXof,
                     'return_url' => $returnUrl,
+                    'description' => "Commande {$ref}",
                 ]);
 
                 $paymentUrl = $session['payment_url'] ?? null;
@@ -331,7 +331,7 @@ class CheckoutController extends Controller
 
                 $order->update([
                     'payment_url' => $paymentUrl,
-                    'payment_checkout_id' => $session['uuid'] ?? null,
+                    'payment_checkout_id' => !empty($session['invoice_id']) ? 'inv:' . $session['invoice_id'] : null,
                     'payment_intent_id' => $ref,
                 ]);
 
@@ -347,7 +347,7 @@ class CheckoutController extends Controller
 
                 return Inertia::location($paymentUrl);
             } catch (\Throwable $e) {
-                \Log::error("Erreur Cryptomus checkout : " . $e->getMessage());
+                \Log::error("Erreur NOWPayments checkout : " . $e->getMessage());
                 $order->update([
                     'status' => 'payment_failed',
                     'failure_message' => 'Service de paiement temporairement indisponible',
@@ -483,7 +483,9 @@ class CheckoutController extends Controller
 
             if ($walletDeposit) {
                 // Relecture chez CinetPay avec l'identifiant stocké ; le crédit n'a lieu qu'une fois (service dédié).
-                $walletDeposit = app(\App\Services\WalletDepositService::class)->sync($walletDeposit);
+                $walletDeposit = $walletDeposit->gateway === 'nowpayments'
+                    ? app(\App\Services\WalletDepositService::class)->syncCrypto($walletDeposit)
+                    : app(\App\Services\WalletDepositService::class)->sync($walletDeposit);
 
                 $refreshed = $walletDeposit->fresh();
                 if ($refreshed && $refreshed->status === 'completed') {
@@ -510,14 +512,9 @@ class CheckoutController extends Controller
             ->orWhere('reference', $targetOrder)
             ->firstOrFail();
 
-        // Relecture sécurisée auprès de Cryptomus si commande payée en crypto
-        if ($order->paid_with === 'cryptomus' && in_array($order->status, OrderFulfillmentService::PAYABLE_STATUSES, true)) {
-            try {
-                $info = app(CryptomusService::class)->getPaymentInfo($order->reference, $order->payment_checkout_id);
-                app(OrderFulfillmentService::class)->settleCryptoPayment($order, is_array($info) ? $info : [], 'crypto');
-            } catch (\Throwable $e) {
-                \Log::warning("Erreur vérification Cryptomus lors du retour: " . $e->getMessage());
-            }
+        // Relecture sécurisée auprès de NOWPayments (si l'identifiant de paiement est connu après un premier IPN).
+        if ($order->paid_with === 'nowpayments') {
+            app(OrderFulfillmentService::class)->syncCryptoPayment($order);
         }
 
         // Relecture sécurisée auprès de CinetPay (identifiant stocké) : paiement en attente, ou tardif après expiration.
@@ -605,16 +602,16 @@ class CheckoutController extends Controller
                 ->with('error', 'Cette commande a été annulée ou n\'est plus payable.');
         }
 
-        // Régénérer ou rafraîchir la session de paiement Cryptomus si commande payée en crypto
-        if ($order->paid_with === 'cryptomus') {
+        // Régénérer ou rafraîchir la facture crypto si la commande est payée en crypto
+        if ($order->paid_with === 'nowpayments') {
             try {
-                $cryptomus = app(CryptomusService::class);
                 $returnUrl = url("/paiement/retour?commande={$order->id}");
 
-                $session = $cryptomus->createPayment([
+                $session = app(NowPaymentsService::class)->createInvoice([
                     'order_id' => $order->reference,
                     'amount_xof' => (int) $order->total_xof,
                     'return_url' => $returnUrl,
+                    'description' => "Commande {$order->reference}",
                 ]);
 
                 $paymentUrl = $session['payment_url'] ?? null;
@@ -622,13 +619,13 @@ class CheckoutController extends Controller
                     $order->update([
                         'status' => 'pending_payment',
                         'payment_url' => $paymentUrl,
-                        'payment_checkout_id' => $session['uuid'] ?? $order->payment_checkout_id,
+                        'payment_checkout_id' => !empty($session['invoice_id']) ? 'inv:' . $session['invoice_id'] : $order->payment_checkout_id,
                     ]);
 
                     return Inertia::location($paymentUrl);
                 }
             } catch (\Throwable $e) {
-                \Log::warning("Reprise de paiement: échec de régénération session Cryptomus ({$e->getMessage()}), tentative avec lien existant.");
+                \Log::warning("Reprise de paiement: échec de régénération facture NOWPayments ({$e->getMessage()}), tentative avec lien existant.");
             }
 
             if ($order->payment_url) {

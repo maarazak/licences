@@ -114,22 +114,53 @@ class WalletDepositService
         return 'ignored';
     }
 
-    /**
-     * Recharge payée en crypto (webhook Cryptomus signé). Crédit unique : verrou de ligne, statut « pending » et `credited_at`.
-     * Retourne : credited | failed | ignored.
-     */
-    public function settleCryptoPayment(WalletDeposit $deposit, array $payload): string
+    /** Relit l'état d'une recharge crypto chez NOWPayments (identifiant de paiement connu après le premier IPN). */
+    public function syncCrypto(WalletDeposit $deposit): WalletDeposit
     {
-        $reportedId = (string) ($payload['order_id'] ?? '');
-        if ($reportedId !== '' && !in_array($reportedId, array_filter([(string) $deposit->reference, (string) $deposit->payment_intent_id]), true)) {
-            Log::warning("[Wallet] Réponse Cryptomus sans correspondance avec la recharge {$deposit->reference}.");
+        $paymentId = (string) $deposit->payment_checkout_id;
+        if ($deposit->gateway !== 'nowpayments' || $deposit->status !== 'pending' || !ctype_digit($paymentId)) {
+            return $deposit;
+        }
+
+        try {
+            $verified = app(NowPaymentsService::class)->getPayment($paymentId);
+            if (empty($verified['error'])) {
+                $this->settleCryptoPayment($deposit, $verified);
+            }
+        } catch (\Throwable $e) {
+            Log::warning("[Wallet] Vérification NOWPayments impossible pour {$deposit->reference}: {$e->getMessage()}");
+        }
+
+        return $deposit->fresh() ?? $deposit;
+    }
+
+    /**
+     * Recharge payée en crypto, d'après l'état RELU chez NOWPayments. Crédit unique : verrou de ligne, statut « pending » et
+     * `credited_at`. Retourne : credited | failed | underpaid | ignored.
+     */
+    public function settleCryptoPayment(WalletDeposit $deposit, array $verified): string
+    {
+        if (($verified['order_id'] ?? '') === '' || !hash_equals((string) $deposit->reference, (string) $verified['order_id'])) {
+            Log::warning("[Wallet] Réponse NOWPayments sans correspondance avec la recharge {$deposit->reference}.");
             return 'ignored';
         }
 
-        $status = strtolower((string) ($payload['status'] ?? $payload['payment_status'] ?? ''));
+        $status = (string) ($verified['payment_status'] ?? '');
 
-        if (in_array($status, ['paid', 'paid_over'], true)) {
-            return DB::transaction(function () use ($deposit, $payload) {
+        if ($status === 'finished') {
+            if (app(NowPaymentsService::class)->isUnderpaid((int) $deposit->amount_xof, $verified)) {
+                $moved = WalletDeposit::where('id', $deposit->id)->where('status', 'pending')->update([
+                    'status' => 'failed',
+                    'failure_message' => 'Montant ou devise reçu différent du montant dû : aucun crédit, contactez l\'équipe.',
+                    'updated_at' => now(),
+                ]);
+                if ($moved === 1) {
+                    Log::error("[Wallet] Montant crypto inférieur au dû pour la recharge {$deposit->reference}.");
+                }
+                return 'underpaid';
+            }
+
+            return DB::transaction(function () use ($deposit, $verified) {
                 $locked = WalletDeposit::lockForUpdate()->find($deposit->id);
                 if (!$locked || $locked->credited_at || $locked->status !== 'pending') {
                     return 'ignored';
@@ -144,8 +175,8 @@ class WalletDepositService
                 $user->balance_xof = $newBalance;
                 $user->save();
 
-                $payerCurrency = $payload['payer_currency'] ?? $payload['currency'] ?? 'Crypto';
-                $network = !empty($payload['network']) ? " ({$payload['network']})" : '';
+                $coin = ($verified['pay_currency'] ?? '') ?: 'Crypto';
+                $network = !empty($verified['network']) ? " ({$verified['network']})" : '';
                 WalletEntry::create([
                     'id' => Str::uuid()->toString(),
                     'user_id' => $user->id,
@@ -153,7 +184,7 @@ class WalletDepositService
                     'balance_after_xof' => $newBalance,
                     'type' => 'credit',
                     'kind' => 'deposit',
-                    'description' => "Recharge Crypto [{$payerCurrency}{$network}] — {$locked->reference}",
+                    'description' => "Recharge Crypto [{$coin}{$network}] — {$locked->reference}",
                     'reference_type' => 'wallet_deposit',
                     'reference_id' => $locked->id,
                     'created_at' => now(),
@@ -163,7 +194,6 @@ class WalletDepositService
                     'status' => 'completed',
                     'paid_at' => now(),
                     'credited_at' => now(),
-                    'payment_checkout_id' => ($payload['uuid'] ?? null) ?: $locked->payment_checkout_id,
                     'updated_at' => now(),
                 ]);
 
@@ -171,7 +201,7 @@ class WalletDepositService
             });
         }
 
-        if (in_array($status, ['cancel', 'fail', 'system_fail'], true)) {
+        if (in_array($status, ['failed', 'expired', 'refunded'], true)) {
             $moved = WalletDeposit::where('id', $deposit->id)->where('status', 'pending')->update([
                 'status' => 'failed',
                 'failure_message' => "Paiement crypto non complété ({$status})",

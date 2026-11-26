@@ -142,11 +142,11 @@ const submitDeposit = () => {
                 @select="depositForm.gateway = 'cinetpay'"
               />
               <PaymentOptionCard
-                :selected="depositForm.gateway === 'cryptomus'"
+                :selected="depositForm.gateway === 'nowpayments'"
                 :icon-logos="CRYPTO_ICON_LOGOS"
                 :title="t('Crypto-monnaies')"
                 :logos="CRYPTO_LOGOS"
-                @select="depositForm.gateway = 'cryptomus'"
+                @select="depositForm.gateway = 'nowpayments'"
               />
             </div>
           </div>

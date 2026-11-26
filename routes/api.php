@@ -18,8 +18,8 @@ Route::get('/catalog/{slug}', [CatalogController::class, 'show']);
 // Webhook CinetPay (Cartes Bancaires + Mobile Money)
 Route::match(['get', 'post'], '/webhooks/cinetpay', [WebhookController::class, 'cinetpay'])->middleware('throttle:120,1');
 
-// Webhook Cryptomus (Crypto-monnaies)
-Route::post('/webhooks/cryptomus', [WebhookController::class, 'cryptomus'])->middleware('throttle:120,1')->name('webhooks.cryptomus');
+// Webhook NOWPayments (crypto-monnaies)
+Route::post('/webhooks/nowpayments', [WebhookController::class, 'nowpayments'])->middleware('throttle:120,1')->name('webhooks.nowpayments');
 
 // Tâche planifiée externe sécurisée par Bearer token CRON_SECRET
 Route::match(['get', 'post'], '/cron/tick', [CronController::class, 'tick']);

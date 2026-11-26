@@ -29,6 +29,7 @@ class WalletDeposit extends Model
         'payment_intent_id',
         'payment_url',
         'notify_token',
+        'gateway',
         'paid_at',
         'credited_at',
         'failure_code',

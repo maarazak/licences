@@ -68,3 +68,11 @@ Inspirée des standards de haute qualité appliqués sur `livreurcravate-web` :
 - **Devises** : `createPaymentPage` n'accepte que XOF et XAF (1 pour 1). Avant, un pays en GNF ou CDF facturait le même nombre dans une monnaie bien plus faible.
 - Webhooks limités à 120 requêtes/minute ; jeton absent des journaux.
 - Tests : `tests/Feature/CinetPaySecurityTest.php` (17 tests). Reste à faire : test réel en sandbox avec les clés CinetPay, et même durcissement atomique pour Cryptomus (`syncCryptomusOrder` / `syncCryptomusDeposit`).
+
+## 6. Cryptomus remplacé par NOWPayments (26 novembre 2026)
+
+- `CryptomusService` et le SDK `cryptomus/api-php-sdk` supprimés ; `NowPaymentsService` (facture hébergée, relecture `GET /payment/{id}`, signature IPN HMAC-SHA512 sur corps trié ou brut).
+- IPN `/api/webhooks/nowpayments` = simple signal : signature vérifiée, enregistrement retrouvé par référence exacte (`paid_with = nowpayments` / `gateway = nowpayments`), état RELU chez NOWPayments (statut `finished`, `order_id` identique, devise dollar, montant ≥ 95 % du montant facturé) ; règlement atomique partagé (`settleCryptoPayment`), crédit de recharge unique.
+- Identifiants de facture mémorisés avec le préfixe `inv:` ; l'identifiant de paiement NOWPayments remplace `payment_checkout_id` à l'arrivée du premier IPN (relecture au retour du client).
+- Migration `2026_11_26_000001_replace_cryptomus_with_nowpayments` : colonne `wallet_deposits.gateway`, anciens `cryptomus` renommés.
+- Tests : `tests/Feature/NowPaymentsTest.php`.

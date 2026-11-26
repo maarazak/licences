@@ -13,7 +13,7 @@ use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
 use App\Services\CryptoService;
 use App\Services\CinetPayService;
-use App\Services\CryptomusService;
+use App\Services\NowPaymentsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -180,24 +180,24 @@ class AccountController extends Controller
             'phone' => 'nullable|string|max:30',
             'country' => ['nullable', 'string', 'max:5', \Illuminate\Validation\Rule::in(CinetPayService::PAYABLE_COUNTRIES)],
             'fullName' => 'nullable|string|max:120',
-            'gateway' => 'nullable|string|in:cinetpay,cryptomus,crypto',
+            'gateway' => 'nullable|string|in:cinetpay,nowpayments,crypto',
         ]);
 
-        $gateway = in_array($validated['gateway'] ?? '', ['cryptomus', 'crypto'], true) ? 'cryptomus' : 'cinetpay';
+        $gateway = in_array($validated['gateway'] ?? '', ['nowpayments', 'crypto'], true) ? 'nowpayments' : 'cinetpay';
         $user = $this->user();
         $depositId = Str::uuid()->toString();
         $ref = 'DEP-' . strtoupper(Str::random(8));
 
-        // 1. Rechargement par Cryptomus (Crypto-monnaies : USDT, BTC, ETH, TON, SOL)
-        if ($gateway === 'cryptomus') {
+        // 1. Rechargement en crypto-monnaies via NOWPayments (USDT, BTC, ETH, SOL, TON, LTC…)
+        if ($gateway === 'nowpayments') {
             try {
-                $cryptomus = app(CryptomusService::class);
                 $returnUrl = url("/paiement/retour?depot={$depositId}");
 
-                $session = $cryptomus->createPayment([
+                $session = app(NowPaymentsService::class)->createInvoice([
                     'order_id' => $ref,
                     'amount_xof' => $validated['amount_xof'],
                     'return_url' => $returnUrl,
+                    'description' => "Recharge de solde {$ref}",
                 ]);
 
                 $redirectUrl = $session['payment_url'] ?? null;
@@ -214,7 +214,8 @@ class AccountController extends Controller
                     'customer_country' => $validated['country'] ?? ($user->country ?: 'BF'),
                     'customer_name' => $validated['fullName'] ?? trim("{$user->first_name} {$user->last_name}") ?: null,
                     'status' => 'pending',
-                    'payment_checkout_id' => $session['uuid'] ?? null,
+                    'gateway' => 'nowpayments',
+                    'payment_checkout_id' => !empty($session['invoice_id']) ? 'inv:' . $session['invoice_id'] : null,
                     'payment_intent_id' => $ref,
                     'payment_url' => $redirectUrl,
                     'created_at' => now(),
@@ -234,7 +235,7 @@ class AccountController extends Controller
 
                 return Inertia::location($redirectUrl);
             } catch (\Throwable $e) {
-                \Log::error("Erreur deposit Cryptomus : " . $e->getMessage());
+                \Log::error("Erreur deposit NOWPayments : " . $e->getMessage());
                 $genericError = "Le service de recharge est temporairement indisponible. Si le problème persiste, veuillez contacter le service client.";
 
                 if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {

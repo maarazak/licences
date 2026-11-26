@@ -46,10 +46,10 @@ return [
         'environment' => env('CINETPAY_ENVIRONMENT', 'sandbox'),
     ],
 
-    'cryptomus' => [
-        'merchant_id' => env('CRYPTOMUS_MERCHANT_ID'),
-        'payment_key' => env('CRYPTOMUS_PAYMENT_KEY'),
-        'api_url' => env('CRYPTOMUS_API_URL', 'https://api.cryptomus.com/v1'),
+    'nowpayments' => [
+        'api_key' => env('NOWPAYMENTS_API_KEY'),
+        'ipn_secret' => env('NOWPAYMENTS_IPN_SECRET'),
+        'base_url' => env('NOWPAYMENTS_BASE_URL', 'https://api.nowpayments.io/v1'),
     ],
 
 ];

@@ -49,7 +49,7 @@ const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
 const selectedCountry = ref<CountryCode>((props.defaults.country && PAYMENT_COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
-const payChoice = ref<'cinetpay' | 'cryptomus' | 'balance'>('cinetpay');
+const payChoice = ref<'cinetpay' | 'nowpayments' | 'balance'>('cinetpay');
 
 const currentCountry = computed(() => getCountry(selectedCountry.value));
 
@@ -243,11 +243,11 @@ const submitCheckout = () => {
               />
 
               <PaymentOptionCard
-                :selected="effectivePayWith === 'cryptomus'"
+                :selected="effectivePayWith === 'nowpayments'"
                 :icon-logos="CRYPTO_ICON_LOGOS"
                 :title="t('Crypto-monnaies')"
                 :logos="CRYPTO_LOGOS"
-                @select="payChoice = 'cryptomus'"
+                @select="payChoice = 'nowpayments'"
               />
 
               <PaymentOptionCard

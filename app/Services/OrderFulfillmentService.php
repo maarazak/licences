@@ -396,27 +396,64 @@ class OrderFulfillmentService
     }
 
     /**
-     * Applique à UNE commande l'état d'un paiement Cryptomus (webhook signé ou relecture API). Mêmes garanties que
-     * `settleGatewayPayment` : transitions atomiques, paiement tardif repris, un seul « payé » malgré les doublons.
-     * Retourne : paid | failed | ignored.
+     * Relit l'état du paiement crypto d'une commande chez NOWPayments (si l'identifiant de paiement est connu, c'est-à-dire
+     * après un premier IPN) puis applique le résultat. Sans identifiant, l'IPN fera foi à son arrivée.
      */
-    public function settleCryptoPayment(Order $order, array $payload, string $actor = 'cryptomus'): string
+    public function syncCryptoPayment(Order $order): Order
     {
-        // Si l'identifiant de commande est rapporté, il doit être celui de CETTE commande.
-        $reportedId = (string) ($payload['order_id'] ?? '');
-        if ($reportedId !== '' && !in_array($reportedId, array_filter([(string) $order->reference, (string) $order->payment_intent_id]), true)) {
-            Log::warning("[Payment] Réponse Cryptomus sans correspondance avec la commande {$order->reference}.");
+        $paymentId = (string) $order->payment_checkout_id;
+        if ($order->paid_with !== 'nowpayments' || !in_array($order->status, self::PAYABLE_STATUSES, true) || !ctype_digit($paymentId)) {
+            return $order;
+        }
+
+        try {
+            $verified = app(NowPaymentsService::class)->getPayment($paymentId);
+            if (empty($verified['error'])) {
+                $this->settleCryptoPayment($order, $verified, 'crypto');
+            }
+        } catch (\Throwable $e) {
+            Log::warning("[Payment] Vérification NOWPayments impossible pour {$order->reference}: {$e->getMessage()}");
+        }
+
+        return $order->fresh() ?? $order;
+    }
+
+    /**
+     * Applique à UNE commande l'état d'un paiement NOWPayments RELU chez NOWPayments (jamais le contenu brut d'un IPN).
+     * Mêmes garanties que `settleGatewayPayment` : transitions atomiques, paiement tardif repris, un seul « payé » malgré
+     * les doublons. `$verified` : réponse normalisée de `NowPaymentsService::getPayment`. Retourne : paid | failed | underpaid | ignored.
+     */
+    public function settleCryptoPayment(Order $order, array $verified, string $actor = 'nowpayments'): string
+    {
+        // La réponse doit concerner CETTE commande.
+        if (($verified['order_id'] ?? '') === '' || !hash_equals((string) $order->reference, (string) $verified['order_id'])) {
+            Log::warning("[Payment] Réponse NOWPayments sans correspondance avec la commande {$order->reference}.");
             return 'ignored';
         }
 
-        $status = strtolower((string) ($payload['status'] ?? $payload['payment_status'] ?? ''));
+        $status = (string) ($verified['payment_status'] ?? '');
 
-        if (in_array($status, ['paid', 'paid_over'], true)) {
+        if ($status === 'finished') {
+            if (app(NowPaymentsService::class)->isUnderpaid((int) $order->total_xof, $verified)) {
+                $moved = Order::where('id', $order->id)->whereIn('status', self::PAYABLE_STATUSES)->update([
+                    'status' => 'failed',
+                    'paid_with' => 'nowpayments',
+                    'paid_at' => now(),
+                    'failure_code' => 'amount_mismatch',
+                    'failure_message' => 'Montant ou devise reçu différent du montant dû : décision de l\'équipe requise.',
+                    'updated_at' => now(),
+                ]);
+                if ($moved === 1) {
+                    $this->logOrderEvent($order, 'amount_mismatch', 'Paiement crypto reçu mais montant ou devise différent du montant dû.', $actor);
+                    Log::error("[Payment] Montant crypto inférieur au dû pour la commande {$order->reference}.");
+                }
+                return 'underpaid';
+            }
+
             $moved = Order::where('id', $order->id)->whereIn('status', self::PAYABLE_STATUSES)->update([
                 'status' => 'paid',
                 'paid_at' => now(),
-                'paid_with' => 'cryptomus',
-                'payment_checkout_id' => ($payload['uuid'] ?? null) ?: $order->payment_checkout_id,
+                'paid_with' => 'nowpayments',
                 'failure_code' => null,
                 'failure_message' => null,
                 'updated_at' => now(),
@@ -426,9 +463,9 @@ class OrderFulfillmentService
             }
 
             $order->refresh();
-            $payerCurrency = $payload['payer_currency'] ?? $payload['currency'] ?? 'Crypto';
-            $network = !empty($payload['network']) ? " ({$payload['network']})" : '';
-            $this->logOrderEvent($order, 'paid', "Paiement de {$order->total_xof} FCFA confirmé en crypto [{$payerCurrency}{$network}].", $actor);
+            $coin = ($verified['pay_currency'] ?? '') ?: 'Crypto';
+            $network = !empty($verified['network']) ? " ({$verified['network']})" : '';
+            $this->logOrderEvent($order, 'paid', "Paiement de {$order->total_xof} FCFA confirmé en crypto [{$coin}{$network}].", $actor);
             try {
                 app(MailService::class)->sendOrderPaid($order);
             } catch (\Throwable $e) {
@@ -442,7 +479,7 @@ class OrderFulfillmentService
             return 'paid';
         }
 
-        if (in_array($status, ['cancel', 'fail', 'system_fail'], true)) {
+        if (in_array($status, ['failed', 'expired', 'refunded'], true)) {
             $moved = Order::where('id', $order->id)->where('status', 'pending_payment')->update([
                 'status' => 'payment_failed',
                 'failure_code' => 'payment_failed',
@@ -455,7 +492,7 @@ class OrderFulfillmentService
             return $moved === 1 ? 'failed' : 'ignored';
         }
 
-        return 'ignored';
+        return 'ignored'; // waiting, confirming, confirmed, sending, partially_paid : en cours
     }
 
     protected function logOrderEvent(Order $order, string $type, string $message, string $actor): void

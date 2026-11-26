@@ -18,10 +18,10 @@ Conçue avec **Laravel 11**, **Vue 3 (Composition API)**, **Inertia.js**, **Type
 * **Mobile Money & Cartes Bancaires (CinetPay)** :
   * Orange Money, MTN Mobile Money, Moov Money, Wave.
   * Cartes bancaires internationales (Visa, Mastercard).
-* **Crypto-monnaies (Cryptomus via SDK officiel PHP)** :
+* **Crypto-monnaies (NOWPayments, factures hébergées)** :
   * USDT (réseaux économiques TRC20, BEP20, Polygon), Bitcoin, Solana, TON, Ethereum, Litecoin.
   * Conversion automatique FCFA ➔ USD/USDT selon le taux de change configurable.
-  * Validation instantanée par webhook sécurisé avec signature cryptographique.
+  * Confirmation par IPN signé (HMAC-SHA512), puis relecture de l'état chez NOWPayments avant toute livraison.
 * **Portefeuille client (Wallet interne)** :
   * Rechargement de solde par Mobile Money ou Crypto.
   * Paiement en 1 clic sans redirection pour les clients réguliers.
@@ -37,7 +37,7 @@ Conçue avec **Laravel 11**, **Vue 3 (Composition API)**, **Inertia.js**, **Type
 
 ### ⚙️ Automatisation & Background Workers
 * **Synchronisation Catalogue Fournisseur** : Gestion résiliente de la pagination, détection des ruptures de stock, index unique anti-doublons et calcul automatique des marges bénéficiaires.
-* **Livraison automatique (*Fulfillment*)** : Déclenchement automatique de la commande grossiste et attribution de l'accès dès réception de la notification webhook de paiement (CinetPay ou Cryptomus).
+* **Livraison automatique (*Fulfillment*)** : Déclenchement automatique de la commande grossiste et attribution de l'accès dès réception de la notification webhook de paiement (CinetPay ou NOWPayments).
 * **Tâche planifiée (`cron:tick`)** : Exécutée chaque minute pour rattraper les commandes en attente, rafraîchir les stocks toutes les 5 minutes, traiter les alertes de stock et purger les codes expirés.
 
 ---
@@ -47,7 +47,7 @@ Conçue avec **Laravel 11**, **Vue 3 (Composition API)**, **Inertia.js**, **Type
 * **Backend** : PHP 8.2+, Laravel 11.x, Eloquent ORM, MySQL 8.0+ / SQLite.
 * **Frontend** : Vue 3 (Composition API avec `<script setup>`), Inertia.js, TypeScript.
 * **Design & Styles** : Tailwind CSS, Lucide Icons, Simple Icons (logos de marques en SVG).
-* **Paiements** : SDK officiel `cryptomus/api-php-sdk`, passerelle CinetPay.
+* **Paiements** : passerelle CinetPay (SDK officiel `cinetpay-dev/cinetpay-php`) et NOWPayments (API REST).
 * **Build tool** : Vite 8.x.
 * **Tests** : PHPUnit 11 (63 tests automatisés, 378 assertions).
 
@@ -104,11 +104,10 @@ CINETPAY_API_KEY=votre_cle_cinetpay
 CINETPAY_API_PASSWORD=votre_mot_de_passe_cinetpay
 CINETPAY_ENVIRONMENT=sandbox # ou production
 
-# Passerelle Crypto (Cryptomus)
-CRYPTOMUS_MERCHANT_ID=votre_merchant_uuid
-CRYPTOMUS_PAYMENT_KEY=votre_payment_key
-CRYPTOMUS_PAYOUT_KEY=votre_payout_key # optionnel
-CRYPTOMUS_API_URL=https://api.cryptomus.com/v1
+# Passerelle Crypto (NOWPayments)
+NOWPAYMENTS_API_KEY=votre_cle_api
+NOWPAYMENTS_IPN_SECRET=votre_secret_ipn
+NOWPAYMENTS_BASE_URL=https://api.nowpayments.io/v1
 
 # Expédition des e-mails
 MAIL_MAILER=smtp

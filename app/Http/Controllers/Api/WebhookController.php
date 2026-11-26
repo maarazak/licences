@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Models\WalletDeposit;
 use App\Models\WalletEntry;
 use App\Services\CinetPayService;
-use App\Services\CryptomusService;
+use App\Services\NowPaymentsService;
 use App\Services\OrderFulfillmentService;
 use App\Services\WalletDepositService;
 use Exception;
@@ -99,54 +99,48 @@ class WebhookController extends Controller
     }
 
     /**
-     * Webhook officiel Cryptomus pour les paiements en cryptomonnaies.
+     * IPN NOWPayments (crypto-monnaies). Simple SIGNAL : signature HMAC vérifiée, enregistrement retrouvé par correspondance
+     * exacte de la référence, puis état RELU chez NOWPayments avec la clé API avant tout changement.
      */
-    public function cryptomus(Request $request, CryptomusService $cryptomus)
+    public function nowpayments(Request $request, NowPaymentsService $nowPayments)
     {
-        Log::info("[Webhook Cryptomus] Requête reçue", $request->all());
+        if (!$nowPayments->verifyWebhookSignature($request->getContent(), (string) $request->header('x-nowpayments-sig', ''))) {
+            Log::warning('[Webhook NOWPayments] Signature invalide.');
+            return response()->json(['error' => 'Invalid signature'], 403);
+        }
 
         $payload = $request->all();
-        if (empty($payload)) {
-            $payload = json_decode($request->getContent(), true) ?? [];
+        Log::info('[Webhook NOWPayments] IPN reçu', Arr::only($payload, ['payment_id', 'order_id', 'payment_status']));
+
+        $orderRef = (string) ($payload['order_id'] ?? '');
+        $paymentId = (string) ($payload['payment_id'] ?? '');
+        if ($orderRef === '' || !ctype_digit($paymentId)) {
+            return response()->json(['error' => 'Missing order_id or payment_id'], 400);
         }
 
-        if (!$cryptomus->verifyWebhookSignature($payload)) {
-            Log::warning("[Webhook Cryptomus] Signature de webhook invalide.");
-            return response()->json(['error' => 'Invalid signature'], 400);
+        $order = Order::where('reference', $orderRef)->where('paid_with', 'nowpayments')->first();
+        $deposit = $order ? null : WalletDeposit::where('reference', $orderRef)->where('gateway', 'nowpayments')->first();
+        $record = $order ?? $deposit;
+        if (!$record) {
+            Log::info("[Webhook NOWPayments] Aucun enregistrement pour {$orderRef}.");
+            return response()->json(['status' => 'not_found'], 404);
         }
 
-        $orderId = (string) ($payload['order_id'] ?? '');
-        $uuid = (string) ($payload['uuid'] ?? '');
-        if (!$orderId && !$uuid) {
-            Log::warning("[Webhook Cryptomus] Identifiant de commande ou UUID absent.");
-            return response()->json(['error' => 'Missing order_id or uuid'], 400);
+        // Mémorise l'identifiant de paiement : il permet de relire l'état au retour du client.
+        $record->update(['payment_checkout_id' => $paymentId]);
+
+        $verified = $nowPayments->getPayment($paymentId);
+        if (!empty($verified['error'])) {
+            Log::warning("[Webhook NOWPayments] Relecture impossible pour {$orderRef}: {$verified['error']}");
+            return response()->json(['status' => 'retry_later'], 503); // NOWPayments réessaiera
         }
 
-        // Webhook signé : identifiants fiables, mais on retrouve l'enregistrement par correspondance exacte uniquement.
-        $find = function (string $model) use ($orderId, $uuid) {
-            if ($orderId !== '') {
-                $found = $model::where(fn ($q) => $q->where('reference', $orderId)->orWhere('payment_intent_id', $orderId))->first();
-                if ($found) {
-                    return $found;
-                }
-            }
-
-            return $uuid !== '' ? $model::where('payment_checkout_id', $uuid)->first() : null;
-        };
-
-        $order = $find(Order::class);
         if ($order) {
-            app(OrderFulfillmentService::class)->settleCryptoPayment($order, $payload, 'cryptomus');
+            app(OrderFulfillmentService::class)->settleCryptoPayment($order, $verified, 'nowpayments');
             return response()->json(['status' => 'order_synced']);
         }
 
-        $deposit = $find(WalletDeposit::class);
-        if ($deposit) {
-            app(WalletDepositService::class)->settleCryptoPayment($deposit, $payload);
-            return response()->json(['status' => 'deposit_synced']);
-        }
-
-        Log::info("[Webhook Cryptomus] Aucun enregistrement trouvé pour order_id={$orderId}, uuid={$uuid}");
-        return response()->json(['status' => 'not_found'], 404);
+        app(WalletDepositService::class)->settleCryptoPayment($deposit, $verified);
+        return response()->json(['status' => 'deposit_synced']);
     }
 }
