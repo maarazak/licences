@@ -75,15 +75,15 @@ class HomeController extends Controller
         $highlights = \App\Support\BrandHighlights::apply($mapped);
         $mapped = $highlights['products'];
 
-        // Tri : marques VIP phares d'abord (ranks 1..33), puis disponibles, puis alphabétique
+        // Tri : produits EN STOCK d'abord (ceux en rupture restent affichés, à la suite), puis rang phare, puis nom.
         $sorted = $mapped->sort(function ($a, $b) {
+            if ($a['available'] !== $b['available']) {
+                return (int) $b['available'] <=> (int) $a['available'];
+            }
             $rankA = $a['featured_rank'] ?? 9999;
             $rankB = $b['featured_rank'] ?? 9999;
             if ($rankA !== $rankB) {
                 return $rankA <=> $rankB;
-            }
-            if ($a['available'] !== $b['available']) {
-                return $b['available'] <=> $a['available'];
             }
             return strcasecmp($a['title'], $b['title']);
         })->values();
@@ -98,8 +98,7 @@ class HomeController extends Controller
         // Produits phares généraux
         $featuredRaw = $sorted
             ->filter(fn ($p) => !empty($p['is_featured']))
-            ->sortBy('featured_rank')
-            ->values();
+            ->values(); // garde l'ordre de $sorted : en stock d'abord
 
         // Catégories avec comptage exact en une seule requête SQL
         $categoriesList = Product::where('is_published', true)

@@ -102,32 +102,27 @@ class CatalogController extends Controller
             ];
         });
 
+        // Marques mises en avant automatiquement (d'après le nom, voir config/shop.php) : alimente « Produits phares d'abord ».
+        $products = \App\Support\BrandHighlights::apply($products)['products'];
+
         // Filtre de disponibilité
         if ($availability === 'available') {
             $products = $products->filter(fn ($p) => $p['available'])->values();
         }
 
-        // Tri identique à listCatalog()
-        if ($sort === 'price_asc') {
-            $products = $products->sortBy('price_xof')->values();
-        } elseif ($sort === 'price_desc') {
-            $products = $products->sortByDesc('price_xof')->values();
-        } elseif ($sort === 'name') {
-            $products = $products->sortBy('title', SORT_NATURAL | SORT_FLAG_CASE)->values();
-        } else {
-            // 'featured' : disponibles d'abord, puis par rang phare asc, puis nom
-            $products = $products->sort(function ($a, $b) {
-                if ($a['available'] !== $b['available']) {
-                    return $b['available'] <=> $a['available'];
-                }
-                $rankA = $a['featured_rank'] ?? 9999;
-                $rankB = $b['featured_rank'] ?? 9999;
-                if ($rankA !== $rankB) {
-                    return $rankA <=> $rankB;
-                }
-                return strcasecmp($a['title'], $b['title']);
-            })->values();
-        }
+        // Tri : les produits EN STOCK passent toujours avant les produits en rupture (qui restent affichés, à la suite),
+        // puis le critère choisi départage les produits de chaque groupe.
+        $secondary = match ($sort) {
+            'price_asc' => fn ($a, $b) => $a['price_xof'] <=> $b['price_xof'],
+            'price_desc' => fn ($a, $b) => $b['price_xof'] <=> $a['price_xof'],
+            'name' => fn ($a, $b) => strnatcasecmp($a['title'], $b['title']),
+            default => function ($a, $b) {
+                $rank = ($a['featured_rank'] ?? 9999) <=> ($b['featured_rank'] ?? 9999);
+
+                return $rank !== 0 ? $rank : strcasecmp($a['title'], $b['title']);
+            },
+        };
+        $products = $products->sort(fn ($a, $b) => ((int) $b['available'] <=> (int) $a['available']) ?: $secondary($a, $b))->values();
 
         return Inertia::render('Shop/Index', [
             'products' => $products->all(),
