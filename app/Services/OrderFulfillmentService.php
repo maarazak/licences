@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Models\Product;
+use App\Models\ProductStockItem;
 use App\Models\Setting;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +63,12 @@ class OrderFulfillmentService
         $order = Order::find($orderId);
         if (!$order) {
             return false;
+        }
+
+        // Produit manuel : livré depuis le stock propre, sans aucun appel au fournisseur.
+        $product = $order->product_id ? Product::find($order->product_id) : null;
+        if ($product && $product->isManual()) {
+            return $this->deliverFromOwnStock($order, $product);
         }
 
         // Si le produit n'a pas de fournisseur externe configuré, livraison directe ou manuelle
@@ -151,6 +159,92 @@ class OrderFulfillmentService
             }
             return false;
         }
+    }
+
+    /**
+     * Livre une commande d'un produit manuel en prenant ses accès dans le stock propre. Prise ATOMIQUE (lignes verrouillées,
+     * passage « disponible » → « vendu » conditionnel) : un même accès ne peut jamais être livré à deux clients. Rejouable :
+     * si les accès de cette commande ont déjà été pris (arrêt en cours de route), ce sont les mêmes qui sont livrés.
+     */
+    protected function deliverFromOwnStock(Order $order, Product $product): bool
+    {
+        try {
+            $plain = DB::transaction(function () use ($order, $product) {
+                $mine = ProductStockItem::where('order_id', $order->id)->where('status', 'sold')->get();
+                $items = $mine->count() >= $order->quantity
+                    ? $mine->take($order->quantity)
+                    : ProductStockItem::where('product_id', $product->id)
+                        ->where('status', 'available')
+                        ->orderBy('created_at')->orderBy('id')
+                        ->limit($order->quantity)
+                        ->lockForUpdate()
+                        ->get();
+
+                if ($items->count() < $order->quantity) {
+                    return null; // stock insuffisant
+                }
+
+                $contents = [];
+                foreach ($items as $item) {
+                    $value = $item->plain();
+                    if ($value === null || $value === '') {
+                        throw new \RuntimeException("Accès de stock illisible ({$item->id}).");
+                    }
+                    $contents[] = $value;
+                }
+
+                if ($mine->count() < $order->quantity) {
+                    $moved = ProductStockItem::whereIn('id', $items->pluck('id'))->where('status', 'available')->update([
+                        'status' => 'sold', 'order_id' => $order->id, 'sold_at' => now(), 'updated_at' => now(),
+                    ]);
+                    if ($moved !== $items->count()) {
+                        throw new \RuntimeException('Conflit de stock : accès pris par une autre commande.');
+                    }
+                }
+
+                return $contents;
+            });
+        } catch (\Throwable $e) {
+            Log::error("[Fulfillment] Stock propre : erreur pour {$order->reference}: {$e->getMessage()}");
+            $this->markFailed($order, 'internal_error', 'Erreur lors de la prise dans le stock : ' . $e->getMessage());
+            $product->refreshManualStock();
+
+            return false;
+        }
+
+        if ($plain === null) {
+            $this->markFailed($order, 'insufficient_stock', 'Stock insuffisant pour livrer cette commande.');
+            $product->refreshManualStock();
+
+            return false;
+        }
+
+        $order->update([
+            'status' => 'delivered',
+            'delivery_encrypted' => $this->crypto->encrypt(json_encode($plain, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $order->id),
+            'delivered_at' => now(),
+            'fulfil_locked_at' => null,
+            'failure_code' => null,
+            'failure_message' => null,
+            'updated_at' => now(),
+        ]);
+        $product->refreshManualStock();
+
+        OrderEvent::create([
+            'id' => Str::uuid()->toString(),
+            'order_id' => $order->id,
+            'type' => 'delivered',
+            'message' => 'Accès livrés depuis le stock (' . count($plain) . ' élément(s)).',
+            'actor' => 'system',
+        ]);
+
+        try {
+            app(MailService::class)->sendOrderDelivered($order);
+        } catch (\Throwable $e) {
+            Log::warning("[Mail] Erreur notification livraison {$order->reference}: " . $e->getMessage());
+        }
+
+        return true;
     }
 
     /**

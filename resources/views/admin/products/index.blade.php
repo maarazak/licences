@@ -5,9 +5,10 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="min-w-0">
             <h1 class="h1">Produits</h1>
-            <p class="lead mt-2 max-w-2xl">Le catalogue vient du fournisseur. Vous décidez de ce qui est publié et à quel prix.</p>
+            <p class="lead mt-2 max-w-2xl">Le catalogue vient du fournisseur, et vous pouvez y ajouter vos propres produits (badge « Manuel »). Vous décidez de ce qui est publié et à quel prix.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('admin.products.create') }}" class="btn btn-brand btn-sm">Nouveau produit</a>
             <form action="{{ route('admin.products.sync') }}" method="POST" data-loading="Synchronisation du catalogue...">
                 @csrf
                 <button type="submit" class="btn btn-soft btn-sm">
@@ -64,6 +65,9 @@
                                 <a href="{{ route('admin.products.edit', $p->id) }}" class="font-medium hover:underline text-ink">
                                     {{ $p->title }}
                                 </a>
+                                @if($p->isManual())
+                                    <span class="badge badge-info ml-1">Manuel</span>
+                                @endif
                                 <span class="block text-xs text-muted">{{ $p->shelf }}</span>
                             </td>
                             <td>

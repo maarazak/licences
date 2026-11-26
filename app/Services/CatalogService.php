@@ -206,6 +206,7 @@ class CatalogService
         // Marquer les produits absents du fournisseur comme inactifs
         if (!empty($seenIds)) {
             $deactivatedCount = Product::whereNotIn('supplier_id', $seenIds)
+                ->where('source', '!=', 'manual') // les produits manuels n'existent pas chez le fournisseur
                 ->where('supplier_active', true)
                 ->update(['supplier_active' => false, 'updated_at' => $now]);
             $report['deactivated'] = $deactivatedCount;

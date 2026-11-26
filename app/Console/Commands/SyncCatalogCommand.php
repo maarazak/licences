@@ -37,6 +37,7 @@ class SyncCatalogCommand extends Command
 
             if ($this->option('publish') || Setting::flag('autoPublish', 'auto_publish')) {
                 $count = Product::where('supplier_active', true)
+                    ->where('source', '!=', 'manual')
                     ->where('supplier_purchasable', true)
                     ->where('preorder', false)
                     ->where('is_published', false)

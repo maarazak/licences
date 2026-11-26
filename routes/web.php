@@ -132,7 +132,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('produits/synchroniser', [ProductController::class, 'syncCatalog'])->name('products.sync');
         Route::post('produits/publier-tout', [ProductController::class, 'publishAllSellable'])->name('products.publish_all');
         Route::post('produits/solde-fournisseur', [ProductController::class, 'refreshSupplierBalance'])->name('products.refresh_balance');
+        Route::get('produits/nouveau', [ProductController::class, 'create'])->name('products.create');
+        Route::post('produits', [ProductController::class, 'store'])->name('products.store');
         Route::get('produits/{id}', [ProductController::class, 'edit'])->name('products.edit');
+        Route::post('produits/{id}/stock', [ProductController::class, 'addStock'])->name('products.stock_add');
+        Route::post('produits/{id}/stock/{itemId}/retirer', [ProductController::class, 'removeStockItem'])->name('products.stock_remove');
+        Route::post('produits/{id}/supprimer', [ProductController::class, 'destroy'])->name('products.destroy');
         Route::post('produits/{id}', [ProductController::class, 'update'])->name('products.update');
         Route::post('produits/{id}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle_active');
 

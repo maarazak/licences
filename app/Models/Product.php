@@ -17,6 +17,7 @@ class Product extends Model
     protected $fillable = [
         'id',
         'supplier_id',
+        'source',
         'slug',
         'name',
         'display_name',
@@ -167,6 +168,37 @@ class Product extends Model
         }
 
         return 'Selon offre';
+    }
+
+    /** Produit créé et géré à la main depuis le backoffice : la synchronisation du fournisseur ne le touche jamais. */
+    public function isManual(): bool
+    {
+        return $this->source === 'manual';
+    }
+
+    public function stockItems()
+    {
+        return $this->hasMany(ProductStockItem::class);
+    }
+
+    /**
+     * Recalcule le stock affiché d'un produit manuel d'après ses accès disponibles. Les colonnes existantes (stock, in_stock,
+     * supplier_purchasable) sont réutilisées : accueil, boutique et commande fonctionnent sans changement.
+     */
+    public function refreshManualStock(): void
+    {
+        if (!$this->isManual()) {
+            return;
+        }
+
+        $available = $this->stockItems()->where('status', 'available')->count();
+        $this->forceFill([
+            'stock' => $available,
+            'in_stock' => $available > 0,
+            'supplier_purchasable' => true,
+            'supplier_active' => true,
+            'preorder' => false,
+        ])->save();
     }
 
     public function orders()
