@@ -19,8 +19,19 @@ class AdminSeeder extends Seeder
         $adminRoleAdmin = Role::where(['name' => 'admin', 'guard_name' => 'admin'])->first();
         $adminRoleWeb   = Role::where(['name' => 'admin', 'guard_name' => 'web'])->first();
 
-        $email = env('ADMIN_EMAIL', 'abdoulrazakmaali@gmail.com');
-        $password = env('ADMIN_PASSWORD', 'Admin@2026');
+        $email = env('ADMIN_EMAIL');
+        $password = env('ADMIN_PASSWORD');
+
+        if (app()->environment('production')) {
+            // Aucun identifiant par défaut en production : ils sont dans le code, donc connus de quiconque le lit.
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !is_string($password) || strlen($password) < 12) {
+                throw new \RuntimeException('Production : définissez ADMIN_EMAIL et ADMIN_PASSWORD (12 caractères minimum) avant de lancer ce seeder, par exemple : ADMIN_EMAIL=… ADMIN_PASSWORD=… php artisan db:seed --class=AdminSeeder --force');
+            }
+        } else {
+            // Développement et tests uniquement.
+            $email = $email ?: 'admin@example.test';
+            $password = $password ?: 'Admin@2026';
+        }
 
         $admin = User::firstOrCreate(
             ['email' => $email],
