@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
         $this->command->line('');
         $this->command->warn('Compte Administrateur Backoffice (Blade) :');
         $this->command->line(' - URL : /admin/connexion');
-        $this->command->line(' - E-mail : ' . 'admin@local.com');
+        $this->command->line(' - E-mail : ' . 'abdoulrazakmaali@gmail.com');
         $this->command->line('');
 
         if (app()->environment('local', 'testing')) {

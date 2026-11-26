@@ -24,7 +24,7 @@ class AdminSeederTest extends TestCase
 
         $this->seed(AdminSeeder::class);
 
-        $admin = User::where('email', 'admin@local.com')->firstOrFail();
+        $admin = User::where('email', 'abdoulrazakmaali@gmail.com')->firstOrFail();
         $this->assertTrue(Hash::check('Admin@2026', $admin->password));
         $this->assertFalse(Hash::check('autre-mot-de-passe', $admin->password));
         $this->assertTrue($admin->hasRole('admin', 'admin'));
@@ -36,11 +36,11 @@ class AdminSeederTest extends TestCase
         $this->seed(PermissionSeeder::class);
         $this->seed(RoleSeeder::class);
         $this->seed(AdminSeeder::class);
-        User::where('email', 'admin@local.com')->update(['password' => Hash::make('modifie')]);
+        User::where('email', 'abdoulrazakmaali@gmail.com')->update(['password' => Hash::make('modifie')]);
 
         $this->seed(AdminSeeder::class);
 
-        $this->assertSame(1, User::where('email', 'admin@local.com')->count());
-        $this->assertTrue(Hash::check('Admin@2026', User::where('email', 'admin@local.com')->first()->password));
+        $this->assertSame(1, User::where('email', 'abdoulrazakmaali@gmail.com')->count());
+        $this->assertTrue(Hash::check('Admin@2026', User::where('email', 'abdoulrazakmaali@gmail.com')->first()->password));
     }
 }

@@ -20,7 +20,7 @@ class AdminSeeder extends Seeder
 
         // Identifiants du compte administrateur : définis ici (pas dans le .env). Le mot de passe est stocké sous forme
         // d'empreinte bcrypt : le code ne contient pas le mot de passe en clair.
-        $email = 'admin@local.com';
+        $email = 'abdoulrazakmaali@gmail.com';
         $passwordHash = '$2y$12$LG0VdL6YOv0e/zjgRYfuL.ALz/rETjsgZgOKI1X1.awDrFoSno526';
 
         $admin = User::firstOrCreate(

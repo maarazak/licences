@@ -32,7 +32,7 @@ class DatabaseSeederTest extends TestCase
 
         // Droits et administrateur
         $this->assertTrue(Role::where(['name' => 'admin', 'guard_name' => 'admin'])->exists());
-        $admin = User::where('email', 'admin@local.com')->firstOrFail();
+        $admin = User::where('email', 'abdoulrazakmaali@gmail.com')->firstOrFail();
         $this->assertTrue(Hash::check('Admin@2026', $admin->password));
         $this->assertTrue($admin->hasRole('admin', 'admin'));
     }
@@ -42,7 +42,7 @@ class DatabaseSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $this->seed(DatabaseSeeder::class);
 
-        $this->assertSame(1, User::where('email', 'admin@local.com')->count());
+        $this->assertSame(1, User::where('email', 'abdoulrazakmaali@gmail.com')->count());
         $this->assertSame(1, Role::where(['name' => 'admin', 'guard_name' => 'admin'])->count());
     }
 }
