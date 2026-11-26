@@ -70,6 +70,11 @@ class HomeController extends Controller
 
         $mapped = $allProducts->map($mapProduct);
 
+        // Mise en avant automatique par marque (d'après le nom des produits, voir config/shop.php), sans réglage manuel.
+        // Les rangs « phare » définis à la main dans le backoffice restent prioritaires.
+        $highlights = \App\Support\BrandHighlights::apply($mapped);
+        $mapped = $highlights['products'];
+
         // Tri : marques VIP phares d'abord (ranks 1..33), puis disponibles, puis alphabétique
         $sorted = $mapped->sort(function ($a, $b) {
             $rankA = $a['featured_rank'] ?? 9999;
@@ -83,11 +88,12 @@ class HomeController extends Controller
             return strcasecmp($a['title'], $b['title']);
         })->values();
 
-        // Produits réservés pour le carrousel 3D (exactement les 10 marques demandées)
-        $carouselProducts = $mapped
+        // Carrousel : les produits aux rangs manuels 1..10 s'il y en a assez, sinon le meilleur produit disponible de chaque marque.
+        $manualCarousel = $mapped
             ->filter(fn ($p) => ($p['featured_rank'] ?? 9999) <= 10)
             ->sortBy('featured_rank')
             ->values();
+        $carouselProducts = $manualCarousel->count() >= 4 ? $manualCarousel : $highlights['carousel'];
 
         // Produits phares généraux
         $featuredRaw = $sorted
