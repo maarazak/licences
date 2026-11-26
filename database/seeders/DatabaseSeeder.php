@@ -24,11 +24,33 @@ class DatabaseSeeder extends Seeder
             $this->call(CustomerSeeder::class);
         }
 
-        // 3. Nettoyage des caches applicatifs
+        // 3. Premier import du catalogue fournisseur, sans attendre le cron. Non bloquant : une panne du fournisseur
+        // n'empêche pas l'initialisation (le cron réessaie ensuite toutes les 5 minutes).
+        $this->importCatalog();
+
+        // 4. Nettoyage des caches applicatifs
         Artisan::call('cache:clear');
         Artisan::call('permission:cache-reset');
 
         $this->userInfo();
+    }
+
+    private function importCatalog(): void
+    {
+        if (app()->environment('testing') || !app(\App\Services\FlowsellerService::class)->isConfigured()) {
+            $this->command->comment('Catalogue : import ignoré (fournisseur non configuré). Le cron ou « php artisan catalog:sync » l\'importera.');
+
+            return;
+        }
+
+        try {
+            $catalog = app(\App\Services\CatalogService::class);
+            $report = $catalog->syncCatalog();
+            $catalog->refreshSupplierBalance();
+            $this->command->info("Catalogue importé : {$report['created']} produit(s) créé(s) sur {$report['total']} reçus (publiés automatiquement).");
+        } catch (\Throwable $e) {
+            $this->command->warn('Catalogue : import impossible pour le moment (' . mb_substr($e->getMessage(), 0, 120) . '). Le cron réessaiera.');
+        }
     }
 
     /**
@@ -44,7 +66,7 @@ class DatabaseSeeder extends Seeder
         $this->command->line('');
         $this->command->warn('Compte Administrateur Backoffice (Blade) :');
         $this->command->line(' - URL : /admin/connexion');
-        $this->command->line(' - E-mail : ' . env('ADMIN_EMAIL', 'abdoulrazakmaali@gmail.com'));
+        $this->command->line(' - E-mail : ' . 'admin@local.com');
         $this->command->line('');
 
         if (app()->environment('local', 'testing')) {
