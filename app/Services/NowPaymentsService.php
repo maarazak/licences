@@ -23,7 +23,7 @@ class NowPaymentsService
     public function __construct()
     {
         $this->apiKey = (string) config('services.nowpayments.api_key', '');
-        $this->ipnSecret = (string) config('services.nowpayments.ipn_secret', '');
+        $this->ipnSecret = trim((string) config('services.nowpayments.ipn_secret', ''));
         $this->baseUrl = rtrim((string) config('services.nowpayments.base_url', 'https://api.nowpayments.io/v1'), '/');
     }
 
@@ -70,7 +70,7 @@ class NowPaymentsService
                 'ipn_callback_url' => route('webhooks.nowpayments'),
                 'success_url' => $params['return_url'],
                 'cancel_url' => $params['return_url'],
-            ]);
+            ] + $this->feeOptions());
 
         if (!$response->successful() || empty($response->json('invoice_url'))) {
             Log::error('[NOWPayments] Échec création facture', ['status' => $response->status(), 'order_id' => $params['order_id']]);
@@ -83,6 +83,18 @@ class NowPaymentsService
             'order_id' => $response->json('order_id') ?? $params['order_id'],
             'amount_usd' => $amountUsd,
         ];
+    }
+
+    /**
+     * Frais à la charge du client : NOWPayments exige alors un taux fixe (figé 10 minutes ; sans paiement dans ce délai la
+     * facture expire et le client peut en recréer une depuis sa commande). Le montant facturé reste le prix en dollars :
+     * le client paie ce prix PLUS les frais, le marchand reçoit le prix entier.
+     */
+    private function feeOptions(): array
+    {
+        return config('services.nowpayments.fees_paid_by_user', true)
+            ? ['is_fixed_rate' => true, 'is_fee_paid_by_user' => true]
+            : [];
     }
 
     /**

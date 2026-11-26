@@ -114,7 +114,18 @@ class NowPaymentsTest extends TestCase
 
         $this->assertSame('777', $session['invoice_id']);
         $this->assertSame('https://nowpayments.io/payment/?iid=777', $session['payment_url']);
-        Http::assertSent(fn ($r) => $r->hasHeader('x-api-key', 'cle-api-test') && $r['price_amount'] == 29.9 && $r['price_currency'] === 'usd' && $r['order_id'] === 'CMD-1');
+        Http::assertSent(fn ($r) => $r->hasHeader('x-api-key', 'cle-api-test') && $r['price_amount'] == 29.9 && $r['price_currency'] === 'usd' && $r['order_id'] === 'CMD-1'
+            && $r['is_fixed_rate'] === true && $r['is_fee_paid_by_user'] === true);
+    }
+
+    public function test_les_frais_peuvent_etre_remis_a_la_charge_du_marchand(): void
+    {
+        config(['services.nowpayments.fees_paid_by_user' => false]);
+        Http::fake(['api.nowpayments.io/v1/invoice' => Http::response(['id' => '778', 'invoice_url' => 'https://nowpayments.io/payment/?iid=778'], 200)]);
+
+        (new NowPaymentsService())->createInvoice(['order_id' => 'CMD-2', 'amount_xof' => 20000, 'return_url' => 'https://exemple.test/retour']);
+
+        Http::assertSent(fn ($r) => !isset($r['is_fixed_rate']) && !isset($r['is_fee_paid_by_user']));
     }
 
     public function test_le_montant_inferieur_au_facture_est_detecte(): void

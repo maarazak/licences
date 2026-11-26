@@ -50,6 +50,8 @@ return [
         'api_key' => env('NOWPAYMENTS_API_KEY'),
         'ipn_secret' => env('NOWPAYMENTS_IPN_SECRET'),
         'base_url' => env('NOWPAYMENTS_BASE_URL', 'https://api.nowpayments.io/v1'),
+        // Les frais réseau et de conversion sont payés par le client (taux figé 10 minutes). false = à la charge du marchand.
+        'fees_paid_by_user' => (bool) env('NOWPAYMENTS_FEES_PAID_BY_USER', true),
     ],
 
 ];
