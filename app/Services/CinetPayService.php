@@ -20,6 +20,9 @@ class CinetPayService
      */
     public const PAYABLE_CURRENCIES = ['XOF', 'XAF'];
 
+    /** Pays proposés au paiement : zone UEMOA (XOF) et pays CEMAC proposés (XAF). */
+    public const PAYABLE_COUNTRIES = ['BF', 'CI', 'SN', 'BJ', 'ML', 'NE', 'TG', 'GW', 'CM', 'CG', 'GA'];
+
     protected ?string $apiKey;
     protected ?string $apiPassword;
     protected string $environment;
@@ -159,6 +162,10 @@ class CinetPayService
      */
     public function createPaymentPage(array $input): array
     {
+        $requested = strtoupper(trim((string) ($input['country'] ?? '')));
+        if ($requested !== '' && !in_array($requested, self::PAYABLE_COUNTRIES, true)) {
+            throw new Exception("Ce pays n'est pas pris en charge pour le paiement en FCFA.");
+        }
         $countryEnum = $this->resolveCountry($input['country'] ?? null);
         if (!in_array($countryEnum->currency()->value, self::PAYABLE_CURRENCIES, true)) {
             throw new Exception("Ce pays n'est pas pris en charge pour le paiement en FCFA.");

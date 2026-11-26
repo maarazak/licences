@@ -159,7 +159,7 @@ class AccountController extends Controller
         abort(403, "Seul le service administratif ou le back-office peut traiter un remboursement pour cette commande.");
     }
 
-    public function wallet()
+    public function wallet(Request $request)
     {
         $user = $this->user();
 
@@ -168,6 +168,7 @@ class AccountController extends Controller
             ->paginate(15);
 
         return Inertia::render('Account/Wallet', [
+            'defaultCountry' => \App\Support\CountryDetector::preselect($request, $user->country),
             'entries' => $entries,
         ]);
     }
@@ -177,7 +178,7 @@ class AccountController extends Controller
         $validated = $request->validate([
             'amount_xof' => 'required|integer|min:500|max:1000000',
             'phone' => 'nullable|string|max:30',
-            'country' => 'nullable|string|max:5',
+            'country' => ['nullable', 'string', 'max:5', \Illuminate\Validation\Rule::in(CinetPayService::PAYABLE_COUNTRIES)],
             'fullName' => 'nullable|string|max:120',
             'gateway' => 'nullable|string|in:cinetpay,cryptomus,crypto',
         ]);

@@ -5,14 +5,14 @@ import {
   ArrowRight,
   Lock,
   Plus,
-  Smartphone,
   CreditCard,
-  Coins,
   Wallet
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
-import { COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
+import PaymentOptionCard from '@/Components/Checkout/PaymentOptionCard.vue';
+import { CRYPTO_ICON_LOGOS, CRYPTO_LOGOS, MOBILE_ICON_LOGOS, MOBILE_LOGOS } from '@/Utils/paymentLogos';
+import { PAYMENT_COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
 import { formatXof, formatCurrency } from '@/Utils/format';
 import { useI18n } from '@/Utils/useI18n';
 
@@ -48,7 +48,7 @@ const props = defineProps<{
 const { t, formatPrice, currency } = useI18n();
 
 const quantity = ref(1);
-const selectedCountry = ref<CountryCode>((props.defaults.country && COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
+const selectedCountry = ref<CountryCode>((props.defaults.country && PAYMENT_COUNTRIES.some(c => c.code === props.defaults.country) ? props.defaults.country : 'BF') as CountryCode);
 const payChoice = ref<'cinetpay' | 'cryptomus' | 'balance'>('cinetpay');
 
 const currentCountry = computed(() => getCountry(selectedCountry.value));
@@ -147,7 +147,7 @@ const submitCheckout = () => {
                   v-model="selectedCountry"
                   class="input cursor-pointer"
                 >
-                  <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">
+                  <option v-for="c in PAYMENT_COUNTRIES" :key="c.code" :value="c.code">
                     {{ c.flag }} {{ c.name }} ({{ c.dial }})
                   </option>
                 </select>
@@ -233,116 +233,42 @@ const submitCheckout = () => {
               </span>
             </div>
 
-            <div class="mt-4 space-y-3">
-              <!-- Option 1 : Mobile Money ou Carte bancaire -->
-              <div
-                @click="payChoice = 'cinetpay'"
-                :class="[
-                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition cursor-pointer',
-                  effectivePayWith === 'cinetpay'
-                    ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30'
-                    : 'border-line bg-white hover:border-slate-300'
-                ]"
+            <div class="mt-4 space-y-3" role="radiogroup" :aria-label="t('Moyen de paiement')">
+              <PaymentOptionCard
+                :selected="effectivePayWith === 'cinetpay'"
+                :icon-logos="MOBILE_ICON_LOGOS"
+                :title="t('Mobile Money ou Carte bancaire')"
+                :logos="MOBILE_LOGOS"
+                @select="payChoice = 'cinetpay'"
+              />
+
+              <PaymentOptionCard
+                :selected="effectivePayWith === 'cryptomus'"
+                :icon-logos="CRYPTO_ICON_LOGOS"
+                :title="t('Crypto-monnaies')"
+                :logos="CRYPTO_LOGOS"
+                @select="payChoice = 'cryptomus'"
+              />
+
+              <PaymentOptionCard
+                :selected="effectivePayWith === 'balance'"
+                :disabled="!canUseBalance"
+                :icon="Wallet"
+                :title="t('Mon solde')"
+                :subtitle="canUseBalance ? t('Débit direct sans redirection') : t('Solde insuffisant')"
+                @select="payChoice = 'balance'"
               >
-                <div class="flex items-center gap-3.5 min-w-0">
-                  <div
+                <template #aside>
+                  <span
                     :class="[
-                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
-                      effectivePayWith === 'cinetpay' ? 'border-brand bg-brand' : 'border-slate-300 bg-white'
+                      'shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold',
+                      canUseBalance ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600',
                     ]"
                   >
-                    <span v-if="effectivePayWith === 'cinetpay'" class="size-1.5 rounded-full bg-white" />
-                  </div>
-
-                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                    <Smartphone class="size-5" />
-                  </div>
-
-                  <div class="min-w-0">
-                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Mobile Money ou Carte bancaire') }}</p>
-                    <p class="text-xs text-muted mt-0.5">Orange, Wave, MTN, Moov, Visa, Mastercard</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Option 2 : Crypto-monnaies -->
-              <div
-                @click="payChoice = 'cryptomus'"
-                :class="[
-                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition cursor-pointer',
-                  effectivePayWith === 'cryptomus'
-                    ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30'
-                    : 'border-line bg-white hover:border-slate-300'
-                ]"
-              >
-                <div class="flex items-center gap-3.5 min-w-0">
-                  <div
-                    :class="[
-                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
-                      effectivePayWith === 'cryptomus' ? 'border-brand bg-brand' : 'border-slate-300 bg-white'
-                    ]"
-                  >
-                    <span v-if="effectivePayWith === 'cryptomus'" class="size-1.5 rounded-full bg-white" />
-                  </div>
-
-                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                    <Coins class="size-5" />
-                  </div>
-
-                  <div class="min-w-0">
-                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Crypto-monnaies') }}</p>
-                    <p class="text-xs text-muted mt-0.5">USDT, Bitcoin, Ethereum, Solana, TON, Litecoin</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Option 3 : Mon solde client -->
-              <div
-                @click="canUseBalance && (payChoice = 'balance')"
-                :class="[
-                  'group flex items-center justify-between gap-4 rounded-xl border p-4 transition',
-                  !canUseBalance
-                    ? 'border-line bg-slate-50/70 opacity-60 cursor-not-allowed'
-                    : effectivePayWith === 'balance'
-                      ? 'border-brand bg-brand/[0.04] ring-1 ring-brand/30 cursor-pointer'
-                      : 'border-line bg-white hover:border-slate-300 cursor-pointer'
-                ]"
-              >
-                <div class="flex items-center gap-3.5 min-w-0">
-                  <div
-                    :class="[
-                      'size-4 rounded-full border-2 flex items-center justify-center shrink-0 transition',
-                      !canUseBalance
-                        ? 'border-slate-300 bg-slate-100'
-                        : effectivePayWith === 'balance'
-                          ? 'border-brand bg-brand'
-                          : 'border-slate-300 bg-white'
-                    ]"
-                  >
-                    <span v-if="effectivePayWith === 'balance'" class="size-1.5 rounded-full bg-white" />
-                  </div>
-
-                  <div class="size-10 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
-                    <Wallet class="size-5" />
-                  </div>
-
-                  <div class="min-w-0">
-                    <p class="text-sm font-bold text-ink leading-tight">{{ t('Mon solde') }}</p>
-                    <p class="text-xs mt-0.5" :class="canUseBalance ? 'text-muted' : 'text-rose-600 font-medium'">
-                      {{ canUseBalance ? t('Débit direct sans redirection') : t('Solde insuffisant') }}
-                    </p>
-                  </div>
-                </div>
-
-                <span
-                  :class="[
-                    'text-xs font-bold px-2.5 py-1 rounded-lg shrink-0',
-                    canUseBalance ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600'
-                  ]"
-                >
-                  {{ formatXof(balanceXof) }}
-                </span>
-              </div>
+                    {{ formatXof(balanceXof) }}
+                  </span>
+                </template>
+              </PaymentOptionCard>
             </div>
           </section>
         </div>

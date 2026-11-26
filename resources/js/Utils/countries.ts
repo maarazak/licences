@@ -235,6 +235,15 @@ export const COUNTRIES: readonly CountryInfo[] = [
 export type CountryCode = (typeof COUNTRIES)[number]["code"];
 export const COUNTRY_CODES = COUNTRIES.map((c) => c.code) as [CountryCode, ...CountryCode[]];
 
+/**
+ * Pays proposés pour PAYER (achat et recharge) : uniquement ceux dont la devise vaut 1 pour 1 avec le FCFA (XOF / XAF).
+ * Doit rester identique à `CinetPayService::PAYABLE_COUNTRIES` côté serveur. Le profil garde la liste complète.
+ * La détection automatique du pays se fait côté serveur (en-tête de l'hébergeur) : les fuseaux horaires des navigateurs
+ * ne distinguent plus le Burkina, le Mali, le Sénégal ou le Togo de la Côte d'Ivoire.
+ */
+export const PAYMENT_COUNTRY_CODES = ["BF", "CI", "SN", "BJ", "ML", "NE", "TG", "GW", "CM", "CG", "GA"] as const;
+export const PAYMENT_COUNTRIES: readonly CountryInfo[] = COUNTRIES.filter((c) => (PAYMENT_COUNTRY_CODES as readonly string[]).includes(c.code));
+
 /** Trouve les informations d'un pays par son code (insensible à la casse). */
 export function getCountry(code?: string | null): CountryInfo {
   if (!code) return COUNTRIES[0];
@@ -251,34 +260,6 @@ export function getCountry(code?: string | null): CountryInfo {
       timezones: [],
     }
   );
-}
-
-/**
- * Détecte le pays probable de l'utilisateur basé sur le fuseau horaire de son appareil.
- * Rapide, gratuit, respecte la vie privée, sans requête externe.
- * Fallback par défaut : "BF" (Burkina Faso).
- */
-export function detectUserCountry(fallback = "BF"): CountryCode {
-  if (typeof window === "undefined") return fallback as CountryCode;
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz) {
-      for (const country of COUNTRIES) {
-        if (country.timezones.includes(tz)) {
-          return country.code;
-        }
-      }
-    }
-    const lang = (navigator.language || "").toUpperCase();
-    for (const country of COUNTRIES) {
-      if (lang.endsWith(`-${country.code}`)) {
-        return country.code;
-      }
-    }
-  } catch {
-    // Navigateur incompatible ou bloqueur
-  }
-  return fallback as CountryCode;
 }
 
 /**
