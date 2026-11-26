@@ -39,6 +39,7 @@ class Order extends Model
         'payment_checkout_id',
         'payment_intent_id',
         'payment_url',
+        'notify_token',
         'paid_at',
         'paid_with',
         'supplier_idem_key',
@@ -61,6 +62,7 @@ class Order extends Model
     ];
 
     protected $hidden = [
+        'notify_token',
         'delivery_encrypted',
         'unit_cost_usd_cents',
         'usd_rate',

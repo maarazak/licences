@@ -14,6 +14,9 @@ class WalletDeposit extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+    /** Jeton de notification CinetPay : secret, jamais envoyé au navigateur. */
+    protected $hidden = ['notify_token'];
+
     protected $fillable = [
         'id',
         'reference',
@@ -25,6 +28,7 @@ class WalletDeposit extends Model
         'payment_checkout_id',
         'payment_intent_id',
         'payment_url',
+        'notify_token',
         'paid_at',
         'credited_at',
         'failure_code',

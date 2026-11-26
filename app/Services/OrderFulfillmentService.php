@@ -14,6 +14,8 @@ class OrderFulfillmentService
 {
     public const LOCK_MINUTES = 5;
     public const MAX_ATTEMPTS = 5;
+    /** États d'une commande dont le paiement peut encore aboutir (y compris un paiement tardif après expiration). */
+    public const PAYABLE_STATUSES = ['pending_payment', 'expired', 'payment_failed'];
 
     protected FlowsellerService $flowseller;
     protected CryptoService $crypto;
@@ -291,12 +293,13 @@ class OrderFulfillmentService
     }
 
     /**
-     * Synchronise le paiement CinetPay d'une commande.
+     * Synchronise le paiement CinetPay d'une commande : relit l'état chez CinetPay avec l'identifiant STOCKÉ de la commande
+     * (jamais un identifiant venu d'une requête), puis applique le résultat.
      */
     public function syncPayment(string $orderId): ?Order
     {
         $order = Order::find($orderId);
-        if (!$order || !in_array($order->status, ['pending_payment', 'expired', 'payment_failed'], true)) {
+        if (!$order || !in_array($order->status, self::PAYABLE_STATUSES, true)) {
             return $order;
         }
 
@@ -307,51 +310,165 @@ class OrderFulfillmentService
 
         try {
             $state = $this->cinetPay->getPayment($depositId, $order->customer_country);
-            $paymentStatus = strtolower($state['payment_status'] ?? '');
-
-            if ($paymentStatus === 'completed' || !empty($state['is_successful'])) {
-                if ($order->status !== 'paid' && $order->status !== 'delivered') {
-                    $order->update([
-                        'status' => 'paid',
-                        'paid_at' => now(),
-                        'paid_with' => 'cinetpay',
-                        'updated_at' => now(),
-                    ]);
-
-                    OrderEvent::create([
-                        'id' => Str::uuid()->toString(),
-                        'order_id' => $order->id,
-                        'type' => 'paid',
-                        'message' => 'Paiement confirmé.',
-                        'actor' => 'payment_gateway',
-                    ]);
-
-                    // Déclenchement immédiat de la livraison
-                    $this->fulfil($order->id);
-                    return $order->fresh();
-                }
-            } elseif ($state['is_final'] && !$state['is_successful'] && $order->status === 'pending_payment') {
-                $newStatus = 'payment_failed';
-                $order->update([
-                    'status' => $newStatus,
-                    'failure_code' => $newStatus,
-                    'failure_message' => "Paiement non complété ({$state['status']})",
-                    'updated_at' => now(),
-                ]);
-
-                OrderEvent::create([
-                    'id' => Str::uuid()->toString(),
-                    'order_id' => $order->id,
-                    'type' => $newStatus,
-                    'message' => "Paiement {$state['status']}.",
-                    'actor' => 'payment_gateway',
-                ]);
+            if (empty($state['error'])) {
+                $this->settleGatewayPayment($order, $state, 'payment_gateway');
             }
         } catch (\Throwable $e) {
             Log::warning("[Payment Sync] Erreur vérification CinetPay pour {$order->reference}: {$e->getMessage()}");
         }
 
         return $order->fresh();
+    }
+
+    /**
+     * Applique à UNE commande l'état d'un paiement CinetPay relu auprès de l'API (jamais le contenu d'un webhook).
+     * Toutes les transitions sont atomiques (`UPDATE … WHERE status IN (…)`) : webhook, retour client, tâche planifiée et
+     * vérification admin peuvent arriver en même temps, un seul passe. Un paiement tardif (commande expirée ou en échec de
+     * paiement) est repris. Retourne : paid | failed | underpaid | ignored.
+     */
+    public function settleGatewayPayment(Order $order, array $state, string $actor = 'cinetpay'): string
+    {
+        // La réponse doit concerner CETTE commande (identifiants), sinon rien n'est modifié.
+        if (!CinetPayService::matchesRecord($order, $state)) {
+            Log::warning("[Payment] Réponse CinetPay sans correspondance avec la commande {$order->reference}.");
+            return 'ignored';
+        }
+
+        if (!empty($state['is_successful'])) {
+            if (CinetPayService::isUnderpaid((int) $order->total_xof, $state)) {
+                $moved = Order::where('id', $order->id)->whereIn('status', self::PAYABLE_STATUSES)->update([
+                    'status' => 'failed',
+                    'paid_with' => 'cinetpay',
+                    'paid_at' => now(),
+                    'failure_code' => 'amount_mismatch',
+                    'failure_message' => 'Montant ou devise reçu différent du montant dû : décision de l\'équipe requise.',
+                    'updated_at' => now(),
+                ]);
+                if ($moved === 1) {
+                    $this->logOrderEvent($order, 'amount_mismatch', 'Paiement reçu mais montant ou devise différent du montant dû.', $actor);
+                    Log::error("[Payment] Montant inférieur au dû pour la commande {$order->reference}.");
+                }
+                return 'underpaid';
+            }
+
+            $moved = Order::where('id', $order->id)->whereIn('status', self::PAYABLE_STATUSES)->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'paid_with' => 'cinetpay',
+                'failure_code' => null,
+                'failure_message' => null,
+                'updated_at' => now(),
+            ]);
+            if ($moved !== 1) {
+                return 'ignored'; // déjà traitée par un autre passage
+            }
+
+            $order->refresh();
+            $this->logOrderEvent($order, 'paid', 'Paiement confirmé.', $actor);
+            try {
+                app(MailService::class)->sendOrderPaid($order);
+            } catch (\Throwable $e) {
+                Log::warning("[Payment] Erreur e-mail paiement {$order->reference}: {$e->getMessage()}");
+            }
+            // La livraison a son propre verrou atomique : un appel concurrent ne peut pas acheter deux fois.
+            try {
+                $this->fulfil($order->id);
+            } catch (\Throwable $e) {
+                Log::warning("[Payment] Erreur livraison {$order->reference}: {$e->getMessage()}");
+            }
+            return 'paid';
+        }
+
+        if (!empty($state['is_final'])) {
+            $moved = Order::where('id', $order->id)->where('status', 'pending_payment')->update([
+                'status' => 'payment_failed',
+                'failure_code' => 'payment_failed',
+                'failure_message' => "Paiement non complété ({$state['status']})",
+                'updated_at' => now(),
+            ]);
+            if ($moved === 1) {
+                $this->logOrderEvent($order, 'payment_failed', "Paiement {$state['status']}.", $actor);
+            }
+            return $moved === 1 ? 'failed' : 'ignored';
+        }
+
+        return 'ignored'; // encore en attente chez CinetPay
+    }
+
+    /**
+     * Applique à UNE commande l'état d'un paiement Cryptomus (webhook signé ou relecture API). Mêmes garanties que
+     * `settleGatewayPayment` : transitions atomiques, paiement tardif repris, un seul « payé » malgré les doublons.
+     * Retourne : paid | failed | ignored.
+     */
+    public function settleCryptoPayment(Order $order, array $payload, string $actor = 'cryptomus'): string
+    {
+        // Si l'identifiant de commande est rapporté, il doit être celui de CETTE commande.
+        $reportedId = (string) ($payload['order_id'] ?? '');
+        if ($reportedId !== '' && !in_array($reportedId, array_filter([(string) $order->reference, (string) $order->payment_intent_id]), true)) {
+            Log::warning("[Payment] Réponse Cryptomus sans correspondance avec la commande {$order->reference}.");
+            return 'ignored';
+        }
+
+        $status = strtolower((string) ($payload['status'] ?? $payload['payment_status'] ?? ''));
+
+        if (in_array($status, ['paid', 'paid_over'], true)) {
+            $moved = Order::where('id', $order->id)->whereIn('status', self::PAYABLE_STATUSES)->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'paid_with' => 'cryptomus',
+                'payment_checkout_id' => ($payload['uuid'] ?? null) ?: $order->payment_checkout_id,
+                'failure_code' => null,
+                'failure_message' => null,
+                'updated_at' => now(),
+            ]);
+            if ($moved !== 1) {
+                return 'ignored';
+            }
+
+            $order->refresh();
+            $payerCurrency = $payload['payer_currency'] ?? $payload['currency'] ?? 'Crypto';
+            $network = !empty($payload['network']) ? " ({$payload['network']})" : '';
+            $this->logOrderEvent($order, 'paid', "Paiement de {$order->total_xof} FCFA confirmé en crypto [{$payerCurrency}{$network}].", $actor);
+            try {
+                app(MailService::class)->sendOrderPaid($order);
+            } catch (\Throwable $e) {
+                Log::warning("[Payment] Erreur e-mail paiement {$order->reference}: {$e->getMessage()}");
+            }
+            try {
+                $this->fulfil($order->id);
+            } catch (\Throwable $e) {
+                Log::warning("[Payment] Erreur livraison {$order->reference}: {$e->getMessage()}");
+            }
+            return 'paid';
+        }
+
+        if (in_array($status, ['cancel', 'fail', 'system_fail'], true)) {
+            $moved = Order::where('id', $order->id)->where('status', 'pending_payment')->update([
+                'status' => 'payment_failed',
+                'failure_code' => 'payment_failed',
+                'failure_message' => "Paiement crypto non finalisé ({$status})",
+                'updated_at' => now(),
+            ]);
+            if ($moved === 1) {
+                $this->logOrderEvent($order, 'payment_failed', "Paiement crypto {$status}.", $actor);
+            }
+            return $moved === 1 ? 'failed' : 'ignored';
+        }
+
+        return 'ignored';
+    }
+
+    protected function logOrderEvent(Order $order, string $type, string $message, string $actor): void
+    {
+        OrderEvent::create([
+            'id' => Str::uuid()->toString(),
+            'order_id' => $order->id,
+            'type' => $type,
+            'event' => $type,
+            'actor' => $actor,
+            'message' => $message,
+            'created_at' => now(),
+        ]);
     }
 
     /**

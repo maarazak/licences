@@ -248,11 +248,13 @@ class OrderFulfillmentAndWalletTest extends TestCase
         $mockCinetPay->shouldReceive('getPayment')
             ->once()
             ->andReturn([
+                'merchant_transaction_id' => $deposit->reference,
+                'transaction_id' => $deposit->payment_checkout_id,
                 'status' => 'ACCEPTED',
                 'is_successful' => true,
+                'is_final' => true,
                 'payment_status' => 'completed',
-                'amount' => 8000,
-                'currency' => 'XOF',
+                'raw' => [],
             ]);
         $this->app->instance(\App\Services\CinetPayService::class, $mockCinetPay);
 

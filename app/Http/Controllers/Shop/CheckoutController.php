@@ -482,48 +482,8 @@ class CheckoutController extends Controller
                 ->first();
 
             if ($walletDeposit) {
-                if ($walletDeposit->status === 'pending') {
-                    try {
-                        $cinetPay = app(CinetPayService::class);
-                        $queryKey = $walletDeposit->payment_intent_id ?: $walletDeposit->payment_checkout_id ?: $walletDeposit->reference ?: $walletDeposit->id;
-                        $state = $cinetPay->getPayment($queryKey, $walletDeposit->customer_country);
-                        if (!empty($state['is_successful']) || in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
-                            DB::transaction(function () use ($walletDeposit) {
-                                $locked = WalletDeposit::lockForUpdate()->find($walletDeposit->id);
-                                if ($locked && !$locked->credited_at) {
-                                    $user = User::lockForUpdate()->find($locked->user_id);
-                                    if ($user) {
-                                        $user->increment('balance_xof', $locked->amount_xof);
-                                        WalletEntry::create([
-                                            'id' => Str::uuid()->toString(),
-                                            'user_id' => $user->id,
-                                            'amount_xof' => $locked->amount_xof,
-                                            'balance_after_xof' => $user->balance_xof,
-                                            'type' => 'credit',
-                                            'kind' => 'deposit',
-                                            'description' => "Recharge de solde — {$locked->reference}",
-                                            'reference_type' => 'wallet_deposit',
-                                            'reference_id' => $locked->id,
-                                            'created_at' => now(),
-                                        ]);
-                                    }
-                                    $locked->update([
-                                        'status' => 'completed',
-                                        'paid_at' => now(),
-                                        'credited_at' => now(),
-                                    ]);
-                                }
-                            });
-                        } elseif (!empty($state['is_final']) && !$state['is_successful']) {
-                            $walletDeposit->update([
-                                'status' => 'failed',
-                                'failure_message' => "Paiement non complété ({$state['status']})",
-                            ]);
-                        }
-                    } catch (\Throwable $e) {
-                        \Log::warning("Erreur sync deposit retour: " . $e->getMessage());
-                    }
-                }
+                // Relecture chez CinetPay avec l'identifiant stocké ; le crédit n'a lieu qu'une fois (service dédié).
+                $walletDeposit = app(\App\Services\WalletDepositService::class)->sync($walletDeposit);
 
                 $refreshed = $walletDeposit->fresh();
                 if ($refreshed && $refreshed->status === 'completed') {
@@ -551,77 +511,18 @@ class CheckoutController extends Controller
             ->firstOrFail();
 
         // Relecture sécurisée auprès de Cryptomus si commande payée en crypto
-        if ($order->status === 'pending_payment' && $order->paid_with === 'cryptomus') {
+        if ($order->paid_with === 'cryptomus' && in_array($order->status, OrderFulfillmentService::PAYABLE_STATUSES, true)) {
             try {
-                $cryptomus = app(CryptomusService::class);
-                $info = $cryptomus->getPaymentInfo($order->reference, $order->payment_checkout_id);
-                $status = strtolower((string) ($info['status'] ?? $info['payment_status'] ?? ''));
-                if (in_array($status, ['paid', 'paid_over'], true)) {
-                    $order->update([
-                        'status' => 'paid',
-                        'paid_at' => now(),
-                    ]);
-
-                    OrderEvent::create([
-                        'id' => Str::uuid()->toString(),
-                        'order_id' => $order->id,
-                        'type' => 'paid',
-                        'event' => 'paid',
-                        'actor' => 'crypto',
-                        'message' => "Paiement en crypto confirmé lors du retour sur le site.",
-                        'created_at' => now(),
-                    ]);
-
-                    try {
-                        app(MailService::class)->sendOrderPaid($order);
-                        app(OrderFulfillmentService::class)->fulfil($order->id);
-                    } catch (\Throwable $e) {
-                        \Log::warning("Erreur fulfillment post-retour: " . $e->getMessage());
-                    }
-                }
+                $info = app(CryptomusService::class)->getPaymentInfo($order->reference, $order->payment_checkout_id);
+                app(OrderFulfillmentService::class)->settleCryptoPayment($order, is_array($info) ? $info : [], 'crypto');
             } catch (\Throwable $e) {
                 \Log::warning("Erreur vérification Cryptomus lors du retour: " . $e->getMessage());
             }
         }
 
-        // Relecture sécurisée auprès de CinetPay si le statut est encore en attente
-        if ($order->status === 'pending_payment') {
-            try {
-                $cinetPay = app(CinetPayService::class);
-                $queryKey = $order->payment_intent_id ?: $order->payment_checkout_id ?: $order->reference ?: $order->id;
-                $state = $cinetPay->getPayment($queryKey, $order->customer_country);
-                if (!empty($state['is_successful']) || in_array(strtoupper($state['status'] ?? ''), ['COMPLETED', 'SUCCESS'])) {
-                    $order->update([
-                        'status' => 'paid',
-                        'paid_at' => now(),
-                        'paid_with' => 'cinetpay',
-                    ]);
-
-                    OrderEvent::create([
-                        'id' => Str::uuid()->toString(),
-                        'order_id' => $order->id,
-                        'type' => 'paid',
-                        'event' => 'paid',
-                        'actor' => 'payment_gateway',
-                        'message' => "Paiement confirmé lors du retour sur le site.",
-                        'created_at' => now(),
-                    ]);
-
-                    try {
-                        app(MailService::class)->sendOrderPaid($order);
-                        app(OrderFulfillmentService::class)->fulfil($order->id);
-                    } catch (\Throwable $e) {
-                        \Log::warning("Erreur fulfillment post-retour: " . $e->getMessage());
-                    }
-                } elseif (!empty($state['is_final']) && !$state['is_successful']) {
-                    $order->update([
-                        'status' => 'payment_failed',
-                        'failure_message' => "Paiement non finalisé ({$state['status']}).",
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                \Log::warning("Erreur vérification CinetPay lors du retour: " . $e->getMessage());
-            }
+        // Relecture sécurisée auprès de CinetPay (identifiant stocké) : paiement en attente, ou tardif après expiration.
+        if ($order->paid_with === 'cinetpay' && in_array($order->status, OrderFulfillmentService::PAYABLE_STATUSES, true)) {
+            app(OrderFulfillmentService::class)->syncPayment($order->id);
         }
 
         $refreshedOrder = $order->fresh();

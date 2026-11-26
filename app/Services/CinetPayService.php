@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Order;
-use App\Models\OrderEvent;
 use CinetPay\CinetPay;
 use CinetPay\Country;
 use CinetPay\Currency;
@@ -15,6 +14,12 @@ use Illuminate\Support\Str;
 
 class CinetPayService
 {
+    /**
+     * Seules les devises à parité fixe avec le FCFA sont acceptées : XOF et XAF valent 1 pour 1. Pour GNF ou CDF, le même
+     * nombre représenterait une valeur très différente (15 000 GNF ≈ 15 fois moins que 15 000 FCFA).
+     */
+    public const PAYABLE_CURRENCIES = ['XOF', 'XAF'];
+
     protected ?string $apiKey;
     protected ?string $apiPassword;
     protected string $environment;
@@ -155,6 +160,9 @@ class CinetPayService
     public function createPaymentPage(array $input): array
     {
         $countryEnum = $this->resolveCountry($input['country'] ?? null);
+        if (!in_array($countryEnum->currency()->value, self::PAYABLE_CURRENCIES, true)) {
+            throw new Exception("Ce pays n'est pas pris en charge pour le paiement en FCFA.");
+        }
         $client = $this->getClient($countryEnum);
 
         // Identifiant de transaction marchand : 1 à 30 caractères alphanumériques
@@ -267,49 +275,56 @@ class CinetPayService
     }
 
     /**
+     * La réponse de l'API (relue avec l'identifiant STOCKÉ de l'enregistrement) concerne-t-elle bien cet enregistrement ?
+     * Garde-fou contre toute confusion entre deux paiements : l'identifiant marchand ET, s'ils sont connus des deux côtés,
+     * l'identifiant de transaction doivent correspondre.
+     */
+    public static function matchesRecord(object $record, array $state): bool
+    {
+        $reported = (string) ($state['merchant_transaction_id'] ?? '');
+        $known = array_filter([
+            (string) ($record->payment_intent_id ?? ''),
+            substr((string) preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($record->reference ?? '')), 0, 30),
+        ]);
+        if ($reported === '' || !in_array($reported, $known, true)) {
+            return false;
+        }
+
+        $reportedTx = (string) ($state['transaction_id'] ?? '');
+        $storedTx = (string) ($record->payment_checkout_id ?? '');
+
+        return $storedTx === '' || $reportedTx === '' || hash_equals($storedTx, $reportedTx);
+    }
+
+    /**
+     * Le montant (ou la devise) rapporté par l'API est-il inférieur à ce qui est dû ? Si l'API ne fournit pas le montant,
+     * seul le montant fixé à la création de la session fait foi. Un montant supérieur (frais inclus) n'est pas bloquant.
+     */
+    public static function isUnderpaid(int $expectedXof, array $state): bool
+    {
+        $raw = is_array($state['raw'] ?? null) ? $state['raw'] : [];
+        $currency = strtoupper((string) ($raw['currency'] ?? ($raw['payment']['currency'] ?? '')));
+        if ($currency !== '' && !in_array($currency, self::PAYABLE_CURRENCIES, true)) {
+            return true;
+        }
+        $amount = $raw['amount'] ?? ($raw['payment']['amount'] ?? null);
+
+        return is_numeric($amount) && (float) $amount + 0.5 < $expectedXof;
+    }
+
+    /**
      * Revérifie et synchronise le paiement d'une commande (utilisé par l'admin).
      */
     public function checkPaymentStatus(Order $order): bool
     {
         $targetId = $order->payment_intent_id ?: $order->payment_checkout_id ?: $order->reference ?: $order->id;
         $state = $this->getPayment($targetId, $order->customer_country);
-
-        if ($state['is_successful']) {
-            if ($order->status === 'pending_payment') {
-                $order->update([
-                    'status' => 'paid',
-                    'paid_at' => now(),
-                    'paid_with' => 'cinetpay',
-                ]);
-
-                OrderEvent::create([
-                    'id' => Str::uuid()->toString(),
-                    'order_id' => $order->id,
-                    'type' => 'paid',
-                    'event' => 'paid',
-                    'actor' => 'cinetpay',
-                    'message' => "Paiement de {$order->total_xof} FCFA confirmé via CinetPay.",
-                    'created_at' => now(),
-                ]);
-
-                try {
-                    app(\App\Services\MailService::class)->sendOrderPaid($order);
-                    app(\App\Services\OrderFulfillmentService::class)->fulfil($order->id);
-                } catch (\Throwable $e) {
-                    Log::warning("[CinetPay] Erreur fulfillment commande {$order->reference}: {$e->getMessage()}");
-                }
-            }
-            return true;
+        if (!empty($state['error'])) {
+            return false;
         }
 
-        if ($state['payment_status'] === 'failed' && $order->status === 'pending_payment') {
-            $order->update([
-                'status' => 'cancelled',
-                'failure_code' => 'payment_failed',
-                'failure_message' => "Paiement non validé chez CinetPay ({$state['status']})",
-            ]);
-        }
+        app(OrderFulfillmentService::class)->settleGatewayPayment($order, $state, 'cinetpay');
 
-        return false;
+        return !empty($state['is_successful']);
     }
 }

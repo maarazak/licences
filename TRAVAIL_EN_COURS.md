@@ -56,3 +56,15 @@ Inspirée des standards de haute qualité appliqués sur `livreurcravate-web` :
 - **Exécution `APP_ENV=production php artisan migrate:fresh --seed --force` (Production)** : Succès strict — **aucune donnée de démo insérée**.
 - **Suite de Tests PHPUnit (`php artisan test`)** : 12 tests réussis, 105 assertions, 0 échec.
 - **Compilation Vite (`npm run build`)** : 42 assets compilés en 653 ms dans `public/build/`.
+
+---
+
+## 5. Durcissement des paiements CinetPay (26 novembre 2026)
+
+- **Webhook = simple signal** (`WebhookController::cinetpay`) : les identifiants reçus ne servent qu'à retrouver la commande ou la recharge (correspondances exactes) ; l'état est relu chez CinetPay avec l'identifiant **stocké**, jamais celui de la requête. Avant : un paiement valide pouvait être « rejoué » sur une autre commande (ou une autre recharge, donc créditer un solde).
+- **Jeton de notification** : `notify_token` n'était pas dans `$fillable` (jamais enregistré). Corrigé, masqué à la sérialisation, comparé avec `hash_equals` quand il est connu.
+- **Règlement unique et atomique** : `OrderFulfillmentService::settleGatewayPayment` (commandes) et `WalletDepositService::settleGatewayPayment` (recharges) sont utilisés par le webhook, le retour client, la tâche planifiée et la vérification admin. `UPDATE … WHERE status IN (…)` : un seul passage ; paiement tardif repris (commande expirée / `payment_failed`) ; recharge créditée une seule fois.
+- **Contrôles** : l'identifiant renvoyé par l'API doit correspondre à l'enregistrement ; montant rapporté inférieur au dû ou devise non FCFA → `failed / amount_mismatch` (aucune livraison, aucun crédit).
+- **Devises** : `createPaymentPage` n'accepte que XOF et XAF (1 pour 1). Avant, un pays en GNF ou CDF facturait le même nombre dans une monnaie bien plus faible.
+- Webhooks limités à 120 requêtes/minute ; jeton absent des journaux.
+- Tests : `tests/Feature/CinetPaySecurityTest.php` (17 tests). Reste à faire : test réel en sandbox avec les clés CinetPay, et même durcissement atomique pour Cryptomus (`syncCryptomusOrder` / `syncCryptomusDeposit`).

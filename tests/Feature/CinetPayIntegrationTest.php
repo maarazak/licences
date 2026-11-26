@@ -116,7 +116,7 @@ class CinetPayIntegrationTest extends TestCase
 
         $mockCinetPay = Mockery::mock(CinetPayService::class);
         $mockCinetPay->shouldReceive('getPayment')
-            ->with('CMD-WEBHOOK-TEST')
+            ->with('CMD-WEBHOOK-TEST', null)
             ->once()
             ->andReturn([
                 'transaction_id' => 'CP-TX-WEBHOOK-1',
