@@ -249,6 +249,9 @@ class CatalogService
     /**
      * Détermine automatiquement la catégorie de boutique selon le nom du produit.
      */
+    /** Rayons de la boutique proposés dans le backoffice (ceux que `guessCategory` attribue, plus « Autres »). */
+    public const SHOP_CATEGORIES = ['IA et assistants', 'Divertissement', 'Création et design', 'Bureautique', 'Apprentissage', 'Développement', 'VPN et sécurité', 'Comptes et réseaux', 'Autres'];
+
     public static function guessCategory(string $name): string
     {
         $categories = [

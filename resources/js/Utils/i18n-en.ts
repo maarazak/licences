@@ -547,6 +547,7 @@ export const EN: Dict = {
   "Prix décroissant": "Price: high to low",
   "Nom (A à Z)": "Name (A to Z)",
   "IA et assistants": "AI & assistants",
+  "Autres": "Other",
   "Création et design": "Creation & design",
   "Développement": "Development",
   "Bureautique": "Office & productivity",

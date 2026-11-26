@@ -5,7 +5,7 @@ import { ShoppingCart, ArrowRight } from 'lucide-vue-next';
 import type { LogoSpec } from '@/Types/logo';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import BrandTint from '@/Components/Shared/BrandTint.vue';
-import { logoFor } from '@/Utils/brands';
+import { productLogo } from '@/Utils/brands';
 import { deliveryKindLabel } from '@/Types/enums';
 import { useI18n } from '@/Utils/useI18n';
 
@@ -49,7 +49,7 @@ const isAvail = computed(() => props.product.available ?? (props.product.in_stoc
 
 const resolvedLogo = computed<LogoSpec>(() => {
   if (props.product.logo) return props.product.logo;
-  return logoFor(props.product.name, props.product.display_name);
+  return productLogo(props.product);
 });
 
 const accessKindText = computed(() => {

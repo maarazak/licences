@@ -8,6 +8,8 @@ use App\Models\ProductStockItem;
 use App\Models\Setting;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -15,6 +17,22 @@ class ProductController extends Controller
 {
     /** Types d'accès proposés pour un produit manuel (la valeur sert aussi à l'affichage « Compte fourni », « Lien »…). */
     public const ACCESS_KINDS = ['account' => 'Compte fourni', 'link' => 'Lien', 'code' => 'Code / clé', 'key' => 'Clé de licence'];
+
+    /** Durées proposées (libellés affichés tels quels au client ; « 3 mois » est traduit « 3 months » en anglais). */
+    public const DURATIONS = ['1 jour', '3 jours', '7 jours', '14 jours', '30 jours', '1 mois', '2 mois', '3 mois', '6 mois', '12 mois', '1 an', '2 ans', '3 ans', 'À vie'];
+
+    /** Garanties proposées : valeur enregistrée (format compris par le site) => libellé. */
+    public const WARRANTIES = ['No Warranty' => 'Aucune garantie', '1 day' => '1 jour', '3 days' => '3 jours', '7 days' => '7 jours', '14 days' => '14 jours', '30 days' => '30 jours', 'Full Warranty' => 'Garantie sur toute la durée'];
+
+    /** Listes des menus déroulants des formulaires produit. */
+    private static function formChoices(): array
+    {
+        return [
+            'categories' => array_combine(\App\Services\CatalogService::SHOP_CATEGORIES, \App\Services\CatalogService::SHOP_CATEGORIES),
+            'durations' => array_combine(self::DURATIONS, self::DURATIONS),
+            'warranties' => self::WARRANTIES,
+        ];
+    }
 
     /** Une ligne = un accès à livrer. Lignes vides et doublons ignorés ; 500 accès au plus par envoi. */
     private static function parseStockLines(?string $text): array
@@ -24,9 +42,37 @@ class ProductController extends Controller
         return array_slice(array_values(array_unique(array_filter($lines, fn ($l) => $l !== ''))), 0, 500);
     }
 
+    /**
+     * Enregistre l'image d'un produit manuel dans public/uploads/products et retourne son adresse relative. L'extension vient
+     * du CONTENU du fichier (jamais du nom envoyé) et se limite à jpg, png et webp : aucun SVG ni script ne peut être déposé.
+     */
+    private static function storeProductImage(UploadedFile $file): string
+    {
+        $extension = match ($file->getMimeType()) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
+        File::ensureDirectoryExists(public_path('uploads/products'), 0755);
+        $name = Str::uuid()->toString() . '.' . $extension;
+        $file->move(public_path('uploads/products'), $name);
+
+        return '/uploads/products/' . $name;
+    }
+
+    /** Supprime un fichier d'image précédemment enregistré (jamais un autre chemin). */
+    private static function deleteProductImage(?string $path): void
+    {
+        if ($path && preg_match('#^/uploads/products/[0-9a-f-]{36}\.(png|jpg|webp)$#', $path)) {
+            File::delete(public_path(ltrim($path, '/')));
+        }
+    }
+
+    private const IMAGE_RULE = 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048|dimensions:min_width=64,min_height=64';
+
     public function create()
     {
-        return view('admin.products.create', ['accessKinds' => self::ACCESS_KINDS]);
+        return view('admin.products.create', ['accessKinds' => self::ACCESS_KINDS] + self::formChoices());
     }
 
     /** Crée un produit géré à la main : publié ou non à votre choix, jamais modifié par la synchronisation du fournisseur. */
@@ -36,12 +82,13 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'accessKind' => 'required|in:' . implode(',', array_keys(self::ACCESS_KINDS)),
             'priceXof' => 'required|integer|min:1|max:10000000',
-            'shopCategory' => 'nullable|string|max:100',
-            'durationLabel' => 'nullable|string|max:60',
-            'warranty' => 'nullable|string|max:100',
+            'shopCategory' => 'nullable|in:' . implode(',', \App\Services\CatalogService::SHOP_CATEGORIES),
+            'durationLabel' => 'nullable|in:' . implode(',', self::DURATIONS),
+            'warranty' => 'nullable|in:' . implode(',', array_keys(self::WARRANTIES)),
             'description' => 'nullable|string|max:5000',
             'instructions' => 'nullable|string|max:5000',
             'stockItems' => 'nullable|string|max:300000',
+            'image' => self::IMAGE_RULE,
         ]);
 
         $baseSlug = Str::slug($validated['name']) ?: 'produit';
@@ -77,6 +124,7 @@ class ProductController extends Controller
                 'supplier_purchasable' => true,
                 'supplier_active' => true,
                 'is_published' => $request->has('isPublished'),
+                'image_url' => $request->hasFile('image') ? self::storeProductImage($request->file('image')) : null,
             ]);
             foreach ($lines as $line) {
                 ProductStockItem::add($product->id, $line);
@@ -115,6 +163,24 @@ class ProductController extends Controller
         return back()->with('success', count($lines) . ' accès ajouté(s) au stock.');
     }
 
+    /** Modifie le contenu d'un accès encore disponible (un accès déjà vendu ne se modifie pas). */
+    public function updateStockItem(Request $request, $id, $itemId)
+    {
+        $product = Product::findOrFail($id);
+        abort_unless($product->isManual(), 404);
+        $validated = $request->validate(['content' => 'required|string|max:2000']);
+
+        $item = ProductStockItem::where('id', $itemId)->where('product_id', $product->id)->where('status', 'available')->first();
+        if (!$item) {
+            return back()->with('error', 'Accès introuvable ou déjà vendu.');
+        }
+
+        $item->update(['content_encrypted' => \App\Services\CryptoService::encrypt(trim($validated['content']), ProductStockItem::aad($item->id))]);
+        AuditLog::record('product.stock_update', $product->id, ['item' => $item->id]);
+
+        return back()->with('success', 'Accès modifié.');
+    }
+
     /** Retire un accès encore disponible du stock (un accès déjà vendu ne se supprime pas). */
     public function removeStockItem($id, $itemId)
     {
@@ -141,6 +207,7 @@ class ProductController extends Controller
             $product->stockItems()->delete();
             $product->delete();
         });
+        self::deleteProductImage($product->image_url);
         AuditLog::record('product.delete', $id, ['name' => $product->name]);
 
         return redirect()->route('admin.products.index')->with('success', "Le produit « {$product->name} » a été supprimé.");
@@ -198,7 +265,7 @@ class ProductController extends Controller
         }
         $accessKinds = self::ACCESS_KINDS;
 
-        return view('admin.products.edit', compact('product', 'settings', 'stock', 'accessKinds'));
+        return view('admin.products.edit', compact('product', 'settings', 'stock', 'accessKinds') + self::formChoices());
     }
 
     public function update(Request $request, $id)
@@ -251,17 +318,28 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'accessKind' => 'required|in:' . implode(',', array_keys(self::ACCESS_KINDS)),
             'priceXofOverride' => 'required|integer|min:1|max:10000000',
-            'shopCategory' => 'nullable|string|max:100',
-            'durationLabel' => 'nullable|string|max:60',
-            'warranty' => 'nullable|string|max:100',
+            'shopCategory' => 'nullable|in:' . implode(',', \App\Services\CatalogService::SHOP_CATEGORIES),
+            'durationLabel' => 'nullable|in:' . implode(',', self::DURATIONS),
+            'warranty' => 'nullable|in:' . implode(',', array_keys(self::WARRANTIES)),
             'featuredRank' => 'nullable|integer',
             'description' => 'nullable|string|max:5000',
             'descriptionEn' => 'nullable|string|max:5000',
             'instructions' => 'nullable|string|max:5000',
             'instructionsEn' => 'nullable|string|max:5000',
+            'image' => self::IMAGE_RULE,
         ]);
 
+        $imageUrl = $product->image_url;
+        if ($request->hasFile('image')) {
+            self::deleteProductImage($product->image_url);
+            $imageUrl = self::storeProductImage($request->file('image'));
+        } elseif ($request->has('removeImage')) {
+            self::deleteProductImage($product->image_url);
+            $imageUrl = null;
+        }
+
         $product->update([
+            'image_url' => $imageUrl,
             'name' => $validated['name'],
             'display_name' => $validated['name'],
             'category' => $validated['accessKind'],

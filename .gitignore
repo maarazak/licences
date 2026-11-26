@@ -17,6 +17,7 @@
 # /public/build est versionné : l'hébergement mutualisé n'a pas Node pour le compiler (refaire `npm run build` avant chaque déploiement)
 /public/fonts-manifest.dev.json
 /public/hot
+/public/uploads
 /public/storage
 /storage/*.key
 /storage/pail

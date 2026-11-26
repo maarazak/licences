@@ -21,7 +21,7 @@ import LoadMoreLink from '@/Components/Shop/LoadMoreLink.vue';
 import PaymentLogos from '@/Components/Shared/PaymentLogos.vue';
 import ProductCard from '@/Components/Shop/ProductCard.vue';
 import { SITE_NAME } from '@/Utils/site';
-import { logoFor, distinctBrands, diversify } from '@/Utils/brands';
+import { logoFor, productLogo, distinctBrands, diversify } from '@/Utils/brands';
 import { useI18n } from '@/Utils/useI18n';
 import type { LogoSpec } from '@/Types/logo';
 
@@ -35,6 +35,7 @@ export interface CatalogProduct {
   category: string;
   shop_category?: string;
   image_url?: string;
+  custom_image?: string | null;
   price_xof: number;
   priceXof: number;
   in_stock: boolean;
@@ -65,7 +66,7 @@ const featuredCount = ref(props.initialFeaturedCount || FEATURED_PAGE);
 // Décorer chaque produit avec son LogoSpec
 const decorateWithLogo = (p: CatalogProduct): CatalogProduct => ({
   ...p,
-  logo: p.logo || logoFor(p.name, p.display_name),
+  logo: p.logo || productLogo(p),
 });
 
 const available = computed(() => (props.availableProducts || []).map(decorateWithLogo));

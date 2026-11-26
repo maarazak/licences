@@ -16,7 +16,7 @@
         <p class="alert alert-error">{{ $errors->first() }}</p>
     @endif
 
-    <form action="{{ route('admin.products.store') }}" method="POST" class="card max-w-3xl space-y-5 p-5">
+    <form action="{{ route('admin.products.store') }}" method="POST" enctype="multipart/form-data" class="card max-w-3xl space-y-5 p-5">
         @csrf
 
         <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
@@ -27,6 +27,12 @@
         <div>
             <label for="name" class="label">Nom du produit</label>
             <input id="name" name="name" value="{{ old('name') }}" maxlength="255" required class="input" placeholder="Netflix Premium 1 mois">
+        </div>
+
+        <div>
+            <label for="image" class="label">Image du produit</label>
+            <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" class="input py-2">
+            <p class="hint">Logo ou visuel, comme dans le catalogue client (PNG, JPG ou WebP, 2 Mo maximum, 64 px minimum). Sans image, un logo est choisi d'après le nom.</p>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -42,18 +48,9 @@
                     @endforeach
                 </select>
             </div>
-            <div>
-                <label for="shopCategory" class="label">Catégorie boutique</label>
-                <input id="shopCategory" name="shopCategory" value="{{ old('shopCategory') }}" maxlength="100" placeholder="Divertissement, IA et assistants…" class="input">
-            </div>
-            <div>
-                <label for="durationLabel" class="label">Durée affichée</label>
-                <input id="durationLabel" name="durationLabel" value="{{ old('durationLabel') }}" maxlength="60" placeholder="1 mois" class="input">
-            </div>
-            <div>
-                <label for="warranty" class="label">Garantie</label>
-                <input id="warranty" name="warranty" value="{{ old('warranty') }}" maxlength="100" placeholder="7 jours" class="input">
-            </div>
+            @include('admin.products._select', ['id' => 'shopCategory', 'name' => 'shopCategory', 'label' => 'Catégorie boutique', 'options' => $categories, 'selected' => old('shopCategory'), 'empty' => 'Choisir une catégorie'])
+            @include('admin.products._select', ['id' => 'durationLabel', 'name' => 'durationLabel', 'label' => 'Durée affichée', 'options' => array_combine($durations, $durations), 'selected' => old('durationLabel'), 'empty' => 'Choisir une durée'])
+            @include('admin.products._select', ['id' => 'warranty', 'name' => 'warranty', 'label' => 'Garantie', 'options' => $warranties, 'selected' => old('warranty'), 'empty' => 'Choisir une garantie'])
         </div>
 
         <div>

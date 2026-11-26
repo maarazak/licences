@@ -67,6 +67,7 @@ class CheckoutController extends Controller
                 'slug' => $product->slug,
                 'name' => $product->name,
                 'title' => $product->display_name ?: $product->name,
+                'customImage' => $product->isManual() ? $product->image_url : null,
                 'unitPriceXof' => (int) $product->price_xof,
                 'available' => $isAvailable,
                 'stock' => $product->stock,

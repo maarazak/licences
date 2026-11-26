@@ -13,7 +13,7 @@ import {
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
 import BrandTint from '@/Components/Shared/BrandTint.vue';
-import { logoFor } from '@/Utils/brands';
+import { productLogo } from '@/Utils/brands';
 import { deliveryKindLabel } from '@/Types/enums';
 import { useI18n } from '@/Utils/useI18n';
 
@@ -27,6 +27,7 @@ interface ProductDetail {
   category: string;
   shop_category?: string;
   image_url?: string;
+  custom_image?: string | null;
   price_xof: number;
   priceXof: number;
   in_stock: boolean;
@@ -65,7 +66,7 @@ const props = defineProps<{
 
 const { t, formatPrice } = useI18n();
 
-const resolvedLogo = computed(() => logoFor(props.product.name, props.product.display_name));
+const resolvedLogo = computed(() => productLogo(props.product));
 
 const accessText = computed(() => t(deliveryKindLabel(props.product.accessKind || props.product.delivery_kind)));
 
@@ -203,7 +204,7 @@ const terms = computed(() => [
                   :href="`/boutique/${item.slug}`"
                   class="group card flex flex-wrap items-center gap-3 p-3 pr-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-pop"
                 >
-                  <BrandLogo :logo="logoFor(item.name, item.display_name)" size="sm" />
+                  <BrandLogo :logo="productLogo(item)" size="sm" />
                   <span translate="no" class="min-w-0 flex-1 text-sm font-bold text-ink">
                     {{ item.title }}
                   </span>

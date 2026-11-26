@@ -43,7 +43,7 @@ class CatalogController extends Controller
             'image_url', 'delivery_kind', 'cost_usd_cents', 'price_xof_override',
             'margin_percent_override', 'stock', 'in_stock', 'preorder', 'expire_days',
             'warranty', 'supplier_purchasable', 'supplier_active', 'is_published',
-            'is_featured', 'featured_rank', 'duration_label'
+            'is_featured', 'featured_rank', 'duration_label', 'source'
         ];
 
         // Query produits
@@ -86,6 +86,7 @@ class CatalogController extends Controller
                 'category' => $p->category,
                 'shop_category' => $p->shop_category,
                 'image_url' => $p->image_url,
+                'custom_image' => $p->isManual() ? $p->image_url : null,
                 'price_xof' => $p->price_xof,
                 'priceXof' => $p->price_xof,
                 'in_stock' => (bool) $p->in_stock,
@@ -163,6 +164,7 @@ class CatalogController extends Controller
             'category' => $product->category,
             'shop_category' => $product->shop_category,
             'image_url' => $product->image_url,
+            'custom_image' => $product->isManual() ? $product->image_url : null,
             'price_xof' => $product->price_xof,
             'priceXof' => $product->price_xof,
             'in_stock' => (bool) $product->in_stock,
@@ -202,6 +204,7 @@ class CatalogController extends Controller
                 'name' => $p->name,
                 'title' => trim($p->display_name ?: $p->name),
                 'display_name' => $p->display_name,
+                'custom_image' => $p->isManual() ? $p->image_url : null,
                 'shelf' => trim($p->shop_category ?: $p->category ?: ''),
                 'price_xof' => $p->price_xof,
                 'priceXof' => $p->price_xof,

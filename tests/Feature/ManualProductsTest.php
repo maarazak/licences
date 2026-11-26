@@ -14,6 +14,8 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Mockery;
 use Tests\TestCase;
 
@@ -23,10 +25,16 @@ class ManualProductsTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+    private string $publicDir;
 
     protected function setUp(): void
     {
         parent::setUp();
+        // Les images envoyées pendant les tests vont dans un dossier temporaire, jamais dans public/.
+        $this->publicDir = sys_get_temp_dir() . '/licences-tests-' . Str::random(8);
+        File::ensureDirectoryExists($this->publicDir);
+        $this->app->usePublicPath($this->publicDir);
+        $this->withoutVite();
         Setting::clearRuntimeCache();
         $this->seed(PermissionSeeder::class);
         $this->seed(RoleSeeder::class);
@@ -34,18 +42,25 @@ class ManualProductsTest extends TestCase
         $this->admin->assignRole('admin');
     }
 
+    protected function tearDown(): void
+    {
+        File::deleteDirectory($this->publicDir);
+        parent::tearDown();
+    }
+
     private function create(array $extra = []): Product
     {
         $payload = array_merge([
             'name' => 'Netflix Premium 1 mois', 'accessKind' => 'account', 'priceXof' => 5000, 'shopCategory' => 'Divertissement',
-            'durationLabel' => '1 mois', 'warranty' => '7 jours', 'isPublished' => '1',
+            'durationLabel' => '1 mois', 'warranty' => '7 days', 'isPublished' => '1',
             'stockItems' => "a@x.com:pass1\nb@x.com:pass2\n\na@x.com:pass1\nc@x.com:pass3",
         ], $extra);
         // Une case non cochée n'est pas envoyée par le navigateur : une valeur null retire le champ.
         $payload = array_filter($payload, fn ($value) => $value !== null);
-        $this->actingAs($this->admin, 'admin')->post(route('admin.products.store'), $payload)->assertRedirect();
+        $response = $this->actingAs($this->admin, 'admin')->post(route('admin.products.store'), $payload)->assertRedirect();
 
-        return Product::where('source', 'manual')->latest('created_at')->firstOrFail();
+        // Le produit créé est celui vers lequel on est redirigé (plusieurs produits peuvent avoir la même seconde de création).
+        return Product::findOrFail(basename((string) parse_url($response->headers->get('Location'), PHP_URL_PATH)));
     }
 
     private function order(Product $product, int $quantity = 1): Order
@@ -229,5 +244,174 @@ class ManualProductsTest extends TestCase
         $this->get(route('admin.products.create'))->assertOk()->assertSee('Nouveau produit');
         $this->get(route('admin.products.edit', $product->id))->assertOk()->assertSee('Ajouter au stock')->assertDontSee('pass1');
         $this->get(route('admin.products.index'))->assertOk()->assertSee('Manuel');
+    }
+
+    // ─── Image du produit ─────────────────────────────────────────────────────────
+
+    public function test_creation_avec_image_stockee_sous_un_nom_aleatoire_et_exposee_au_site(): void
+    {
+        $product = $this->create(['image' => UploadedFile::fake()->image('mon-logo.png', 200, 200)]);
+
+        $this->assertMatchesRegularExpression('#^/uploads/products/[0-9a-f-]{36}\.png$#', $product->image_url);
+        $this->assertFileExists($this->publicDir . $product->image_url);
+        $this->assertStringNotContainsString('mon-logo', $product->image_url, 'le nom envoyé n\'est jamais conservé');
+
+        $card = collect($this->get('/boutique')->viewData('page')['props']['products'])->firstWhere('slug', $product->slug);
+        $this->assertSame($product->image_url, $card['custom_image']);
+        $home = collect($this->get('/')->viewData('page')['props']['products'])->firstWhere('slug', $product->slug);
+        $this->assertSame($product->image_url, $home['custom_image']);
+    }
+
+    public function test_les_fichiers_non_images_svg_et_trop_lourds_sont_refuses(): void
+    {
+        $this->actingAs($this->admin, 'admin');
+        $base = ['name' => 'Produit', 'accessKind' => 'account', 'priceXof' => 1000];
+
+        $this->post(route('admin.products.store'), $base + ['image' => UploadedFile::fake()->create('script.php', 10, 'application/x-php')])->assertSessionHasErrors('image');
+        $this->post(route('admin.products.store'), $base + ['image' => UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')])->assertSessionHasErrors('image');
+        $this->post(route('admin.products.store'), $base + ['image' => UploadedFile::fake()->image('gros.png', 500, 500)->size(4096)])->assertSessionHasErrors('image');
+        $this->post(route('admin.products.store'), $base + ['image' => UploadedFile::fake()->image('petit.png', 16, 16)])->assertSessionHasErrors('image');
+
+        $this->assertSame(0, Product::where('source', 'manual')->count());
+    }
+
+    public function test_remplacer_puis_retirer_l_image_supprime_l_ancien_fichier(): void
+    {
+        $product = $this->create(['image' => UploadedFile::fake()->image('a.png', 200, 200)]);
+        $old = $this->publicDir . $product->image_url;
+        $this->actingAs($this->admin, 'admin');
+        $form = ['name' => $product->name, 'accessKind' => 'account', 'priceXofOverride' => 5000, 'isPublished' => '1'];
+
+        $this->post(route('admin.products.update', $product->id), $form + ['image' => UploadedFile::fake()->image('b.jpg', 200, 200)])->assertRedirect();
+        $new = $product->fresh()->image_url;
+        $this->assertFileDoesNotExist($old);
+        $this->assertFileExists($this->publicDir . $new);
+        $this->assertStringEndsWith('.jpg', $new);
+
+        $this->post(route('admin.products.update', $product->id), $form + ['removeImage' => '1'])->assertRedirect();
+        $this->assertNull($product->fresh()->image_url);
+        $this->assertFileDoesNotExist($this->publicDir . $new);
+    }
+
+    public function test_modifier_le_produit_sans_toucher_a_l_image_la_conserve(): void
+    {
+        $product = $this->create(['image' => UploadedFile::fake()->image('a.png', 200, 200)]);
+        $image = $product->image_url;
+
+        $this->actingAs($this->admin, 'admin')->post(route('admin.products.update', $product->id), [
+            'name' => 'Nouveau nom', 'accessKind' => 'link', 'priceXofOverride' => 7000, 'isPublished' => '1', 'shopCategory' => 'IA et assistants',
+        ])->assertRedirect();
+
+        $fresh = $product->fresh();
+        $this->assertSame($image, $fresh->image_url);
+        $this->assertSame('Nouveau nom', $fresh->title);
+        $this->assertSame(7000, $fresh->price_xof);
+        $this->assertSame('link', $fresh->delivery_kind);
+    }
+
+    public function test_la_suppression_du_produit_supprime_son_image(): void
+    {
+        $product = $this->create(['image' => UploadedFile::fake()->image('a.png', 200, 200)]);
+        $file = $this->publicDir . $product->image_url;
+
+        $this->actingAs($this->admin, 'admin')->post(route('admin.products.destroy', $product->id))->assertRedirect();
+
+        $this->assertFileDoesNotExist($file);
+    }
+
+    public function test_un_produit_fournisseur_n_expose_jamais_d_image_personnalisee(): void
+    {
+        $supplier = Product::create([
+            'id' => (string) Str::uuid(), 'supplier_id' => 'SUP-IMG', 'slug' => 'sup-img', 'name' => 'Fournisseur', 'category' => 'x',
+            'cost_usd_cents' => 100, 'is_published' => true, 'supplier_active' => true, 'supplier_purchasable' => true, 'in_stock' => true,
+            'image_url' => 'https://exemple.test/image-du-fournisseur.png',
+        ]);
+
+        $card = collect($this->get('/boutique')->viewData('page')['props']['products'])->firstWhere('slug', $supplier->slug);
+
+        $this->assertNull($card['custom_image']);
+    }
+
+    // ─── Modification d'un accès du stock ─────────────────────────────────────────
+
+    public function test_modifier_un_acces_disponible_change_ce_qui_sera_livre(): void
+    {
+        $product = $this->create(['stockItems' => 'ancien@x.com:ancien']);
+        $item = $product->stockItems()->first();
+        $this->actingAs($this->admin, 'admin')->post(route('admin.products.stock_update', [$product->id, $item->id]), ['content' => '  nouveau@x.com:nouveau  '])->assertSessionHas('success');
+
+        $order = $this->order($product);
+        app(OrderFulfillmentService::class)->fulfil($order->id);
+
+        $delivered = json_decode(\App\Services\CryptoService::decrypt($order->fresh()->delivery_encrypted, $order->id), true);
+        $this->assertSame(['nouveau@x.com:nouveau'], $delivered);
+    }
+
+    public function test_un_acces_deja_vendu_ne_se_modifie_pas_et_un_acces_d_un_autre_produit_non_plus(): void
+    {
+        $product = $this->create(['stockItems' => "a:1\nb:2"]);
+        $other = $this->create(['name' => 'Autre', 'stockItems' => 'z:9']);
+        $order = $this->order($product);
+        app(OrderFulfillmentService::class)->fulfil($order->id);
+        $sold = $product->stockItems()->where('status', 'sold')->first();
+        $foreign = $other->stockItems()->first();
+        $this->actingAs($this->admin, 'admin');
+
+        $this->post(route('admin.products.stock_update', [$product->id, $sold->id]), ['content' => 'pirate'])->assertSessionHas('error');
+        $this->post(route('admin.products.stock_update', [$product->id, $foreign->id]), ['content' => 'pirate'])->assertSessionHas('error');
+
+        $this->assertSame('z:9', $foreign->fresh()->plain());
+        $this->assertNotSame('pirate', $sold->fresh()->plain());
+    }
+
+    // ─── Menus déroulants : catégorie, durée, garantie ────────────────────────────
+
+    public function test_catégorie_durée_et_garantie_n_acceptent_que_les_valeurs_des_listes(): void
+    {
+        $this->actingAs($this->admin, 'admin');
+        $base = ['name' => 'Produit', 'accessKind' => 'account', 'priceXof' => 1000];
+
+        foreach (['shopCategory' => 'Catégorie inventée', 'durationLabel' => '17 siècles', 'warranty' => 'Garantie illimitée'] as $field => $bad) {
+            $this->post(route('admin.products.store'), $base + [$field => $bad])->assertSessionHasErrors($field);
+        }
+        $this->assertSame(0, Product::where('source', 'manual')->count());
+
+        $this->post(route('admin.products.store'), $base + ['shopCategory' => 'Autres', 'durationLabel' => 'À vie', 'warranty' => 'Full Warranty'])->assertRedirect();
+        $created = Product::where('source', 'manual')->firstOrFail();
+        $this->assertSame(['Autres', 'À vie', 'Full Warranty'], [$created->shop_category, $created->duration_label, $created->warranty]);
+    }
+
+    public function test_la_page_nouveau_produit_propose_des_menus_deroulants(): void
+    {
+        $html = $this->actingAs($this->admin, 'admin')->get(route('admin.products.create'))->assertOk()->getContent();
+
+        foreach (['shopCategory', 'durationLabel', 'warranty'] as $field) {
+            $this->assertMatchesRegularExpression('#<select id="' . $field . '" name="' . $field . '"#', $html, "{$field} doit être un menu déroulant");
+            $this->assertDoesNotMatchRegularExpression('#<input[^>]*name="' . $field . '"#', $html, "{$field} ne doit plus être un champ libre");
+        }
+        foreach (['IA et assistants', 'Divertissement', '3 mois', 'À vie', 'Aucune garantie', 'Garantie sur toute la durée'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+    }
+
+    public function test_la_valeur_actuelle_hors_liste_d_un_ancien_produit_reste_selectionnee(): void
+    {
+        $product = $this->create();
+        $product->update(['shop_category' => 'Ancienne catégorie libre', 'duration_label' => '5 ans']);
+
+        $html = $this->actingAs($this->admin, 'admin')->get(route('admin.products.edit', $product->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString('<option value="Ancienne catégorie libre" selected>', $html);
+        $this->assertStringContainsString('<option value="5 ans" selected>', $html);
+    }
+
+    public function test_les_durees_et_garanties_choisies_sont_affichees_au_client(): void
+    {
+        $product = $this->create(['durationLabel' => '3 mois', 'warranty' => 'No Warranty']);
+
+        $card = collect($this->get('/boutique')->viewData('page')['props']['products'])->firstWhere('slug', $product->slug);
+
+        $this->assertSame('3 mois', $card['duration']);
+        $this->assertSame('No Warranty', $card['warranty']);
     }
 }

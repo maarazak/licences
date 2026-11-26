@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import SiteLayout from '@/Layouts/SiteLayout.vue';
 import BrandLogo from '@/Components/Shared/BrandLogo.vue';
+import { productLogo } from '@/Utils/brands';
 import PaymentOptionCard from '@/Components/Checkout/PaymentOptionCard.vue';
 import { CRYPTO_ICON_LOGOS, CRYPTO_LOGOS, MOBILE_ICON_LOGOS, MOBILE_LOGOS } from '@/Utils/paymentLogos';
 import { PAYMENT_COUNTRIES, type CountryCode, getCountry, validatePhoneForCountry } from '@/Utils/countries';
@@ -21,6 +22,7 @@ interface ProductItem {
   slug: string;
   name: string;
   title: string;
+  customImage?: string | null;
   unitPriceXof: number;
   available: boolean;
   stock?: number;
@@ -276,7 +278,7 @@ const submitCheckout = () => {
         <!-- Sidebar Récapitulatif -->
         <aside class="card space-y-4 p-5 shadow-pop lg:sticky lg:top-24">
           <div class="flex items-center gap-3.5">
-            <BrandLogo :name="product.name" :title="product.title" size="md" />
+            <BrandLogo :logo="productLogo({ name: product.name, title: product.title, customImage: product.customImage })" size="md" />
             <div class="min-w-0">
               <p class="h3 leading-snug">{{ product.title }}</p>
               <p class="mt-0.5 text-xs text-muted">

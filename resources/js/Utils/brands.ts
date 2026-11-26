@@ -119,6 +119,15 @@ function initials(name: string): string {
   return ((words[0]?.[0] ?? '?') + (words.length > 1 ? (words[1]?.[0] ?? '') : '')).slice(0, 2).toUpperCase();
 }
 
+/** Logo d'un produit : l'image personnalisée d'un produit manuel si elle existe, sinon le logo de marque d'après son nom. */
+export function productLogo(p: { custom_image?: string | null; customImage?: string | null; name?: string | null; display_name?: string | null; title?: string | null }): LogoSpec {
+  const image = p.custom_image || p.customImage;
+  if (image) {
+    return { kind: 'image', src: image, label: p.title || p.display_name || p.name || '', tint: '#0D5C4A', known: true };
+  }
+  return logoFor(p.name, p.display_name);
+}
+
 export function logoFor(...names: Array<string | null | undefined>): LogoSpec {
   const name = names.filter(Boolean).join(' ');
   const brand = BRANDS.find((b) => b.test.test(name));

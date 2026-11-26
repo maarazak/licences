@@ -16,7 +16,7 @@
     @endif
 
     <div class="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
-        <form action="{{ route('admin.products.update', $product->id) }}" method="POST" class="card space-y-5 p-5">
+        <form action="{{ route('admin.products.update', $product->id) }}" method="POST" @if($product->isManual()) enctype="multipart/form-data" @endif class="card space-y-5 p-5">
             @csrf
 
             <div class="flex flex-wrap gap-6">
@@ -35,6 +35,20 @@
                     <label for="name" class="label">Nom du produit</label>
                     <input id="name" name="name" value="{{ old('name', $product->name) }}" maxlength="255" required class="input">
                 </div>
+                <div>
+                    <label for="image" class="label">Image du produit</label>
+                    @if($product->image_url)
+                        <div class="mb-2 flex items-center gap-3">
+                            <img src="{{ $product->image_url }}" alt="" class="size-16 rounded-xl border border-line bg-white object-contain p-1">
+                            <label class="flex cursor-pointer items-center gap-2 text-sm text-muted">
+                                <input type="checkbox" name="removeImage" value="1" class="size-4 accent-brand">
+                                Retirer l'image
+                            </label>
+                        </div>
+                    @endif
+                    <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" class="input py-2">
+                    <p class="hint">{{ $product->image_url ? 'Choisir un fichier remplace l\'image actuelle.' : 'PNG, JPG ou WebP, 2 Mo maximum, 64 px minimum. Sans image, un logo est choisi d\'après le nom.' }}</p>
+                </div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <label for="accessKind" class="label">Type d'accès livré</label>
@@ -44,10 +58,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div>
-                        <label for="warranty" class="label">Garantie</label>
-                        <input id="warranty" name="warranty" value="{{ old('warranty', $product->warranty) }}" maxlength="100" class="input">
-                    </div>
+                    @include('admin.products._select', ['id' => 'warranty', 'name' => 'warranty', 'label' => 'Garantie', 'options' => $warranties, 'selected' => old('warranty', $product->warranty), 'empty' => 'Choisir une garantie'])
                 </div>
             @else
             <div>
@@ -58,16 +69,8 @@
             @endif
 
             <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label for="shopCategory" class="label">Catégorie boutique</label>
-                    <input id="shopCategory" name="shopCategory" value="{{ old('shopCategory', $product->shop_category ?? $product->category) }}" maxlength="100" placeholder="IA et assistants, Création, Bureautique…" class="input">
-                    <p class="hint">Sert au filtre de la boutique.</p>
-                </div>
-                <div>
-                    <label for="durationLabel" class="label">Durée affichée</label>
-                    <input id="durationLabel" name="durationLabel" value="{{ old('durationLabel', $product->duration_label) }}" maxlength="60" placeholder="{{ $product->expire_days ? $product->expire_days . ' jours' : '' }}" class="input">
-                    <p class="hint">Vide = durée annoncée par le fournisseur.</p>
-                </div>
+                @include('admin.products._select', ['id' => 'shopCategory', 'name' => 'shopCategory', 'label' => 'Catégorie boutique', 'options' => $categories, 'selected' => old('shopCategory', $product->shop_category), 'empty' => 'Choisir une catégorie', 'hint' => 'Sert au filtre de la boutique.'])
+                @include('admin.products._select', ['id' => 'durationLabel', 'name' => 'durationLabel', 'label' => 'Durée affichée', 'options' => array_combine($durations, $durations), 'selected' => old('durationLabel', $product->duration_label), 'empty' => $product->isManual() ? 'Choisir une durée' : 'Automatique (durée du fournisseur)'])
                 <div>
                     <label for="priceXofOverride" class="label">Prix fixe (FCFA)</label>
                     <input id="priceXofOverride" name="priceXofOverride" inputmode="numeric" value="{{ old('priceXofOverride', $product->price_xof_override) }}" {{ $product->isManual() ? 'required' : '' }} class="input">
@@ -142,11 +145,18 @@
                     <summary class="cursor-pointer text-sm font-medium">Accès disponibles (aperçu masqué)</summary>
                     <ul class="mt-3 divide-y divide-line text-xs">
                         @foreach($stock['items'] as $item)
-                            <li class="flex items-center justify-between gap-3 py-2">
-                                <span class="font-mono text-muted">{{ $item['preview'] }}</span>
-                                <form action="{{ route('admin.products.stock_remove', [$product->id, $item['id']]) }}" method="POST" data-confirm="Retirer cet accès du stock ?">
+                            <li class="space-y-2 py-2">
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="font-mono text-muted">{{ $item['preview'] }}</span>
+                                    <form action="{{ route('admin.products.stock_remove', [$product->id, $item['id']]) }}" method="POST" data-confirm="Retirer cet accès du stock ?">
+                                        @csrf
+                                        <button type="submit" class="btn btn-soft btn-sm">Retirer</button>
+                                    </form>
+                                </div>
+                                <form action="{{ route('admin.products.stock_update', [$product->id, $item['id']]) }}" method="POST" class="flex gap-2">
                                     @csrf
-                                    <button type="submit" class="btn btn-soft btn-sm">Retirer</button>
+                                    <input name="content" required maxlength="2000" placeholder="Nouveau contenu de cet accès" class="input min-h-9 font-mono text-xs" aria-label="Nouveau contenu de l'accès">
+                                    <button type="submit" class="btn btn-soft btn-sm shrink-0">Modifier</button>
                                 </form>
                             </li>
                         @endforeach

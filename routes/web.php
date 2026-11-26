@@ -136,6 +136,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('produits', [ProductController::class, 'store'])->name('products.store');
         Route::get('produits/{id}', [ProductController::class, 'edit'])->name('products.edit');
         Route::post('produits/{id}/stock', [ProductController::class, 'addStock'])->name('products.stock_add');
+        Route::post('produits/{id}/stock/{itemId}/modifier', [ProductController::class, 'updateStockItem'])->name('products.stock_update');
         Route::post('produits/{id}/stock/{itemId}/retirer', [ProductController::class, 'removeStockItem'])->name('products.stock_remove');
         Route::post('produits/{id}/supprimer', [ProductController::class, 'destroy'])->name('products.destroy');
         Route::post('produits/{id}', [ProductController::class, 'update'])->name('products.update');

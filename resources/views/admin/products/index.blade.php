@@ -5,7 +5,6 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="min-w-0">
             <h1 class="h1">Produits</h1>
-            <p class="lead mt-2 max-w-2xl">Le catalogue vient du fournisseur, et vous pouvez y ajouter vos propres produits (badge « Manuel »). Vous décidez de ce qui est publié et à quel prix.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route('admin.products.create') }}" class="btn btn-brand btn-sm">Nouveau produit</a>
