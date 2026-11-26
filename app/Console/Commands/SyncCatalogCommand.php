@@ -35,7 +35,7 @@ class SyncCatalogCommand extends Command
 
             $this->info("Synchronisation terminée : {$report['total']} reçus, {$report['created']} créés, {$report['updated']} mis à jour.");
 
-            if ($this->option('publish') || Setting::get('auto_publish') === '1' || Setting::get('autoPublish') === '1') {
+            if ($this->option('publish') || Setting::flag('autoPublish', 'auto_publish')) {
                 $count = Product::where('supplier_active', true)
                     ->where('supplier_purchasable', true)
                     ->where('preorder', false)

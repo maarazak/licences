@@ -66,7 +66,7 @@ class CatalogService
         }
 
         $now = now();
-        $autoPublish = Setting::get('autoPublish') === 'true';
+        $autoPublish = Setting::flag('autoPublish', 'auto_publish');
 
         try {
             $remote = $this->flowseller->listAllProducts();

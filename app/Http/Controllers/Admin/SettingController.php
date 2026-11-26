@@ -15,7 +15,7 @@ class SettingController extends Controller
         $marginPercent = Setting::get('marginPercent', Setting::get('default_margin_percent', '100'));
         $minMarginXof = Setting::get('minMarginXof', Setting::get('min_margin_xof', '1000'));
         $roundingStep = Setting::get('roundingStep', Setting::get('rounding_step', '250'));
-        $autoPublish = (bool) Setting::get('autoPublish', Setting::get('auto_publish', '0'));
+        $autoPublish = Setting::flag('autoPublish', 'auto_publish');
         $notice = Setting::get('notice', Setting::get('site_notice', ''));
 
         $checks = [
