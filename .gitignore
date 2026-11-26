@@ -14,7 +14,7 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
+# /public/build est versionné : l'hébergement mutualisé n'a pas Node pour le compiler (refaire `npm run build` avant chaque déploiement)
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
